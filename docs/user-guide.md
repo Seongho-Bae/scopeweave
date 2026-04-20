@@ -54,4 +54,5 @@ ScopeWeave Planner는 프로젝트용 WBS를 순수 HTML/CSS/JavaScript만으로
 ## 정적 호스팅 주의사항
 
 - GitHub Pages 같은 정적 호스트에서는 서버 파일을 직접 덮어쓸 수 없습니다.
-- 따라서 기본 보장은 `localStorage` autosave이며, 파일 자동저장은 브라우저가 File System Access API를 지원할 때만 가능합니다.
+- 따라서 기본 보장은 `localStorage` autosave이며, 파일 자동저장은
+  브라우저가 File System Access API를 지원할 때만 가능합니다.
