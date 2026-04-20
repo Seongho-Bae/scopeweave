@@ -41,6 +41,11 @@ For this repo, those workflows are intentionally lightweight and no-op
 successfully when the PR head has no supported dependency manifest
 changes.
 
+`dependency-review.yml` also no-ops successfully when GitHub repository
+dependency graph support is unavailable. That avoids a permanent red PR
+caused purely by repository settings while still surfacing the external
+prerequisite clearly.
+
 The repository tracks those CI-only Python dependencies in
 `requirements-strix-ci.txt` so Strix and the companion SCA workflows
 reason about the same supply-chain surface.

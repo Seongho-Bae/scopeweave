@@ -30,12 +30,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Detect dependency-review support
+        id: support
+        uses: actions/github-script@450193c5abd4cdb17ba9f3ffcfe8f635c4bb6c2a  # v8
+        with:
+          script: |
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const status = repo.security_and_analysis?.dependency_graph?.status || 'unknown';
+            const supported = status === 'enabled';
+            core.setOutput('supported', supported ? 'true' : 'false');
+            core.setOutput('status', status);
       - name: 'Checkout repository'
+        if: ${{ steps.support.outputs.supported == 'true' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Detect dependency manifest changes
+        if: ${{ steps.support.outputs.supported == 'true' }}
         id: manifest-guard
         shell: bash
         env:
@@ -47,11 +62,16 @@ jobs:
             has_manifest_changes="true"
           fi
           echo "has_manifest_changes=$has_manifest_changes" >> "$GITHUB_OUTPUT"
+      - name: No-op when dependency graph support is unavailable
+        if: ${{ steps.support.outputs.supported != 'true' }}
+        run: |
+          echo "Dependency review is unavailable until dependency graph is enabled for this repository."
+          echo "Current reported status: ${{ steps.support.outputs.status }}"
       - name: No-op when dependency manifests are unchanged
-        if: ${{ steps.manifest-guard.outputs.has_manifest_changes != 'true' }}
+        if: ${{ steps.support.outputs.supported == 'true' && steps.manifest-guard.outputs.has_manifest_changes != 'true' }}
         run: echo 'No dependency manifest changes on this pull request head.'
       - name: 'Dependency Review'
-        if: ${{ steps.manifest-guard.outputs.has_manifest_changes == 'true' }}
+        if: ${{ steps.support.outputs.supported == 'true' && steps.manifest-guard.outputs.has_manifest_changes == 'true' }}
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
         with:

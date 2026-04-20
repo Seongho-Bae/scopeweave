@@ -40,7 +40,10 @@ Open `http://127.0.0.1:4173`.
 ```bash
 npm run test:e2e
 bash scripts/ci/test_strix_quick_gate.sh
-python3 -m pytest tests/config/test_strix_batch_size_source.py tests/config/test_strix_deleted_file_scope_source.py tests/config/test_strix_static_repo_adaptations.py
+python3 -m pytest \
+  tests/config/test_strix_batch_size_source.py \
+  tests/config/test_strix_deleted_file_scope_source.py \
+  tests/config/test_strix_static_repo_adaptations.py
 ```
 
 ## Persistence model
@@ -66,6 +69,9 @@ python3 -m pytest tests/config/test_strix_batch_size_source.py tests/config/test
 - Companion workflows `.github/workflows/dependency-review.yml` and
   `.github/workflows/osvscanner.yml` provide the authoritative
   manifest-only verification lane that the Strix gate expects.
+- The dependency-review lane no-ops successfully until repository-level
+  dependency graph support is enabled, instead of failing every PR on a
+  settings-only prerequisite.
 - Workflow and `scripts/ci/` changes remain inside the Strix scannable
   PR scope for this repo; they are not silently skipped.
 - Kubernetes/IaC coverage is documented as follow-up work; this static

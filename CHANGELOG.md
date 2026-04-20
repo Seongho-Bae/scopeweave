@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-04-20
 
+<!-- markdownlint-disable-next-line MD024 -->
 ### Added
 
 - Initial ScopeWeave Planner release with tree-table editing,
