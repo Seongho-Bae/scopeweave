@@ -70,9 +70,9 @@ jobs:
         id: check-manifests
         shell: bash
         run: |
-          # Manifest existence check (Java/Maven or Node projects)
+          # Manifest existence check for dev-only dependency surfaces.
           has="false"
-          if git ls-files | grep -E '(pom\.xml|package\.json|pnpm-lock\.yaml)' >/dev/null 2>&1; then
+          if git ls-files | grep -E '(^|/)(pom\.xml|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|pyproject\.toml|requirements(-[A-Za-z0-9._-]+)?\.txt|uv\.lock)$' >/dev/null 2>&1; then
             has="true"
           fi
           echo "has=$has" >> "$GITHUB_OUTPUT"
@@ -97,8 +97,10 @@ jobs:
               try {
                 const event = context.eventName;
                 let branch = '';
-                if (event === 'pull_request' || event === 'merge_group') {
+                if (event === 'pull_request') {
                   branch = context.payload.pull_request?.head?.ref || '';
+                } else if (event === 'merge_group') {
+                  branch = context.ref.replace('refs/heads/','');
                 } else if (event === 'schedule') {
                   branch = context.ref.replace('refs/heads/','');
                 }

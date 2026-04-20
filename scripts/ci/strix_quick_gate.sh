@@ -178,7 +178,7 @@ PY
 
 is_supported_source_file() {
 	case "$1" in
-	*.java | *.kt | *.kts | *.groovy | *.scala | *.py | *.js | *.jsx | *.ts | *.tsx | *.vue | *.yaml | *.yml | *.sh | *.sql | *.xml | *.json | *.md | *.html | *.css)
+	*.java | *.kt | *.kts | *.groovy | *.scala | *.py | *.js | *.jsx | *.ts | *.tsx | *.vue | *.yaml | *.yml | *.sh | *.sql | *.xml | *.json | *.html | *.css | *.md)
 		return 0
 		;;
 	*)
@@ -189,7 +189,7 @@ is_supported_source_file() {
 
 is_dependency_manifest_path() {
 	case "$1" in
-	pom.xml | */pom.xml | package.json | */package.json | package-lock.json | */package-lock.json)
+	pom.xml | */pom.xml | package.json | */package.json | package-lock.json | */package-lock.json | pnpm-lock.yaml | */pnpm-lock.yaml | yarn.lock | */yarn.lock | pyproject.toml | */pyproject.toml | requirements.txt | */requirements.txt | requirements-*.txt | */requirements-*.txt | uv.lock | */uv.lock)
 		return 0
 		;;
 	*)
@@ -660,9 +660,6 @@ is_scannable_changed_file() {
 		return 1
 	fi
 	if [[ "$changed_file" == *.md || "$changed_file" == *.txt ]]; then
-		return 1
-	fi
-	if [[ "$changed_file" == .github/workflows/* || "$changed_file" == scripts/ci/* ]]; then
 		return 1
 	fi
 	if [[ "$changed_file" == */src/test/* || "$changed_file" == tests/* || "$changed_file" == */tests/* ]]; then

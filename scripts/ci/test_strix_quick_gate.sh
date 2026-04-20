@@ -2677,7 +2677,7 @@ run_gate_case "pr-changed-scope-rebalanced" \
 	"" \
 	"4"
 
-run_gate_case "success" \
+run_gate_case "pr-empty-diff-skip" \
 	"openai/gpt-4o-mini" \
 	"" \
 	"0" \
@@ -2697,27 +2697,6 @@ run_gate_case "success" \
 	"0" \
 	"pull_request" \
 	"__SET_EMPTY__"
-
-run_gate_case "success" \
-	"openai/gpt-4o-mini" \
-	"" \
-	"0" \
-	"No scannable changed files in pull request; skipping Strix quick scan." \
-	"0" \
-	"" \
-	"" \
-	"vertex_ai" \
-	"__DEFAULT__" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"pull_request" \
-	$'.github/workflows/strix.yml\nscripts/ci/strix_quick_gate.sh'
 
 run_gate_case "pr-baseline-critical-unchanged" \
 	"openai/gpt-4o-mini" \
