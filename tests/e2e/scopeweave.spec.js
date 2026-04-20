@@ -203,4 +203,32 @@ test.describe('ScopeWeave Planner', () => {
     expect(snapshot[1].activity).toBe('-');
     expect(snapshot[2].task).toBe('고아Task');
   });
+
+  test('can edit an existing row and cancel the edit', async ({ page }) => {
+    const firstRow = page.locator('tbody tr[data-task-id]').first();
+    const originalOwner = await firstRow.locator('.owner-badge').innerText();
+    await firstRow.getByRole('button', { name: '✏️ 편집' }).click();
+    await expect(page.locator('.editor-panel')).toBeVisible();
+
+    await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
+    await page.getByRole('button', { name: '취소' }).click();
+
+    await expect(page.locator('.editor-panel')).toBeHidden();
+    await expect(firstRow).not.toContainText('임시담당자');
+    await expect(firstRow.locator('.owner-badge')).toHaveText(originalOwner);
+  });
+
+  test('can trigger CSV export download', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'CSV 내보내기' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^wbs_export_\d{8}\.csv$/);
+  });
+
+  test('can trigger CSV import file chooser', async ({ page }) => {
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'CSV 가져오기' }).click();
+    const fileChooser = await fileChooserPromise;
+    expect(fileChooser.isMultiple()).toBe(false);
+  });
 });
