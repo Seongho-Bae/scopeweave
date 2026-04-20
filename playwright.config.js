@@ -10,7 +10,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'python3 -m http.server 4173',
     port: 4173,
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     timeout: 120000
   }
 });

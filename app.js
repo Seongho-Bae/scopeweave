@@ -967,6 +967,7 @@ function normalizeImportedTasks(sourceTasks) {
   if (!Array.isArray(sourceTasks)) {
     return [];
   }
+  sourceTasks.forEach((task, index) => validateImportedTask(task, index));
   const hasExplicitDepth = sourceTasks.some((task) => task.__depth || task.__id || task.__parentId);
   if (!hasExplicitDepth) {
     return buildHierarchicalTasksFromFlatSource(sourceTasks);
@@ -994,10 +995,38 @@ function normalizeImportedTasks(sourceTasks) {
   }));
 }
 
+function validateImportedTask(task, index) {
+  const rowLabel = `${index + 2}행`;
+  const plannedStartDate = task.plannedStartDate || '';
+  const plannedEndDate = task.plannedEndDdate || task.plannedEndDate || '';
+  const actualStartDate = task.actualStartDate || '';
+  const actualEndDate = task.actualEndDate || '';
+
+  [
+    ['계획시작일', plannedStartDate],
+    ['계획종료일', plannedEndDate],
+    ['실적시작일', actualStartDate],
+    ['실적종료일', actualEndDate]
+  ].forEach(([label, value]) => {
+    if (value && !isValidDateString(value)) {
+      throw new Error(`${rowLabel}: ${label}은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.`);
+    }
+  });
+
+  if (plannedStartDate && plannedEndDate && compareDateStrings(plannedStartDate, plannedEndDate) > 0) {
+    throw new Error(`${rowLabel}: 계획종료일은 계획시작일보다 빠를 수 없습니다.`);
+  }
+  if (actualStartDate && actualEndDate && compareDateStrings(actualStartDate, actualEndDate) > 0) {
+    throw new Error(`${rowLabel}: 실적종료일은 실적시작일보다 빠를 수 없습니다.`);
+  }
+}
+
 function buildHierarchicalTasksFromFlatSource(sourceTasks) {
   const normalized = [];
   const phaseMap = new Map();
   const activityMap = new Map();
+  const getPhaseKey = (task, index) => task.phase || `__phase-${index}`;
+  const getActivityKey = (task, index) => `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
 
   const normalizeExternalRecord = (task, defaults = {}) => ({
     ...createEmptyTaskDraft(),
@@ -1017,23 +1046,17 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     actualEndDate: task.actualEndDate || ''
   });
 
-  const registerPhase = (phaseName, phaseId) => {
-    if (phaseName) {
-      phaseMap.set(phaseName, phaseId);
-    }
+  const registerPhase = (phaseKey, phaseId) => {
+    phaseMap.set(phaseKey, phaseId);
   };
 
-  const registerActivity = (phaseName, activityName, activityId) => {
-    if (activityName) {
-      activityMap.set(`${phaseName || ''}::${activityName}`, activityId);
-    }
+  const registerActivity = (activityKey, activityId) => {
+    activityMap.set(activityKey, activityId);
   };
 
   const ensureSyntheticPhase = (task, index) => {
-    if (!task.phase) {
-      return null;
-    }
-    if (!phaseMap.has(task.phase)) {
+    const phaseKey = getPhaseKey(task, index);
+    if (!phaseMap.has(phaseKey)) {
       const phaseId = createId(`phase-${index}`);
       normalized.push({
         ...normalizeExternalRecord({ phase: task.phase }),
@@ -1044,16 +1067,13 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerPhase(task.phase, phaseId);
+      registerPhase(phaseKey, phaseId);
     }
-    return phaseMap.get(task.phase);
+    return phaseMap.get(phaseKey);
   };
 
   const ensureSyntheticActivity = (task, index, parentPhaseId) => {
-    if (!task.activity) {
-      return parentPhaseId;
-    }
-    const key = `${task.phase || ''}::${task.activity}`;
+    const key = getActivityKey(task, index);
     if (!activityMap.has(key)) {
       const activityId = createId(`activity-${index}`);
       normalized.push({
@@ -1065,7 +1085,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerActivity(task.phase, task.activity, activityId);
+      registerActivity(key, activityId);
     }
     return activityMap.get(key);
   };
@@ -1086,7 +1106,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerPhase(task.phase, phaseId);
+      registerPhase(getPhaseKey(task, index), phaseId);
       return;
     }
 
@@ -1103,11 +1123,11 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerActivity(task.phase, task.activity, activityId);
+      registerActivity(getActivityKey(task, index), activityId);
       return;
     }
 
-    const parentActivityId = hasActivity ? ensureSyntheticActivity(task, index, parentPhaseId) : parentPhaseId;
+    const parentActivityId = hasTask ? ensureSyntheticActivity(task, index, parentPhaseId) : parentPhaseId;
     normalized.push({
       ...normalizeExternalRecord(task),
       id: createId(`leaf-${index}`),
@@ -1510,7 +1530,10 @@ function createId(seed = Date.now()) {
 }
 
 function isValidDateString(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  return formatDateInput(new Date(dateStringToUtcMs(value))) === value;
 }
 
 function dateStringToUtcMs(value) {
