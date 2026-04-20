@@ -1380,7 +1380,7 @@ function renderGantt() {
     </tr>
   `).join('');
 
-  const totalWidth = weekdays.length * 30;
+  const totalWidth = weekdays.length * 36;
   const chartRows = state.tasks.map((task) => {
     const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDdate, weekdays, 'plan');
     const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
@@ -1483,7 +1483,7 @@ function createGanttBar(startDate, endDate, weekdays, type) {
   if (normalizedEndIndex < startIndex) {
     return '';
   }
-  return `<div class="gantt-bar ${type}" style="left:${startIndex * 30}px;width:${(normalizedEndIndex - startIndex + 1) * 30}px"></div>`;
+  return `<div class="gantt-bar ${type}" style="left:${startIndex * 36}px;width:${(normalizedEndIndex - startIndex + 1) * 36}px"></div>`;
 }
 
 function showToast(message) {

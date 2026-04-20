@@ -100,10 +100,14 @@ test.describe('ScopeWeave Planner', () => {
     await expect(leafRow.getByRole('button', { name: '+ 하위 추가' })).toBeDisabled();
   });
 
-  test('opens gantt modal and renders chart bars', async ({ page }) => {
+  test('opens gantt modal and renders chart bars with correct inline styles', async ({ page }) => {
     await page.getByRole('button', { name: '간트차트보기' }).click();
     await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
     await expect(page.locator('.gantt-bar.plan')).toHaveCount(2);
+    
+    const firstBar = page.locator('.gantt-bar.plan').first();
+    await expect(firstBar).toHaveAttribute('style', /width:\s*\d+px/);
+    await expect(firstBar).toHaveAttribute('style', /left:\s*\d+px/);
   });
 
   test('keeps descendant rows attached when reordering an activity subtree', async ({ page }) => {
