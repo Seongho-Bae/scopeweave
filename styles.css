@@ -11,7 +11,7 @@
   --blue-soft: #f0fdfa;
   --blue-hover: #e0f2fe;
   --danger: #ef4444;
-  --status-before: #94a3b8;
+  --status-before: #475569;
   --status-active: #059669;
   --status-done: #0f172a;
   --status-delay: #ea580c;
@@ -725,5 +725,27 @@ button {
     position: static;
     border-radius: var(--radius-sm);
     padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .icon-button:hover,
+  .toggle-button:hover,
+  .primary-button:hover,
+  .secondary-button:hover,
+  .gantt-bar:hover,
+  .meta-field:hover,
+  .sync-panel:hover {
+    transform: none !important;
+    filter: none !important;
   }
 }
