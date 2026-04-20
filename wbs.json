@@ -1,0 +1,32 @@
+[
+  {
+    "phase": "P0000.준비단계",
+    "activity": "프로젝트준비",
+    "task": "사업수행계획",
+    "categoryLarge": "사업수행계획작성및보고",
+    "categoryMedium": "",
+    "documentName": "P0101-사업수행계획서.pptx",
+    "owner": "담당자A",
+    "supportTeam": "",
+    "plannedStartDate": "2026-05-01",
+    "plannedEndDdate": "2026-05-08",
+    "actualProgressStatus": "PM확인(100%)",
+    "actualStartDate": "2026-05-01",
+    "actualEndDate": "2026-05-08"
+  },
+  {
+    "phase": "P0000.준비단계",
+    "activity": "프로젝트준비",
+    "task": "단계작업계획",
+    "categoryLarge": "일정수립",
+    "categoryMedium": "",
+    "documentName": "P0102-WBS.xlsx",
+    "owner": "담당자A",
+    "supportTeam": "",
+    "plannedStartDate": "2026-05-11",
+    "plannedEndDdate": "2026-05-15",
+    "actualProgressStatus": "미착수(0%)",
+    "actualStartDate": "",
+    "actualEndDate": ""
+  }
+]
