@@ -810,7 +810,12 @@ function getVisibleTasks() {
 
   return visible.filter((task) => {
     let parentId = task.parentId;
+    const visited = new Set([task.id]);
     while (parentId) {
+      if (visited.has(parentId)) {
+        break;
+      }
+      visited.add(parentId);
       const parent = findTask(parentId);
       if (parent && !parent.expanded) {
         return false;
@@ -1521,7 +1526,10 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  const normalized = String(value ?? '');
+  let normalized = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(normalized)) {
+    normalized = "'" + normalized;
+  }
   return `"${normalized.replace(/"/g, '""')}"`;
 }
 
