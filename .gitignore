@@ -1,0 +1,7 @@
+node_modules/
+playwright-report/
+test-results/
+.DS_Store
+.worktrees/
+registered_agents.json
+task_agent_mapping.json
