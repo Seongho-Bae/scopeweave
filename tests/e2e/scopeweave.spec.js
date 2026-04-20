@@ -148,4 +148,18 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedPayload[0].task).toBe('사업수행계획');
     expect(savedPayload[1].task).toBe('단계작업계획');
   });
+
+  test('counts same-day work as one day for totals and weights', async ({ page }) => {
+    await addTopLevelTask(page, {
+      phase: 'P2000.검증단계',
+      categoryLarge: '동일일자검증',
+      owner: '담당자A',
+      plannedStartDate: '2026-05-20',
+      plannedEndDate: '2026-05-20'
+    });
+
+    await expect(page.getByTestId('summary-total-days')).toHaveText('12일');
+    await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: '동일일자검증' }).locator('td').nth(12)).toContainText('1');
+    await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: '동일일자검증' }).locator('td').nth(14)).not.toContainText('0.000');
+  });
 });

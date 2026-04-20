@@ -782,7 +782,7 @@ function calculateDurationDays(startDate, endDate) {
   if (end < start) {
     return 0;
   }
-  return Math.round((end - start) / 86400000);
+  return Math.max(1, Math.round((end - start) / 86400000));
 }
 
 function getDateRangeWarning(startDate, endDate, message) {
@@ -798,9 +798,6 @@ function getVisibleTasks() {
 
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
-      if (!task.expanded) {
-        hiddenParentIds.add(task.id);
-      }
       hiddenParentIds.add(task.id);
       return;
     }
