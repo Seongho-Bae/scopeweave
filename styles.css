@@ -520,10 +520,10 @@ select:focus,
   text-align: center;
 }
 
-.gantt-day-cell {
+.gantt-chart .gantt-day-cell {
   min-width: 30px;
   width: 30px;
-  padding: 2px !important;
+  padding: 2px;
   text-align: center;
 }
 

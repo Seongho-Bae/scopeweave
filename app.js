@@ -342,9 +342,9 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
       <td class="priority-mobile">${renderStatusCell(taskMetrics.progressState)}</td>
       <td class="priority-mobile">${renderTextCell(task.plannedStartDate)}</td>
       <td class="priority-mobile">${renderTextCell(task.plannedEndDdate)}</td>
-      <td class="priority-desktop"><span class="metric-text">${formatNumber(taskMetrics.durationDays)}</span></td>
+      <td class="priority-desktop"><span class="metric-text" data-testid="task-duration-days">${formatNumber(taskMetrics.durationDays)}</span></td>
       <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.plannedProgressRatio * 100, 2)}</span></td>
-      <td class="priority-desktop"><span class="metric-text">${formatDecimal(taskMetrics.weightRatio, 3)}</span></td>
+      <td class="priority-desktop"><span class="metric-text" data-testid="task-weight-ratio">${formatDecimal(taskMetrics.weightRatio, 3)}</span></td>
       <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.weightedPlannedRatio * 100, 2)}</span></td>
       <td class="priority-mobile">${renderActualProgressCell(task, taskMetrics)}</td>
       <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.actualProgressRatio * 100, 2)}</span></td>

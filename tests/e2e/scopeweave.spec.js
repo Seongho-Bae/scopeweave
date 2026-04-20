@@ -24,6 +24,19 @@ const importCsv = async (page, csvText) => {
   });
 };
 
+const createActivitySubtree = async (page, activityName, taskName) => {
+  await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '+ 하위 추가' }).click();
+  await page.locator('[data-testid="editor-activity"]').fill(activityName);
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+
+  const activityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: new RegExp(`^${activityName}$`) }) });
+  await activityRow.getByRole('button', { name: '+ 하위 추가' }).click();
+  await page.locator('[data-testid="editor-task"]').fill(taskName);
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+
+  return activityRow;
+};
+
 test.describe('ScopeWeave Planner', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -94,14 +107,7 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test('keeps descendant rows attached when reordering an activity subtree', async ({ page }) => {
-    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '+ 하위 추가' }).click();
-    await page.locator('[data-testid="editor-activity"]').fill('테스트 활동');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
-
-    const secondActivityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: /^테스트 활동$/ }) });
-    await secondActivityRow.getByRole('button', { name: '+ 하위 추가' }).click();
-    await page.locator('[data-testid="editor-task"]').fill('테스트 태스크');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
+    const secondActivityRow = await createActivitySubtree(page, '테스트 활동', '테스트 태스크');
 
     const firstActivityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: /^프로젝트준비$/ }) }).first();
     const secondActivityBox = await secondActivityRow.boundingBox();
@@ -117,14 +123,7 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test('can move a later activity subtree before an earlier sibling', async ({ page }) => {
-    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '+ 하위 추가' }).click();
-    await page.locator('[data-testid="editor-activity"]').fill('테스트 활동');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
-
-    const secondActivityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: /^테스트 활동$/ }) });
-    await secondActivityRow.getByRole('button', { name: '+ 하위 추가' }).click();
-    await page.locator('[data-testid="editor-task"]').fill('테스트 태스크');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
+    const secondActivityRow = await createActivitySubtree(page, '테스트 활동', '테스트 태스크');
 
     const firstActivityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: /^프로젝트준비$/ }) }).first();
     await secondActivityRow.dragTo(firstActivityRow, { targetPosition: { x: 20, y: 4 } });
@@ -183,8 +182,9 @@ test.describe('ScopeWeave Planner', () => {
     });
 
     await expect(page.getByTestId('summary-total-days')).toHaveText('12일');
-    await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: '동일일자검증' }).locator('td').nth(12)).toContainText('1');
-    await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: '동일일자검증' }).locator('td').nth(14)).not.toContainText('0.000');
+    const taskRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '동일일자검증' });
+    await expect(taskRow.locator('[data-testid="task-duration-days"]')).toContainText('1');
+    await expect(taskRow.locator('[data-testid="task-weight-ratio"]')).not.toContainText('0.000');
   });
 
   test('rejects invalid calendar dates from imported CSV', async ({ page }) => {
