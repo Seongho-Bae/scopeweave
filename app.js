@@ -322,7 +322,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
   const isLeaf = task.depth >= 3;
 
   return `
-    <tr class="task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}" data-task-id="${task.id}" draggable="true">
+    <tr class="task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}" data-task-id="${escapeHtml(task.id)}" draggable="true">
       <td>
         <div class="action-stack">
           ${toggleButton}
@@ -358,7 +358,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
 function renderEditorRow(anchorId) {
   const draft = state.editor.draft || createEmptyTaskDraft();
   return `
-    <tr class="editor-row" data-editor-anchor="${anchorId}">
+    <tr class="editor-row" data-editor-anchor="${escapeHtml(anchorId)}">
       <td colspan="21">
         <div class="editor-panel">
           <form data-editor-form="true">
@@ -455,7 +455,7 @@ function renderActualProgressCell(task, taskMetrics) {
   return `
     <label>
       <span class="sr-only">실적진척상태</span>
-      <select data-inline-progress="${task.id}">
+      <select data-inline-progress="${escapeHtml(task.id)}">
         ${options}
       </select>
       ${taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning ? `<div class="validation-message">${escapeHtml(taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning)}</div>` : ''}
@@ -810,7 +810,12 @@ function getVisibleTasks() {
 
   return visible.filter((task) => {
     let parentId = task.parentId;
+    const visited = new Set([task.id]);
     while (parentId) {
+      if (visited.has(parentId)) {
+        break;
+      }
+      visited.add(parentId);
       const parent = findTask(parentId);
       if (parent && !parent.expanded) {
         return false;
@@ -1380,7 +1385,7 @@ function renderGantt() {
     </tr>
   `).join('');
 
-  const totalWidth = weekdays.length * 30;
+  const totalWidth = weekdays.length * 36;
   const chartRows = state.tasks.map((task) => {
     const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDdate, weekdays, 'plan');
     const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
@@ -1483,7 +1488,7 @@ function createGanttBar(startDate, endDate, weekdays, type) {
   if (normalizedEndIndex < startIndex) {
     return '';
   }
-  return `<div class="gantt-bar ${type}" style="left:${startIndex * 30}px;width:${(normalizedEndIndex - startIndex + 1) * 30}px"></div>`;
+  return `<div class="gantt-bar ${type}" style="left:${startIndex * 36}px;width:${(normalizedEndIndex - startIndex + 1) * 36}px"></div>`;
 }
 
 function showToast(message) {
@@ -1521,7 +1526,10 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  const normalized = String(value ?? '');
+  let normalized = String(value ?? '');
+  if (/^[=+\-@\s]/.test(normalized)) {
+    normalized = "'" + normalized;
+  }
   return `"${normalized.replace(/"/g, '""')}"`;
 }
 
