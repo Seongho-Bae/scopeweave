@@ -209,17 +209,17 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test('can edit an existing row and cancel the edit', async ({ page }) => {
-    const firstRow = page.locator('tbody tr[data-task-id]').first();
-    const originalOwner = await firstRow.locator('.owner-badge').innerText();
-    await firstRow.getByRole('button', { name: '✏️ 편집' }).click();
+    const targetRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '사업수행계획' }).first();
+    const originalOwner = await targetRow.locator('.owner-badge').innerText();
+    await targetRow.getByRole('button', { name: '✏️ 편집' }).click();
     await expect(page.locator('.editor-panel')).toBeVisible();
 
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
     await page.getByRole('button', { name: '취소' }).click();
 
     await expect(page.locator('.editor-panel')).toBeHidden();
-    await expect(firstRow).not.toContainText('임시담당자');
-    await expect(firstRow.locator('.owner-badge')).toHaveText(originalOwner);
+    await expect(targetRow).not.toContainText('임시담당자');
+    await expect(targetRow.locator('.owner-badge')).toHaveText(originalOwner);
   });
 
   test('can trigger CSV export download', async ({ page }) => {
