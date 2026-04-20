@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScopeWeave Planner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-panel">
+        <div class="title-row">
+          <div>
+            <p class="eyebrow">Production-grade Static WBS Planner</p>
+            <h1>ScopeWeave Planner</h1>
+          </div>
+        </div>
+        <div class="meta-grid meta-grid-primary">
+          <label class="meta-field">
+            <span>프로젝트 이름</span>
+            <input data-testid="project-name-input" id="project-name" type="text" maxlength="120" />
+          </label>
+          <label class="meta-field meta-field-compact">
+            <span>기준일</span>
+            <input data-testid="base-date-input" id="base-date" type="date" />
+          </label>
+          <div class="meta-value-card">
+            <span class="meta-label">전체일수</span>
+            <strong data-testid="summary-total-days" id="summary-total-days">0일</strong>
+          </div>
+        </div>
+
+        <div class="meta-grid meta-grid-secondary">
+          <div class="meta-value-card accent-card plan-card">
+            <span class="meta-label">계획진척률(누적)</span>
+            <strong data-testid="summary-planned-progress" id="summary-planned-progress">0.00%</strong>
+          </div>
+          <div class="meta-value-card accent-card actual-card">
+            <span class="meta-label">실적진척률(누적)</span>
+            <strong data-testid="summary-actual-progress" id="summary-actual-progress">0.00%</strong>
+          </div>
+          <div class="sync-panel">
+            <span id="sync-status">브라우저 로컬 자동저장 사용 중</span>
+            <button id="connect-json-sync" type="button" class="secondary-button">wbs.json 자동저장 연결</button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="table-section" aria-label="WBS 표">
+          <div class="table-scroll">
+            <table class="wbs-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-actions">작업</th>
+                  <th scope="col" class="col-phase">단계</th>
+                  <th scope="col" class="col-activity">Activity</th>
+                  <th scope="col" class="col-task">Task</th>
+                  <th scope="col" class="col-category-large priority-mobile">대분류</th>
+                  <th scope="col" class="col-category-medium priority-mobile">중분류</th>
+                  <th scope="col" class="priority-desktop">산출물</th>
+                  <th scope="col" class="col-owner priority-mobile">담당자</th>
+                  <th scope="col" class="priority-desktop">지원팀</th>
+                  <th scope="col" class="col-status priority-mobile">진행상태</th>
+                  <th scope="col" class="col-date priority-mobile">계획시작일</th>
+                  <th scope="col" class="col-date priority-mobile">계획종료일</th>
+                  <th scope="col" class="priority-desktop">일수</th>
+                  <th scope="col" class="priority-desktop">계획진척률</th>
+                  <th scope="col" class="priority-desktop">가중치</th>
+                  <th scope="col" class="priority-desktop">가중치진척률</th>
+                  <th scope="col" class="col-actual-status priority-mobile">실적진척상태</th>
+                  <th scope="col" class="priority-desktop">실적진척률</th>
+                  <th scope="col" class="col-date priority-mobile">실적시작일</th>
+                  <th scope="col" class="col-date priority-mobile">실적종료일</th>
+                  <th scope="col" class="priority-desktop">가중치실적진척률</th>
+                </tr>
+              </thead>
+              <tbody id="task-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <footer class="bottom-action-bar">
+        <button id="add-root-task" type="button" class="primary-button">최상위 작업 추가</button>
+        <button id="export-csv" type="button" class="secondary-button">CSV 내보내기</button>
+        <button id="import-csv" type="button" class="secondary-button">CSV 가져오기</button>
+        <button id="open-gantt" type="button" class="secondary-button">간트차트보기</button>
+      </footer>
+    </div>
+
+    <input id="csv-file-input" type="file" accept=".csv,text/csv" hidden />
+
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <div id="gantt-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gantt-title">
+      <div class="modal-backdrop" data-close-modal="true"></div>
+      <div class="modal-panel gantt-panel">
+        <div class="modal-header">
+          <div>
+            <h2 id="gantt-title">간트 차트</h2>
+            <p>계획은 진회색, 실적은 초록색으로 표시됩니다.</p>
+          </div>
+          <button id="close-gantt" type="button" class="icon-button close-button" aria-label="간트 차트 닫기">✕</button>
+        </div>
+        <div id="gantt-content" class="gantt-content"></div>
+      </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
