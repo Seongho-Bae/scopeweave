@@ -1,0 +1,165 @@
+# Dependency Review Action
+#
+# This Action will scan dependency manifest files that change as part of a Pull Request,
+# surfacing known-vulnerable versions of the packages declared or updated in the PR.
+# Once installed, if the workflow run is marked as required, PRs introducing known-vulnerable
+# packages will be blocked from merging.
+#
+# Source repository: https://github.com/actions/dependency-review-action
+# Public documentation: https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review#dependency-review-enforcement
+name: 'Dependency review'
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+'on':
+  pull_request:
+    branches: ["**"]
+# If using a dependency submission action in this workflow this permission will need to be set to:
+#
+# permissions:
+#   contents: write
+#
+# https://docs.github.com/en/enterprise-cloud@latest/code-security/supply-chain-security/understanding-your-software-supply-chain/using-the-dependency-submission-api
+permissions:
+  contents: read
+  # Write permissions for pull-requests are required for using the `comment-summary-in-pr` option, comment out if you aren't using this option
+  pull-requests: write
+
+jobs:
+  resolve-review-context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should-run: ${{ steps.resolve.outputs.should-run }}
+      base-ref: ${{ steps.resolve.outputs.base-ref }}
+      head-ref: ${{ steps.resolve.outputs.head-ref }}
+      comment-summary-mode: ${{ steps.resolve.outputs.comment-summary-mode }}
+    steps:
+      - name: 'Resolve dependency review context'
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_ACTION: ${{ github.event.action }}
+          repository: ${{ github.repository }}
+          owner: ${{ github.repository_owner }}
+          pr_is_fork: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          pr_base_sha: ${{ github.event.pull_request.base.sha }}
+          pr_head_sha: ${{ github.event.pull_request.head.sha }}
+          workflow_conclusion: ${{ github.event.workflow_run.conclusion }}
+          workflow_event: ${{ github.event.workflow_run.event }}
+          head_branch: ${{ github.event.workflow_run.head_branch }}
+          head_sha: ${{ github.event.workflow_run.head_sha }}
+          head_repository: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+
+          def write_output(name: str, value: str) -> None:
+              with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as handle:
+                  handle.write(f"{name}={value}\n")
+
+
+          event_name = os.environ["EVENT_NAME"]
+          repository = os.environ["repository"]
+          owner = os.environ["owner"]
+
+          if event_name == "pull_request":
+              if (
+                  os.environ["pr_is_fork"] == "true"
+                  or os.environ.get("PR_ACTION") in {"opened", "reopened"}
+              ):
+                  write_output("should-run", "true")
+                  write_output("base-ref", os.environ["pr_base_sha"])
+                  write_output("head-ref", os.environ["pr_head_sha"])
+                  if os.environ["pr_is_fork"] == "true":
+                      write_output("comment-summary-mode", "always")
+                  else:
+                      write_output("comment-summary-mode", "never")
+              else:
+                  write_output("should-run", "false")
+                  write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          if event_name != "workflow_run":
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          if os.environ["workflow_conclusion"] != "success":
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          if os.environ["workflow_event"] != "push":
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          if os.environ["head_repository"] != repository:
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          head_branch = os.environ["head_branch"]
+          head_sha = os.environ["head_sha"]
+          if not head_branch or not head_sha:
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          pulls_json = subprocess.run(
+              [
+                  "gh",
+                  "api",
+                  f"repos/{repository}/pulls?head={owner}:{head_branch}&state=open&per_page=1",
+              ],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout
+          pulls = json.loads(pulls_json)
+          if not pulls:
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          pull = pulls[0]
+          if pull["head"]["repo"]["full_name"] != repository or pull["head"]["sha"] != head_sha:
+              write_output("should-run", "false")
+              write_output("comment-summary-mode", "never")
+              raise SystemExit(0)
+
+          write_output("should-run", "true")
+          write_output("base-ref", pull["base"]["sha"])
+          write_output("head-ref", head_sha)
+          write_output("comment-summary-mode", "always")
+          PY
+
+  dependency-review:
+    needs: resolve-review-context
+    if: ${{ needs.resolve-review-context.outputs.should-run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: 'Dependency Review'
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
+        with:
+          base-ref: ${{ needs.resolve-review-context.outputs.base-ref }}
+          head-ref: ${{ needs.resolve-review-context.outputs.head-ref }}
+          comment-summary-in-pr: ${{ needs.resolve-review-context.outputs.comment-summary-mode }}
+          retry-on-snapshot-warnings: false
+          warn-on-openssf-scorecard-level: 1
+          # License policy (disabled for now): allow permissive + commonly-used gray zone licenses; still blocks strong copyleft by default (GPL/AGPL)
+          # allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, EPL-1.0, EPL-2.0, MPL-2.0, CDDL-1.0, CDDL-1.1, BSL-1.0, CC0-1.0, Unlicense, Zlib, WTFPL, EUPL-1.2
+        #   fail-on-severity: moderate
+        #   deny-licenses: GPL-1.0-or-later, LGPL-2.0-or-later
