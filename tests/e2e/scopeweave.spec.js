@@ -55,7 +55,7 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
   });
 
   test('renders seeded rows and summary metrics', async ({ page }) => {
