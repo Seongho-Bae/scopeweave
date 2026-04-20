@@ -66,8 +66,10 @@ Behavior:
 
 - `pull_request`: skip if required secrets are absent
 - `push` / `schedule`: fail closed if required secrets are absent
-- `GCP_SA_KEY` absent: Vertex auth is unavailable, but non-GCP model
-  flows can still run when the required Strix secrets exist
+- `GCP_SA_KEY` absent + Vertex-authenticated model: `pull_request`
+  skips cleanly, while `push` / `schedule` fail closed
+- `GCP_SA_KEY` absent + non-Vertex model: the workflow can still run as
+  long as the required Strix secrets exist
 
 ## Artifacts
 

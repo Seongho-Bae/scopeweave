@@ -63,6 +63,9 @@ python3 -m pytest \
 - Pull requests without `STRIX_LLM` and `LLM_API_KEY` skip cleanly;
   `push`/`schedule` runs fail closed if those required secrets are
   missing.
+- If the configured Strix model resolves to Vertex AI and `GCP_SA_KEY`
+  is absent, pull requests now skip cleanly while `push`/`schedule`
+  continue to fail closed.
 - CI-only Python dependencies are pinned in `requirements-strix-ci.txt`
   so companion supply-chain workflows can review the same dependency
   surface that Strix installs.
