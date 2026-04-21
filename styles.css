@@ -691,8 +691,7 @@ button {
 @media (max-width: 1400px) {
   .meta-grid-primary,
   .meta-grid-secondary,
-  .editor-grid,
-  .gantt-shell {
+  .editor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -705,8 +704,7 @@ button {
 
   .meta-grid-primary,
   .meta-grid-secondary,
-  .editor-grid,
-  .gantt-shell {
+  .editor-grid {
     grid-template-columns: 1fr;
   }
 
