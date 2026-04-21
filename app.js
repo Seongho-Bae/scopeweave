@@ -1391,7 +1391,7 @@ function renderGantt() {
     const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
     return `
       <tr>
-        <td>
+        <td colspan="${weekdays.length}">
           <div class="gantt-day-track" style="width:${totalWidth}px">
             ${planBar}
             ${actualBar}
