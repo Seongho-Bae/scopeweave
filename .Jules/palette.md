@@ -1,0 +1,3 @@
+## 2026-05-31 - Add tooltips to icon-only buttons
+**Learning:** Icon-only buttons without tooltips lack proper context for some users. The title attribute provides a tooltip on hover and additional context for screen readers if aria-label is identical, improving usability and accessibility. Also ensure tests pass after small HTML modifications.
+**Action:** When adding aria-labels to icon buttons, consider adding identical or complementary title attributes to ensure both hover-based tooltips and assistive technology context. Always run `npm run test:e2e` and verify nothing breaks in tests that rely on strict text matchers.
