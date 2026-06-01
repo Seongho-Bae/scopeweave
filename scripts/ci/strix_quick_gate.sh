@@ -1367,6 +1367,9 @@ is_transient_same_model_retry_error() {
 	if is_midstream_fallback_error; then
 		return 0
 	fi
+	if is_billing_disabled_error; then
+		return 0
+	fi
 	return 1
 }
 
