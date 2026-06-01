@@ -1847,7 +1847,21 @@ is_hallucinated_endpoint_finding() {
 	return 0
 }
 
+is_billing_disabled_error() {
+	if grep -Fq 'BILLING_DISABLED' "$STRIX_LOG"; then
+		return 0
+	fi
+	if grep -Fq 'requires billing to be enabled' "$STRIX_LOG"; then
+		return 0
+	fi
+	return 1
+}
+
 is_vertex_retryable_error() {
+	if is_billing_disabled_error; then
+		return 0
+	fi
+
 	if is_vertex_not_found_error; then
 		return 0
 	fi
