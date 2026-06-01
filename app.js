@@ -405,7 +405,7 @@ function renderEditorField(label, field, value, type = 'text') {
     actualEndDate: 'editor-actual-end'
   };
   return `
-    <label class="editor-field">
+    <label class="editor-field meta-field">
       <span>${label}</span>
       <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}" />
     </label>
@@ -414,9 +414,9 @@ function renderEditorField(label, field, value, type = 'text') {
 
 function renderEditorSelectField(label, field, value, options) {
   return `
-    <label class="editor-field">
+    <label class="editor-field meta-field">
       <span>${label}</span>
-      <select data-editor-field="${field}">
+      <select data-editor-field="${field}" class="meta-field-input-like">
         ${options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
       </select>
     </label>

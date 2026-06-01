@@ -138,7 +138,8 @@ button {
   box-shadow: var(--shadow-sm);
 }
 
-.meta-field input {
+.meta-field input,
+select.meta-field-input-like {
   width: 100%;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -148,7 +149,8 @@ button {
   background: #ffffff;
 }
 
-.meta-field input:focus {
+.meta-field input:focus,
+select.meta-field-input-like:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
   outline: none;
