@@ -1416,6 +1416,10 @@ is_vertex_not_found_error() {
 		return 0
 	fi
 
+	if grep -Fq 'litellm.NotFoundError: GeminiException' "$STRIX_LOG"; then
+		return 0
+	fi
+
 	if grep -Fq 'litellm.NotFoundError' "$STRIX_LOG" && grep -Eq '"status"[[:space:]]*:[[:space:]]*"NOT_FOUND"' "$STRIX_LOG"; then
 		return 0
 	fi
