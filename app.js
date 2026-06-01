@@ -295,9 +295,16 @@ function renderAll() {
   const visibleTasks = getVisibleTasks();
   const rows = [];
 
+  const parentIdsSet = new Set();
+  state.tasks.forEach((task) => {
+    if (task.parentId) {
+      parentIdsSet.add(task.parentId);
+    }
+  });
+
   visibleTasks.forEach((task, index) => {
     const taskMetrics = metrics.byTask.get(task.id);
-    rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index));
+    rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index, parentIdsSet));
     if (state.editor.mode && state.editor.mode === 'edit' && state.editor.targetId === task.id) {
       rows.push(renderEditorRow(task.id));
     }
@@ -314,8 +321,8 @@ function renderAll() {
   renderEditorValidation();
 }
 
-function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
-  const hasChildren = state.tasks.some((candidate) => candidate.parentId === task.id);
+function renderTaskRow(task, taskMetrics, ownerColorMap, index, parentIdsSet) {
+  const hasChildren = parentIdsSet ? parentIdsSet.has(task.id) : state.tasks.some((candidate) => candidate.parentId === task.id);
   const toggleButton = hasChildren
     ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
     : '<span class="toggle-placeholder"></span>';

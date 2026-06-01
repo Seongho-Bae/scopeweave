@@ -1,0 +1,4 @@
+## 2026-06-01 - O(N) Nested Lookups in Row Rendering
+
+**Learning:** This codebase originally checked if a task has children by running `state.tasks.some(t => t.parentId === task.id)` inside `renderTaskRow`, which is called for *every* visible row during `renderAll`. Since `state.tasks.some()` is `O(N)` and `renderTaskRow` is called `M` times (where `M` is the number of visible tasks), this creates an `O(M * N)` bottleneck that blocks the main thread noticeably as the WBS grows.
+**Action:** Instead of querying the full tasks array per row, always construct an `O(N)` lookup data structure (like a `Set` of `parentIds`) *once* per render cycle inside `renderAll()`, and pass it down to individual row renderers to achieve `O(1)` lookups. This transforms the rendering step from `O(M * N)` to `O(N)`.
