@@ -1534,6 +1534,10 @@ function csvEscape(value) {
 }
 
 function createId(seed = Date.now()) {
+  // Security enhancement: Prefer crypto.randomUUID for stronger randomness
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `task-${crypto.randomUUID()}`;
+  }
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
