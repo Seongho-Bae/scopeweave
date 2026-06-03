@@ -160,15 +160,31 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			;;
 		esac
 		;;
-	vertex-all-notfound)
-		echo "Error: litellm.NotFoundError: Vertex_aiException - x"
-		echo '"status": "NOT_FOUND"'
-		exit 1
-		;;
-	nonrecoverable)
-		echo "Error: transport timeout"
-		exit 1
-		;;
+		vertex-all-notfound)
+			echo "Error: litellm.NotFoundError: Vertex_aiException - x"
+			echo '"status": "NOT_FOUND"'
+			exit 1
+			;;
+		openai-primary-unavailable-fallback-success)
+			case "${STRIX_LLM:-}" in
+			openai/openai/gpt-5)
+				echo "Error: litellm.BadRequestError: OpenAIException - Unavailable model: gpt-5"
+				exit 1
+				;;
+			openai/openai/gpt-4.1)
+				echo "scan ok with OpenAI fallback"
+				exit 0
+				;;
+			*)
+				echo "unexpected OpenAI fallback model ${STRIX_LLM:-}" >&2
+				exit 9
+				;;
+			esac
+			;;
+		nonrecoverable)
+			echo "Error: transport timeout"
+			exit 1
+			;;
 	provider-prefix-required)
 		if [ "${STRIX_LLM:-}" = "vertex_ai/gemini-2.5-pro" ]; then
 			echo "scan ok with normalized provider"
@@ -1856,6 +1872,15 @@ run_gate_case "vertex-primary-notfound-fallback-success" \
 	"2" \
 	"vertex_ai/missing-primary|vertex_ai/fallback-one" \
 	"<unset>|<unset>"
+
+run_gate_case "openai-primary-unavailable-fallback-success" \
+	"openai/openai/gpt-5" \
+	"openai/openai/gpt-4.1" \
+	"0" \
+	"Strix quick scan succeeded with fallback model 'openai/openai/gpt-4.1'." \
+	"2" \
+	"openai/openai/gpt-5|openai/openai/gpt-4.1" \
+	"https://example.invalid|https://example.invalid"
 
 run_gate_case "vertex-all-notfound" \
 	"vertex_ai/missing-primary" \
