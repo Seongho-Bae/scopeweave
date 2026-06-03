@@ -58,8 +58,10 @@ GitHub Models PAT when quota needs to come from a user/org allowance; if
 that secret is absent, the workflow falls back to the workflow-scoped
 `github.token`.
 
-- model: `openai/openai/gpt-4.1` by default, overrideable with the
+- primary model: `openai/openai/gpt-5` by default, overrideable with the
   `STRIX_GITHUB_MODELS_MODEL` repository or organization variable
+- fallback model: `openai/openai/gpt-4.1` when the effective primary model is
+  not already `openai/openai/gpt-4.1`
 - API base: `https://models.github.ai/inference`
 - required workflow permission: `models: read`
 
