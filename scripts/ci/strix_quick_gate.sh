@@ -1142,6 +1142,17 @@ is_vertex_model() {
 	esac
 }
 
+uses_configured_model_fallbacks() {
+	case "$1" in
+	vertex_ai/* | vertex_ai_beta/* | openai/*)
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 resolved_llm_api_base_for_model() {
 	local model="$1"
 
@@ -1429,6 +1440,15 @@ is_vertex_not_found_error() {
 	fi
 
 	if grep -Eq 'Publisher Model .*was not found' "$STRIX_LOG"; then
+		return 0
+	fi
+
+	return 1
+}
+
+is_openai_model_unavailable_error() {
+	if grep -Eiq '(OpenAIException|openai|litellm).*Unavailable model:|unavailable_model' "$STRIX_LOG" &&
+		grep -Eiq '(OpenAIException|openai|litellm|models\.github\.ai|GitHub Models)' "$STRIX_LOG"; then
 		return 0
 	fi
 
@@ -1852,6 +1872,10 @@ is_vertex_retryable_error() {
 		return 0
 	fi
 
+	if is_openai_model_unavailable_error; then
+		return 0
+	fi
+
 	if is_rate_limit_error; then
 		return 0
 	fi
@@ -1896,10 +1920,10 @@ run_current_target_scan() {
 		;;
 	esac
 
-	if ! is_vertex_model "$PRIMARY_MODEL"; then
-		echo "Strix quick scan failed with a non-recoverable error." >&2
-		return 1
-	fi
+		if ! uses_configured_model_fallbacks "$PRIMARY_MODEL"; then
+			echo "Strix quick scan failed with a non-recoverable error." >&2
+			return 1
+		fi
 
 	if ! is_vertex_retryable_error; then
 		echo "Strix quick scan failed with a non-recoverable error." >&2
