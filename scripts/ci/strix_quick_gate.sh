@@ -1263,6 +1263,7 @@ child_env["STRIX_LLM"] = os.environ["STRIX_CHILD_MODEL"]
 child_env["LLM_MODEL"] = os.environ["STRIX_CHILD_MODEL"]
 child_env["LLM_API_KEY"] = os.environ["STRIX_CHILD_LLM_API_KEY"]
 child_env["STRIX_REPORTS_DIR"] = os.environ["STRIX_CHILD_REPORTS_DIR"]
+child_env["PYTHONWARNINGS"] = "ignore:Pydantic serializer warnings:UserWarning:pydantic.main"
 for key, value in os.environ.items():
     if key.startswith("FAKE_STRIX_") and value:
         child_env[key] = value
