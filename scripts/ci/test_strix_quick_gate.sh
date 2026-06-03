@@ -1880,7 +1880,7 @@ run_gate_case "openai-primary-unavailable-fallback-success" \
 	"Strix quick scan succeeded with fallback model 'openai/openai/gpt-4.1'." \
 	"2" \
 	"openai/openai/gpt-5|openai/openai/gpt-4.1" \
-	"<unset>|<unset>"
+	"https://example.invalid|https://example.invalid"
 
 run_gate_case "vertex-all-notfound" \
 	"vertex_ai/missing-primary" \
