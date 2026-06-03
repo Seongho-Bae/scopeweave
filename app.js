@@ -295,9 +295,15 @@ function renderAll() {
   const visibleTasks = getVisibleTasks();
   const rows = [];
 
+  // ⚡ Bolt: Cache parent IDs to optimize O(N^2) child lookups in renderTaskRow to O(1)
+  const parentIdsSet = new Set();
+  state.tasks.forEach(t => {
+    if (t.parentId != null) parentIdsSet.add(t.parentId);
+  });
+
   visibleTasks.forEach((task, index) => {
     const taskMetrics = metrics.byTask.get(task.id);
-    rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index));
+    rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index, parentIdsSet));
     if (state.editor.mode && state.editor.mode === 'edit' && state.editor.targetId === task.id) {
       rows.push(renderEditorRow(task.id));
     }
@@ -314,8 +320,9 @@ function renderAll() {
   renderEditorValidation();
 }
 
-function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
-  const hasChildren = state.tasks.some((candidate) => candidate.parentId === task.id);
+function renderTaskRow(task, taskMetrics, ownerColorMap, index, parentIdsSet) {
+  // ⚡ Bolt: Use pre-calculated set if available (O(1)), otherwise fallback to O(N) array search
+  const hasChildren = parentIdsSet ? parentIdsSet.has(task.id) : state.tasks.some((candidate) => candidate.parentId === task.id);
   const toggleButton = hasChildren
     ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
     : '<span class="toggle-placeholder"></span>';
@@ -796,6 +803,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
+  // ⚡ Bolt: Cache tasks by ID to optimize O(N) findTask lookup inside the while loop to O(1)
+  const taskMap = new Map();
+  state.tasks.forEach((task) => taskMap.set(task.id, task));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -816,7 +827,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
