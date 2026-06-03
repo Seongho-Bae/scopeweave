@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 🛡️ Sentinel: Enforce Content Security Policy to mitigate XSS and restrict external resource loading -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" />
     <title>ScopeWeave Planner</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
