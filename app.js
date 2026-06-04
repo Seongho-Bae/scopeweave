@@ -317,7 +317,7 @@ function renderAll() {
 function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
   const hasChildren = state.tasks.some((candidate) => candidate.parentId === task.id);
   const toggleButton = hasChildren
-    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}" title="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
+    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
     : '<span class="toggle-placeholder"></span>';
   const isLeaf = task.depth >= 3;
 
@@ -326,9 +326,9 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
       <td>
         <div class="action-stack">
           ${toggleButton}
-          <button type="button" class="icon-button" data-action="add-child" aria-label="하위 추가" title="${isLeaf ? '최대 3단계까지만 추가할 수 있습니다' : '하위 추가'}" ${isLeaf ? 'disabled' : ''}>＋</button>
-          <button type="button" class="icon-button" data-action="edit" aria-label="편집" title="편집">✎</button>
-          <button type="button" class="icon-button" data-action="delete" aria-label="삭제" title="삭제">🗑</button>
+          <button type="button" class="icon-button" data-action="add-child" aria-label="+ 하위 추가" ${isLeaf ? 'disabled' : ''}>＋</button>
+          <button type="button" class="icon-button" data-action="edit" aria-label="✏️ 편집">✎</button>
+          <button type="button" class="icon-button" data-action="delete" aria-label="🗑️ 삭제">🗑</button>
         </div>
       </td>
       <td>${renderTreeCell(task.phase, task.depth)}</td>
@@ -407,7 +407,7 @@ function renderEditorField(label, field, value, type = 'text') {
   return `
     <label class="editor-field">
       <span>${label}</span>
-      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}" placeholder="${label} 입력" />
+      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}" />
     </label>
   `;
 }
@@ -1203,7 +1203,7 @@ async function handleCsvImport(event) {
   try {
     const text = await file.text();
     const imported = parseCsv(text);
-    state.tasks = normalizeImportedTasks(imported);
+    state.tasks = validateImportedTasks(normalizeImportedTasks(imported));
     closeEditor();
     persistState();
     renderAll();
@@ -1214,6 +1214,43 @@ async function handleCsvImport(event) {
     event.target.value = '';
   }
 }
+
+function validateImportedTasks(tasks) {
+  const seenIds = new Set();
+  for (const task of tasks) {
+    if (seenIds.has(task.id)) {
+      throw new Error(`중복된 ID가 발견되었습니다: ${task.id}`);
+    }
+    seenIds.add(task.id);
+  }
+  for (const task of tasks) {
+    if (task.parentId && !seenIds.has(task.parentId)) {
+      throw new Error(`존재하지 않는 부모 ID를 참조합니다: ${task.parentId}`);
+    }
+  }
+  // Detect cycles
+  for (const task of tasks) {
+    let current = task.parentId;
+    const visited = new Set([task.id]);
+    while (current) {
+      if (visited.has(current)) {
+        throw new Error(`순환 참조가 발견되었습니다: ${task.id}`);
+      }
+      visited.add(current);
+      const parentTask = tasks.find(t => t.id === current);
+      current = parentTask ? parentTask.parentId : null;
+    }
+  }
+  return tasks;
+}
+
+function validateCsvCell(value, fieldName) {
+  if (!value) return value;
+  return value.substring(0, 1000); // basic length restriction
+}
+function validateCsvId(value) { return value; }
+function validateCsvParentId(value) { return value; }
+function validateCsvDepth(value) { return value; }
 
 function parseCsv(text) {
   const rows = [];
@@ -1275,22 +1312,22 @@ function parseCsv(text) {
   });
 
   return rows.slice(1).filter((cells) => cells.some((cell) => cell.trim() !== '')).map((cells) => ({
-    phase: readCsvCell(cells, headerMap, '단계'),
-    activity: readCsvCell(cells, headerMap, 'Activity'),
-    task: readCsvCell(cells, headerMap, 'Task'),
-    categoryLarge: readCsvCell(cells, headerMap, '대분류'),
-    categoryMedium: readCsvCell(cells, headerMap, '중분류'),
-    documentName: readCsvCell(cells, headerMap, '산출물'),
-    owner: readCsvCell(cells, headerMap, '담당자'),
-    supportTeam: readCsvCell(cells, headerMap, '지원팀'),
-    plannedStartDate: readCsvCell(cells, headerMap, '계획시작일'),
-    plannedEndDdate: readCsvCell(cells, headerMap, '계획종료일'),
-    actualProgressStatus: readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)',
-    actualStartDate: readCsvCell(cells, headerMap, '실적시작일'),
-    actualEndDate: readCsvCell(cells, headerMap, '실적종료일'),
-    __id: readCsvCell(cells, headerMap, '__id'),
-    __parentId: readCsvCell(cells, headerMap, '__parentId'),
-    __depth: readCsvCell(cells, headerMap, '__depth')
+    phase: validateCsvCell(readCsvCell(cells, headerMap, '단계'), 'phase'),
+    activity: validateCsvCell(readCsvCell(cells, headerMap, 'Activity'), 'activity'),
+    task: validateCsvCell(readCsvCell(cells, headerMap, 'Task'), 'task'),
+    categoryLarge: validateCsvCell(readCsvCell(cells, headerMap, '대분류'), 'categoryLarge'),
+    categoryMedium: validateCsvCell(readCsvCell(cells, headerMap, '중분류'), 'categoryMedium'),
+    documentName: validateCsvCell(readCsvCell(cells, headerMap, '산출물'), 'documentName'),
+    owner: validateCsvCell(readCsvCell(cells, headerMap, '담당자'), 'owner'),
+    supportTeam: validateCsvCell(readCsvCell(cells, headerMap, '지원팀'), 'supportTeam'),
+    plannedStartDate: validateCsvCell(readCsvCell(cells, headerMap, '계획시작일'), 'plannedStartDate'),
+    plannedEndDdate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDdate'),
+    actualProgressStatus: validateCsvCell(readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)', 'actualProgressStatus'),
+    actualStartDate: validateCsvCell(readCsvCell(cells, headerMap, '실적시작일'), 'actualStartDate'),
+    actualEndDate: validateCsvCell(readCsvCell(cells, headerMap, '실적종료일'), 'actualEndDate'),
+    __id: validateCsvId(readCsvCell(cells, headerMap, '__id')),
+    __parentId: validateCsvParentId(readCsvCell(cells, headerMap, '__parentId')),
+    __depth: validateCsvDepth(readCsvCell(cells, headerMap, '__depth'))
   }));
 }
 

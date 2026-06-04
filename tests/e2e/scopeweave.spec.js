@@ -25,12 +25,12 @@ const importCsv = async (page, csvText) => {
 };
 
 const createActivitySubtree = async (page, activityName, taskName) => {
-  await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '하위 추가' }).click();
+  await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '+ 하위 추가' }).click();
   await page.locator('[data-testid="editor-activity"]').fill(activityName);
   await page.getByRole('button', { name: '저장', exact: true }).click();
 
   const activityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: new RegExp(`^${activityName}$`) }) });
-  await activityRow.getByRole('button', { name: '하위 추가' }).click();
+  await activityRow.getByRole('button', { name: '+ 하위 추가' }).click();
   await page.locator('[data-testid="editor-task"]').fill(taskName);
   await page.getByRole('button', { name: '저장', exact: true }).click();
 
@@ -84,20 +84,20 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test('adds child row with copied parent values and blocks fourth depth', async ({ page }) => {
-    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '+ 하위 추가' }).click();
     await expect(page.locator('[data-testid="editor-phase"]')).toHaveValue('P0000.준비단계');
     await page.locator('[data-testid="editor-activity"]').fill('프로젝트준비 하위');
     await page.getByRole('button', { name: '저장', exact: true }).click();
 
     const childRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '프로젝트준비 하위' });
     await expect(childRow).toHaveCount(1);
-    await childRow.getByRole('button', { name: '하위 추가' }).click();
+    await childRow.getByRole('button', { name: '+ 하위 추가' }).click();
     await page.locator('[data-testid="editor-task"]').fill('세부업무');
     await page.getByRole('button', { name: '저장', exact: true }).click();
 
     const leafRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '세부업무' });
     await expect(leafRow).toHaveCount(1);
-    await expect(leafRow.getByRole('button', { name: '하위 추가' })).toBeDisabled();
+    await expect(leafRow.getByRole('button', { name: '+ 하위 추가' })).toBeDisabled();
   });
 
   test('opens gantt modal and renders chart bars with correct inline styles', async ({ page }) => {
@@ -145,7 +145,7 @@ test.describe('ScopeWeave Planner', () => {
       await dialog.dismiss();
     });
 
-    await page.locator('tbody tr[data-task-id]').filter({ hasText: '단계작업계획' }).first().getByRole('button', { name: '삭제' }).click();
+    await page.locator('tbody tr[data-task-id]').filter({ hasText: '단계작업계획' }).first().getByRole('button', { name: '🗑️ 삭제' }).click();
 
     await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: '단계작업계획' })).toHaveCount(1);
   });
@@ -156,7 +156,7 @@ test.describe('ScopeWeave Planner', () => {
       await dialog.accept();
     });
 
-    await page.locator('tbody tr[data-task-id]').filter({ hasText: '단계작업계획' }).first().getByRole('button', { name: '삭제' }).click();
+    await page.locator('tbody tr[data-task-id]').filter({ hasText: '단계작업계획' }).first().getByRole('button', { name: '🗑️ 삭제' }).click();
 
     await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: '단계작업계획' })).toHaveCount(0);
   });
@@ -211,7 +211,7 @@ test.describe('ScopeWeave Planner', () => {
   test('can edit an existing row and cancel the edit', async ({ page }) => {
     const targetRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '사업수행계획' }).first();
     const originalOwner = await targetRow.locator('.owner-badge').innerText();
-    await targetRow.getByRole('button', { name: '편집' }).click();
+    await targetRow.getByRole('button', { name: '✏️ 편집' }).click();
     await expect(page.locator('.editor-panel')).toBeVisible();
 
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
