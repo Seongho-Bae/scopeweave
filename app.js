@@ -317,7 +317,7 @@ function renderAll() {
 function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
   const hasChildren = state.tasks.some((candidate) => candidate.parentId === task.id);
   const toggleButton = hasChildren
-    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
+    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}" title="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
     : '<span class="toggle-placeholder"></span>';
   const isLeaf = task.depth >= 3;
 
@@ -326,9 +326,9 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
       <td>
         <div class="action-stack">
           ${toggleButton}
-          <button type="button" class="icon-button" data-action="add-child" aria-label="+ 하위 추가" ${isLeaf ? 'disabled' : ''}>＋</button>
-          <button type="button" class="icon-button" data-action="edit" aria-label="✏️ 편집">✎</button>
-          <button type="button" class="icon-button" data-action="delete" aria-label="🗑️ 삭제">🗑</button>
+          <button type="button" class="icon-button" data-action="add-child" aria-label="하위 추가" title="${isLeaf ? '최대 3단계까지만 추가할 수 있습니다' : '하위 추가'}" ${isLeaf ? 'disabled' : ''}>＋</button>
+          <button type="button" class="icon-button" data-action="edit" aria-label="편집" title="편집">✎</button>
+          <button type="button" class="icon-button" data-action="delete" aria-label="삭제" title="삭제">🗑</button>
         </div>
       </td>
       <td>${renderTreeCell(task.phase, task.depth)}</td>
@@ -407,7 +407,7 @@ function renderEditorField(label, field, value, type = 'text') {
   return `
     <label class="editor-field">
       <span>${label}</span>
-      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}" />
+      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}" placeholder="${label} 입력" />
     </label>
   `;
 }
