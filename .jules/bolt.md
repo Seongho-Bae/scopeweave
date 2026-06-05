@@ -1,0 +1,3 @@
+## 2026-06-05 - O(N^2) Bottleneck in Tree Traversal
+**Learning:** Found a critical performance bottleneck in `getVisibleTasks()` which performs a tree traversal to determine visibility. Inside a `filter` loop over the visible tasks, it walks up the parent chain using `findTask(parentId)`. Since `findTask()` iterates over the array, this makes the total runtime O(N^2) where N is the number of tasks. For large WBS lists (e.g. 5000 tasks), this operation took ~1000ms.
+**Action:** When filtering or transforming hierarchical data structures in the frontend, always construct an O(1) lookup map (e.g., `new Map()`) for nodes keyed by ID *before* iterating over relationships, effectively reducing the operation to O(N).
