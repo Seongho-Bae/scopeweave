@@ -1456,6 +1456,14 @@ is_openai_model_unavailable_error() {
 	return 1
 }
 
+is_openai_connection_error() {
+	# Match litellm/OpenAI connection errors that might span across lines
+	if grep -Eiqz '(OpenAIException|openai|litellm)[^A-Za-z0-9]*Connection error' "$STRIX_LOG"; then
+		return 0
+	fi
+	return 1
+}
+
 is_rate_limit_error() {
 	if grep -Fq 'RateLimitError' "$STRIX_LOG"; then
 		return 0
@@ -1874,6 +1882,10 @@ is_vertex_retryable_error() {
 	fi
 
 	if is_openai_model_unavailable_error; then
+		return 0
+	fi
+
+	if is_openai_connection_error; then
 		return 0
 	fi
 
