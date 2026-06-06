@@ -326,9 +326,9 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
       <td>
         <div class="action-stack">
           ${toggleButton}
-          <button type="button" class="icon-button" data-action="add-child" aria-label="+ 하위 추가" ${isLeaf ? 'disabled' : ''}>＋</button>
-          <button type="button" class="icon-button" data-action="edit" aria-label="✏️ 편집">✎</button>
-          <button type="button" class="icon-button" data-action="delete" aria-label="🗑️ 삭제">🗑</button>
+          <button type="button" class="icon-button" data-action="add-child" aria-label="하위 추가" title="${isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 작업 추가'}" ${isLeaf ? 'disabled' : ''}>＋</button>
+          <button type="button" class="icon-button" data-action="edit" aria-label="편집" title="작업 편집">✎</button>
+          <button type="button" class="icon-button" data-action="delete" aria-label="삭제" title="작업 삭제">🗑</button>
         </div>
       </td>
       <td>${renderTreeCell(task.phase, task.depth)}</td>
