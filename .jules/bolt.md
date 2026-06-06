@@ -1,0 +1,3 @@
+## 2025-05-18 - Optimize getVisibleTasks with O(1) Map lookup
+**Learning:** In hierarchical UI rendering where tasks are filtered based on their parents' expanded state, using a linear array search (`findTask`) inside a loop that traces up the parent chain causes an O(N^2) bottleneck, drastically reducing rendering performance.
+**Action:** When filtering or transforming hierarchical arrays, always construct an O(1) lookup map keyed by ID before iterating, rather than using nested linear searches.
