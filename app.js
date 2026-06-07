@@ -796,6 +796,9 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
+  // ⚡ Bolt: Construct an O(1) lookup map to prevent O(N²) linear searches in the filter loop
+  const taskMap = new Map(state.tasks.map(task => [task.id, task]));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -816,7 +819,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
