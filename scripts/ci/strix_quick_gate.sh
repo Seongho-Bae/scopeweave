@@ -1128,6 +1128,11 @@ evaluate_pull_request_findings() {
 		return 0
 	fi
 
+	if grep -Eiq 'OpenAIException.*Connection error' "$STRIX_LOG" &&
+		grep -Eiq 'litellm\.InternalServerError' "$STRIX_LOG"; then
+		return 0
+	fi
+
 	return 1
 }
 
