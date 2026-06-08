@@ -1456,6 +1456,14 @@ is_openai_model_unavailable_error() {
 	return 1
 }
 
+	is_connection_error() {
+		if grep -Eziq '(litellm\.InternalServerError|OpenAIException)[[:space:][:print:][:cntrl:]]*Connection error' "$STRIX_LOG"; then
+			return 0
+		fi
+
+		return 1
+	}
+
 is_rate_limit_error() {
 	if grep -Fq 'RateLimitError' "$STRIX_LOG"; then
 		return 0
@@ -1554,6 +1562,10 @@ has_detected_infrastructure_error() {
 	if is_timeout_error; then
 		return 0
 	fi
+
+		if is_connection_error; then
+			return 0
+		fi
 
 	if is_rate_limit_error; then
 		return 0
@@ -1876,6 +1888,10 @@ is_vertex_retryable_error() {
 	if is_openai_model_unavailable_error; then
 		return 0
 	fi
+
+		if is_connection_error; then
+			return 0
+		fi
 
 	if is_rate_limit_error; then
 		return 0
