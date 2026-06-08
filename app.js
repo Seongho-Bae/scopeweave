@@ -796,6 +796,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
+  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N^2) complexity.
+  // Parent tasks can appear after children in state.tasks, so we must populate fully first.
+  const taskMap = new Map(state.tasks.map(t => [t.id, t]));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -816,7 +820,9 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      // ⚡ Bolt Optimization: O(1) map lookup instead of O(N) linear search per parent level
+      // Expected impact: Reduces rendering time from O(N^2) to O(N) when deep hierarchies exist
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }

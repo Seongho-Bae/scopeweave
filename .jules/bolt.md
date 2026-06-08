@@ -1,0 +1,3 @@
+## 2024-06-08 - Pre-compute Maps before Traversal
+**Learning:** In the `state.tasks` array, parent tasks can sometimes appear *after* their children (due to insertion/moving logic or simply the nature of the application's task array ordering). Iterating dynamically over the tasks while searching for parent dependencies using an incrementally built map won't work consistently.
+**Action:** Always pre-compute a complete O(1) lookup map (e.g., `new Map(state.tasks.map(t => [t.id, t]))`) *before* starting any traversal loops, rather than building it dynamically or relying on O(N) methods like `findTask` which lead to O(N^2) bottlenecks.
