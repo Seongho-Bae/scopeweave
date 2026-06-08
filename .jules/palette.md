@@ -1,0 +1,3 @@
+## 2025-03-02 - Plain text aria-labels and descriptive tooltips
+**Learning:** Emojis inside aria-labels can cause awkward screen reader announcements. Using plain text for aria-labels, along with 'title' tooltips for icon-only buttons, improves both accessibility and visual context. Dynamically setting the title attribute for disabled states provides clearer guidance for users on why an action is restricted.
+**Action:** Always prefer plain text in aria-labels for clarity. Provide explicit descriptive 'title' tooltips on icon-only interactive elements, and consider explaining disabled states dynamically through these tooltips.
