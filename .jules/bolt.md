@@ -1,0 +1,3 @@
+## 2026-06-09 - Pre-computing O(1) lookups for hierarchical arrays
+**Learning:** Hierarchical array structures where parent nodes might appear after child nodes can cause O(N^2) bottlenecks when resolving trees recursively (e.g., rendering loop filtering tasks). Using a function like `findTask` inside a filter loop traverses the array every time, creating massive slowdowns for large datasets.
+**Action:** When filtering or mapping hierarchical task structures, always create a full O(1) lookup Map of tasks by ID before beginning the iteration. This ensures constant-time parent lookups and eliminates the O(N^2) bottleneck.
