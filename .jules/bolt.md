@@ -1,0 +1,3 @@
+## 2026-06-10 - O(N^2) Performance Bottleneck in Hierarchy Traversal
+**Learning:** Filtering or traversing a hierarchical array using nested linear lookups like `findTask()` (which uses `Array.find`) inside a `while` loop creates a hidden O(N^2) bottleneck. This is exceptionally expensive for render loops like `renderAll()`.
+**Action:** When filtering or traversing the hierarchical `tasks` array, always pre-compute an O(1) lookup map (e.g., `new Map(state.tasks.map(t => [t.id, t]))`) before iterating. Ensure the map is fully populated beforehand, as parent tasks can sometimes appear after their children in the array, leading to `undefined` lookups if populated dynamically.

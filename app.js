@@ -808,6 +808,11 @@ function getVisibleTasks() {
     }
   });
 
+  // Performance optimization: Pre-compute an O(1) lookup map for all tasks to avoid
+  // O(N^2) linear searches during hierarchy traversal using findTask.
+  // We populate this fully before the loop since child tasks can appear before their parents in the array.
+  const taskMap = new Map(state.tasks.map((t) => [t.id, t]));
+
   return visible.filter((task) => {
     let parentId = task.parentId;
     const visited = new Set([task.id]);
@@ -816,7 +821,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
