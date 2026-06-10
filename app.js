@@ -20,7 +20,7 @@ const ACTUAL_PROGRESS_OPTIONS = [
   'PM확인(100%)'
 ];
 
-const ACTUAL_PROGRESS_MAP = {
+const ACTUAL_PROGRESS_MAP = Object.assign(Object.create(null), {
   '미착수(0%)': 0,
   '착수(20%)': 20,
   '진행(30%)': 30,
@@ -31,7 +31,7 @@ const ACTUAL_PROGRESS_MAP = {
   '진행(80%)': 80,
   'PL검토(90%)': 90,
   'PM확인(100%)': 100
-};
+});
 
 const EDITABLE_FIELDS = [
   'phase',
@@ -641,9 +641,11 @@ function createChildDraft(task) {
 function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
-    sanitized[field] = (draft?.[field] || '').trim();
+    // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
+    sanitized[field] = String(draft?.[field] || '').trim();
   });
-  if (!sanitized.actualProgressStatus) {
+  // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
+  if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
     sanitized.actualProgressStatus = '미착수(0%)';
   }
   return sanitized;
