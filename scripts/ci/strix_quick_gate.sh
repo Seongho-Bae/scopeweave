@@ -142,7 +142,7 @@ validate_raw_target_path_input() {
 		return 2
 	fi
 	case "$raw_target" in
-	. | ./ | src | ./src)
+	. | ./ | src | ./src | __PR_SCOPE__)
 		printf '%s\n' "$raw_target"
 		return 0
 		;;
