@@ -796,6 +796,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
+  // ⚡ Bolt Optimization: Pre-compute task lookup to avoid O(N^2) complexity
+  // during ancestor traversal.
+  const taskMap = new Map(state.tasks.map(t => [t.id, t]));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -816,7 +820,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
