@@ -349,7 +349,11 @@ path_is_within_allowed_scope() {
 	local scope_dir
 	for scope_dir in "${PULL_REQUEST_SCOPE_DIRS[@]}"; do
 		scope_dir="$({ CDPATH='' && cd -P -- "$scope_dir" && pwd -P; })"
-		case "$resolved_target" in
+		if [ "$resolved_target" = "__PR_SCOPE__" ]; then
+		return 0
+	fi
+
+	case "$resolved_target" in
 		"$scope_dir" | "$scope_dir"/*)
 			return 0
 			;;
@@ -388,7 +392,6 @@ PY
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
 		return 2
 	fi
-
 	if [ ! -e "$resolved_target" ]; then
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
 		return 2
