@@ -20,7 +20,7 @@ const ACTUAL_PROGRESS_OPTIONS = [
   'PM확인(100%)'
 ];
 
-const ACTUAL_PROGRESS_MAP = {
+const ACTUAL_PROGRESS_MAP = Object.assign(Object.create(null), {
   '미착수(0%)': 0,
   '착수(20%)': 20,
   '진행(30%)': 30,
@@ -31,7 +31,7 @@ const ACTUAL_PROGRESS_MAP = {
   '진행(80%)': 80,
   'PL검토(90%)': 90,
   'PM확인(100%)': 100
-};
+});
 
 const EDITABLE_FIELDS = [
   'phase',
@@ -131,7 +131,7 @@ async function bootstrap() {
 
 function bindEvents() {
   elements.projectNameInput.addEventListener('input', (event) => {
-    state.projectName = event.target.value.trim() || DEFAULT_PROJECT_NAME;
+    state.projectName = String(event.target.value).trim() || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
   });
@@ -641,7 +641,7 @@ function createChildDraft(task) {
 function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
-    sanitized[field] = (draft?.[field] || '').trim();
+    sanitized[field] = String(draft?.[field] || '').trim();
   });
   if (!sanitized.actualProgressStatus) {
     sanitized.actualProgressStatus = '미착수(0%)';
@@ -1274,7 +1274,7 @@ function parseCsv(text) {
     }
   });
 
-  return rows.slice(1).filter((cells) => cells.some((cell) => cell.trim() !== '')).map((cells) => ({
+  return rows.slice(1).filter((cells) => cells.some((cell) => String(cell).trim() !== '')).map((cells) => ({
     phase: readCsvCell(cells, headerMap, '단계'),
     activity: readCsvCell(cells, headerMap, 'Activity'),
     task: readCsvCell(cells, headerMap, 'Task'),
@@ -1296,7 +1296,7 @@ function parseCsv(text) {
 
 function readCsvCell(cells, headerMap, name) {
   const index = headerMap.get(name);
-  return index === undefined ? '' : (cells[index] || '').trim();
+  return index === undefined ? '' : String(cells[index] || '').trim();
 }
 
 async function connectJsonSync() {
