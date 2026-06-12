@@ -361,6 +361,10 @@ path_is_within_allowed_scope() {
 
 resolve_scan_target_path() {
 	local raw_target="$1"
+	if [ "$raw_target" = "__PR_SCOPE__" ]; then
+		printf '%s\n' "$raw_target"
+		return 0
+	fi
 	local resolved_target
 	resolved_target="$({
 		python3 - "$REPO_ROOT" "$raw_target" <<'PY'
@@ -383,10 +387,6 @@ PY
 	if ! path_is_within_allowed_scope "$resolved_target"; then
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
 		return 2
-	fi
-	if [ "$raw_target" = "__PR_SCOPE__" ]; then
-		printf '%s\n' "$raw_target"
-		return 0
 	fi
 
 	if [ ! -e "$resolved_target" ]; then
