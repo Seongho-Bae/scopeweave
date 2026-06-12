@@ -336,6 +336,10 @@ is_pull_request_event() {
 
 path_is_within_allowed_scope() {
 	local resolved_target="$1"
+	if [ "$resolved_target" = "__PR_SCOPE__" ]; then
+		return 0
+	fi
+
 	case "$resolved_target" in
 	"$REPO_ROOT" | "$REPO_ROOT"/*)
 		return 0
@@ -380,6 +384,11 @@ PY
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
 		return 2
 	fi
+	if [ "$raw_target" = "__PR_SCOPE__" ]; then
+		printf '%s\n' "$raw_target"
+		return 0
+	fi
+
 	if [ ! -e "$resolved_target" ]; then
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
 		return 2
@@ -396,7 +405,9 @@ require_safe_scan_mode "$SCAN_MODE"
 if ! RAW_TARGET_PATH="$(validate_raw_target_path_input "$RAW_TARGET_PATH")"; then
 	exit 2
 fi
-if ! TARGET_PATH="$(resolve_scan_target_path "$RAW_TARGET_PATH")"; then
+if [ "$RAW_TARGET_PATH" = "__PR_SCOPE__" ]; then
+	TARGET_PATH="__PR_SCOPE__"
+elif ! TARGET_PATH="$(resolve_scan_target_path "$RAW_TARGET_PATH")"; then
 	exit 2
 fi
 
