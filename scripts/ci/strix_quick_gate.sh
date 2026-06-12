@@ -392,6 +392,7 @@ PY
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
 		return 2
 	fi
+
 	if [ ! -e "$resolved_target" ]; then
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
 		return 2
