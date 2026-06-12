@@ -1,0 +1,3 @@
+## 2024-06-12 - Prevent O(N^2) Bottleneck in Tree Generation
+**Learning:** Calling a linear array search method (like `Array.prototype.find()`) inside a loop over the same array to trace tree parents leads to a hidden O(N^2) complexity, causing scaling issues with large WBS datasets.
+**Action:** Always populate an O(1) Map dictionary lookup before iterating or filtering through flat hierarchical arrays when parent resolution is required.

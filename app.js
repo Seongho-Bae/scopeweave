@@ -808,6 +808,9 @@ function getVisibleTasks() {
     }
   });
 
+  // ⚡ Bolt: Use O(1) map lookup to prevent O(N^2) traversal
+  const taskMap = new Map(state.tasks.map((t) => [t.id, t]));
+
   return visible.filter((task) => {
     let parentId = task.parentId;
     const visited = new Set([task.id]);
@@ -816,7 +819,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
