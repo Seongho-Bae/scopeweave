@@ -842,9 +842,11 @@ extract_vulnerability_locations() {
 	local resolved_scan_target=""
 	local narrowed_workspace_prefix=""
 
-	if resolved_scan_target="$(resolve_scan_target_path "$TARGET_PATH" 2>/dev/null)"; then
-		if [ "$resolved_scan_target" != "$REPO_ROOT" ]; then
-			narrowed_workspace_prefix="/workspace/$(basename "$resolved_scan_target")/"
+	if [ "$TARGET_PATH" != "__PR_SCOPE__" ]; then
+		if resolved_scan_target="$(resolve_scan_target_path "$TARGET_PATH" 2>/dev/null)"; then
+			if [ "$resolved_scan_target" != "$REPO_ROOT" ]; then
+				narrowed_workspace_prefix="/workspace/$(basename "$resolved_scan_target")/"
+			fi
 		fi
 	fi
 
@@ -1217,7 +1219,9 @@ run_strix_once() {
 	if ! llm_api_base_value="$(resolved_llm_api_base_for_model "$model")"; then
 		return 1
 	fi
-	if ! resolved_target_path="$(resolve_scan_target_path "$TARGET_PATH")"; then
+	if [ "$TARGET_PATH" = "__PR_SCOPE__" ]; then
+		resolved_target_path="$TARGET_PATH"
+	elif ! resolved_target_path="$(resolve_scan_target_path "$TARGET_PATH")"; then
 		return 1
 	fi
 	local start_epoch
