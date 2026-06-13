@@ -1792,7 +1792,14 @@ is_hallucinated_endpoint_finding() {
 	# are not expanded by pathname expansion during word-splitting.
 	set -f
 	for dir_entry in $source_dirs_raw; do
-		local candidate="${TARGET_PATH%/}/$dir_entry"
+		local candidate
+		if [ "$TARGET_PATH" = "__PR_SCOPE__" ]; then
+			# During PR scope, TARGET_PATH is not a real directory.
+			# Use the current working directory for source inspection.
+			candidate="${PWD%/}/$dir_entry"
+		else
+			candidate="${TARGET_PATH%/}/$dir_entry"
+		fi
 		if [ -d "$candidate" ] && [ ! -L "$candidate" ]; then
 			resolved_dirs+=("$candidate")
 		fi
