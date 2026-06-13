@@ -398,7 +398,9 @@ require_safe_scan_mode "$SCAN_MODE"
 if ! RAW_TARGET_PATH="$(validate_raw_target_path_input "$RAW_TARGET_PATH")"; then
 	exit 2
 fi
-if ! TARGET_PATH="$(resolve_scan_target_path "$RAW_TARGET_PATH")"; then
+	if [ "$RAW_TARGET_PATH" = "__PR_SCOPE__" ]; then
+		TARGET_PATH="$RAW_TARGET_PATH"
+	elif ! TARGET_PATH="$(resolve_scan_target_path "$RAW_TARGET_PATH")"; then
 	exit 2
 fi
 
