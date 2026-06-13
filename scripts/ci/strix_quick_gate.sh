@@ -376,17 +376,19 @@ PY
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a valid path." >&2
 		return 2
 	}
-	if ! path_is_within_allowed_scope "$resolved_target"; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
-		return 2
-	fi
-	if [ ! -e "$resolved_target" ]; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
-		return 2
-	fi
-	if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
-		return 2
+	if [ "$raw_target" != "__PR_SCOPE__" ]; then
+		if ! path_is_within_allowed_scope "$resolved_target"; then
+			echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
+			return 2
+		fi
+		if [ ! -e "$resolved_target" ]; then
+			echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
+			return 2
+		fi
+			if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
+				echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
+				return 2
+			fi
 	fi
 	printf '%s\n' "$resolved_target"
 }
