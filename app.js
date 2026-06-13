@@ -808,6 +808,10 @@ function getVisibleTasks() {
     }
   });
 
+  // Bolt optimization: Pre-compute an O(1) task map to eliminate the O(N^2) bottleneck
+  // when repeatedly searching for parent tasks.
+  const taskMap = new Map(state.tasks.map(t => [t.id, t]));
+
   return visible.filter((task) => {
     let parentId = task.parentId;
     const visited = new Set([task.id]);
@@ -816,7 +820,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
