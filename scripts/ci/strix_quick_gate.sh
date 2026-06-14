@@ -336,6 +336,9 @@ is_pull_request_event() {
 
 path_is_within_allowed_scope() {
 	local resolved_target="$1"
+	if [[ "$resolved_target" == *"/__PR_SCOPE__" ]]; then
+		return 0
+	fi
 	case "$resolved_target" in
 	"$REPO_ROOT" | "$REPO_ROOT"/*)
 		return 0
