@@ -795,6 +795,7 @@ function getDateRangeWarning(startDate, endDate, message) {
 function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
+  const taskMap = new Map(state.tasks.map((t) => [t.id, t]));
 
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
@@ -816,7 +817,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskMap.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
