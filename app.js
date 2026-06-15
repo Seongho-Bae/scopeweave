@@ -295,9 +295,16 @@ function renderAll() {
   const visibleTasks = getVisibleTasks();
   const rows = [];
 
+  // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
+  const hasChildrenSet = new Set();
+  state.tasks.forEach(task => {
+    if (task.parentId) hasChildrenSet.add(task.parentId);
+  });
+
   visibleTasks.forEach((task, index) => {
     const taskMetrics = metrics.byTask.get(task.id);
-    rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index));
+    const hasChildren = hasChildrenSet.has(task.id);
+    rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren));
     if (state.editor.mode && state.editor.mode === 'edit' && state.editor.targetId === task.id) {
       rows.push(renderEditorRow(task.id));
     }
@@ -314,8 +321,7 @@ function renderAll() {
   renderEditorValidation();
 }
 
-function renderTaskRow(task, taskMetrics, ownerColorMap, index) {
-  const hasChildren = state.tasks.some((candidate) => candidate.parentId === task.id);
+function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const toggleButton = hasChildren
     ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
     : '<span class="toggle-placeholder"></span>';
