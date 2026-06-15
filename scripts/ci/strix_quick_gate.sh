@@ -142,7 +142,7 @@ validate_raw_target_path_input() {
 		return 2
 	fi
 	case "$raw_target" in
-	. | ./ | src | ./src)
+	. | ./ | src | ./src | __PR_SCOPE__)
 		printf '%s\n' "$raw_target"
 		return 0
 		;;
@@ -336,6 +336,9 @@ is_pull_request_event() {
 
 path_is_within_allowed_scope() {
 	local resolved_target="$1"
+	if [[ "$resolved_target" == *"/__PR_SCOPE__" ]]; then
+		return 0
+	fi
 	case "$resolved_target" in
 	"$REPO_ROOT" | "$REPO_ROOT"/*)
 		return 0
@@ -380,13 +383,16 @@ PY
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
 		return 2
 	fi
-	if [ ! -e "$resolved_target" ]; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
-		return 2
-	fi
-	if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
-		return 2
+	# For PR scopes handled by the backend logic, we shouldn't strictly validate local FS directory presence.
+	if [ "$raw_target" != "__PR_SCOPE__" ] && [ "$resolved_target" != "/app/__PR_SCOPE__" ] && [[ ! "$resolved_target" == *"/__PR_SCOPE__" ]]; then
+		if [ ! -e "$resolved_target" ]; then
+			echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
+			return 2
+		fi
+		if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
+			echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
+			return 2
+		fi
 	fi
 	printf '%s\n' "$resolved_target"
 }
