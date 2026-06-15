@@ -666,11 +666,11 @@ EOS
 			echo "│  Penetration test in progress                                                │"
 			echo "│  Vulnerabilities 0                                                           │"
 			echo "╰──────────────────────────────────────────────────────────────────────────────╯"
-			sleep 2
+			sleep 6
 			exit 0
 			;;
 		vertex_ai/fallback-one)
-			sleep 2
+			sleep 6
 			exit 0
 			;;
 		*)
@@ -2151,7 +2151,7 @@ run_gate_case "zero-findings-sticky-across-fallback" \
 	"0" \
 	"" \
 	"" \
-	"1" \
+	"3" \
 	"0" \
 	"pull_request" \
 	"sync-module-system/smart-crawling-biz/src/main/java/org/empasy/sync/modules/system/controller/SysPositionController.java"
