@@ -363,15 +363,16 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
 
 function renderEditorRow(anchorId) {
   const draft = state.editor.draft || createEmptyTaskDraft();
+  const depth = state.editor.depth;
   return `
     <tr class="editor-row" data-editor-anchor="${escapeHtml(anchorId)}">
       <td colspan="21">
         <div class="editor-panel">
           <form data-editor-form="true">
             <div class="editor-grid">
-              ${renderEditorField('단계', 'phase', draft.phase)}
-              ${renderEditorField('Activity', 'activity', draft.activity)}
-              ${renderEditorField('Task', 'task', draft.task)}
+              ${renderEditorField('단계', 'phase', draft.phase, 'text', depth === 1, '예: P1000.분석단계')}
+              ${renderEditorField('Activity', 'activity', draft.activity, 'text', depth === 2, '예: 요구사항 분석')}
+              ${renderEditorField('Task', 'task', draft.task, 'text', depth === 3, '예: 인터뷰 진행')}
               ${renderEditorField('대분류', 'categoryLarge', draft.categoryLarge)}
               ${renderEditorField('중분류', 'categoryMedium', draft.categoryMedium)}
               ${renderEditorField('산출물', 'documentName', draft.documentName)}
@@ -395,7 +396,7 @@ function renderEditorRow(anchorId) {
   `;
 }
 
-function renderEditorField(label, field, value, type = 'text') {
+function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
   const testIdMap = {
     phase: 'editor-phase',
     activity: 'editor-activity',
@@ -410,10 +411,13 @@ function renderEditorField(label, field, value, type = 'text') {
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
+  const requiredHtml = required ? ' <span class="text-red-500" style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
+  const requiredAttr = required ? ' required aria-required="true"' : '';
+  const placeholderAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
   return `
     <label class="editor-field">
-      <span>${label}</span>
-      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}" />
+      <span>${label}${requiredHtml}</span>
+      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}"${requiredAttr}${placeholderAttr} />
     </label>
   `;
 }
