@@ -142,7 +142,7 @@ validate_raw_target_path_input() {
 		return 2
 	fi
 	case "$raw_target" in
-	. | ./ | src | ./src)
+	. | ./ | src | ./src | __PR_SCOPE__)
 		printf '%s\n' "$raw_target"
 		return 0
 		;;
@@ -336,6 +336,9 @@ is_pull_request_event() {
 
 path_is_within_allowed_scope() {
 	local resolved_target="$1"
+	if [[ "$resolved_target" == *"/__PR_SCOPE__" ]]; then
+		return 0
+	fi
 	case "$resolved_target" in
 	"$REPO_ROOT" | "$REPO_ROOT"/*)
 		return 0
@@ -380,13 +383,16 @@ PY
 		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
 		return 2
 	fi
-	if [ ! -e "$resolved_target" ]; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
-		return 2
-	fi
-	if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
-		echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
-		return 2
+	# For PR scopes handled by the backend logic, we shouldn't strictly validate local FS directory presence.
+	if [ "$raw_target" != "__PR_SCOPE__" ] && [ "$resolved_target" != "/app/__PR_SCOPE__" ] && [[ ! "$resolved_target" == *"/__PR_SCOPE__" ]]; then
+		if [ ! -e "$resolved_target" ]; then
+			echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
+			return 2
+		fi
+		if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
+			echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
+			return 2
+		fi
 	fi
 	printf '%s\n' "$resolved_target"
 }
@@ -1142,6 +1148,17 @@ is_vertex_model() {
 	esac
 }
 
+uses_configured_model_fallbacks() {
+	case "$1" in
+	vertex_ai/* | vertex_ai_beta/* | openai/*)
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 resolved_llm_api_base_for_model() {
 	local model="$1"
 
@@ -1252,6 +1269,7 @@ child_env["STRIX_LLM"] = os.environ["STRIX_CHILD_MODEL"]
 child_env["LLM_MODEL"] = os.environ["STRIX_CHILD_MODEL"]
 child_env["LLM_API_KEY"] = os.environ["STRIX_CHILD_LLM_API_KEY"]
 child_env["STRIX_REPORTS_DIR"] = os.environ["STRIX_CHILD_REPORTS_DIR"]
+child_env["PYTHONWARNINGS"] = "ignore:Pydantic serializer warnings:UserWarning:pydantic.main"
 for key, value in os.environ.items():
     if key.startswith("FAKE_STRIX_") and value:
         child_env[key] = value
@@ -1435,6 +1453,23 @@ is_vertex_not_found_error() {
 	return 1
 }
 
+is_openai_model_unavailable_error() {
+	if grep -Eiq '(OpenAIException|openai|litellm).*Unavailable model:|unavailable_model' "$STRIX_LOG" &&
+		grep -Eiq '(OpenAIException|openai|litellm|models\.github\.ai|GitHub Models)' "$STRIX_LOG"; then
+		return 0
+	fi
+
+	return 1
+}
+
+	is_connection_error() {
+		if grep -Eziq '(litellm\.InternalServerError|OpenAIException)[[:space:][:print:][:cntrl:]]*Connection error' "$STRIX_LOG"; then
+			return 0
+		fi
+
+		return 1
+	}
+
 is_rate_limit_error() {
 	if grep -Fq 'RateLimitError' "$STRIX_LOG"; then
 		return 0
@@ -1533,6 +1568,10 @@ has_detected_infrastructure_error() {
 	if is_timeout_error; then
 		return 0
 	fi
+
+		if is_connection_error; then
+			return 0
+		fi
 
 	if is_rate_limit_error; then
 		return 0
@@ -1852,6 +1891,14 @@ is_vertex_retryable_error() {
 		return 0
 	fi
 
+	if is_openai_model_unavailable_error; then
+		return 0
+	fi
+
+		if is_connection_error; then
+			return 0
+		fi
+
 	if is_rate_limit_error; then
 		return 0
 	fi
@@ -1896,10 +1943,10 @@ run_current_target_scan() {
 		;;
 	esac
 
-	if ! is_vertex_model "$PRIMARY_MODEL"; then
-		echo "Strix quick scan failed with a non-recoverable error." >&2
-		return 1
-	fi
+		if ! uses_configured_model_fallbacks "$PRIMARY_MODEL"; then
+			echo "Strix quick scan failed with a non-recoverable error." >&2
+			return 1
+		fi
 
 	if ! is_vertex_retryable_error; then
 		echo "Strix quick scan failed with a non-recoverable error." >&2

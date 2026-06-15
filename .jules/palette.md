@@ -1,3 +1,3 @@
-## 2026-05-31 - Tooltips for Icon-Only Buttons and Disabled States
-**Learning:** While `aria-label` makes icon-only buttons accessible to screen readers, sighted users often struggle without visual text. Furthermore, when an action is disabled (e.g., adding a child to a leaf node), users need to know *why* they cannot perform the action. Tooltips bridge this gap.
-**Action:** Always provide `title` attributes on icon-only buttons for sighted users, and use tooltips to explicitly explain disabled states.
+## 2026-06-14 - Remove emojis from ARIA labels
+**Learning:** Emojis should be avoided in `aria-label` attributes as they are announced awkwardly by screen readers, leading to poor accessibility. Also, icon-only buttons need explicit `title` attributes explaining the disabled state (e.g. why they can't be clicked) to improve user experience.
+**Action:** Use plain text for `aria-label` attributes. When an icon-only button is disabled, ensure the `title` attribute clearly explains the reason for it being disabled.

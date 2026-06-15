@@ -320,6 +320,12 @@ button {
   outline: none;
 }
 
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
+}
+
 .toggle-placeholder {
   display: inline-flex;
   width: 32px;
@@ -411,6 +417,14 @@ button {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.editor-field input:focus,
+.editor-field select:focus,
+select[data-inline-progress]:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  outline: none;
 }
 
 .editor-actions {
