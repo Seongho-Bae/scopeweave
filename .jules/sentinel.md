@@ -1,3 +1,8 @@
+## 2026-06-02 - Add CSP Header and secure ID Generation
+**Vulnerability:** Weak randomness when creating task IDs and lack of protection against XSS exfiltration.
+**Learning:** `Math.random` is an easily predictable random source, and static applications without CSP allow scripts to run from unexpected domains and exfiltrate data.
+**Prevention:** Always use `crypto.randomUUID()` when available in browser environments, and provide strong Content-Security-Policy headers on the entry `index.html`.
+
 ## 2026-06-08 - Added Content Security Policy to index.html
 **Vulnerability:** Missing Content Security Policy (CSP) headers or meta tags, leaving the pure HTML/JS frontend exposed to Cross-Site Scripting (XSS) via potential data injection (e.g. from wbs.json).
 **Learning:** For a static client-side application where no server is managing HTTP headers, a CSP can be enforced directly using a `<meta>` tag.
