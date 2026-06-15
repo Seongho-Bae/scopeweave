@@ -1946,7 +1946,7 @@ run_current_target_scan() {
 			;;
 		esac
 
-		if ! is_vertex_retryable_error; then
+		if ! is_vertex_retryable_error && ! [[ "$candidate" == openai/* ]]; then
 			echo "Strix quick scan failed with a non-recoverable error." >&2
 			return 1
 		fi
