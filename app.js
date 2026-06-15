@@ -20,7 +20,7 @@ const ACTUAL_PROGRESS_OPTIONS = [
   'PM확인(100%)'
 ];
 
-const ACTUAL_PROGRESS_MAP = {
+const ACTUAL_PROGRESS_MAP = Object.assign(Object.create(null), {
   '미착수(0%)': 0,
   '착수(20%)': 20,
   '진행(30%)': 30,
@@ -31,7 +31,7 @@ const ACTUAL_PROGRESS_MAP = {
   '진행(80%)': 80,
   'PL검토(90%)': 90,
   'PM확인(100%)': 100
-};
+});
 
 const EDITABLE_FIELDS = [
   'phase',
@@ -332,9 +332,9 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
       <td>
         <div class="action-stack">
           ${toggleButton}
-          <button type="button" class="icon-button" data-action="add-child" aria-label="+ 하위 추가" ${isLeaf ? 'disabled' : ''}>＋</button>
-          <button type="button" class="icon-button" data-action="edit" aria-label="✏️ 편집">✎</button>
-          <button type="button" class="icon-button" data-action="delete" aria-label="🗑️ 삭제">🗑</button>
+          <button type="button" class="icon-button" data-action="add-child" aria-label="하위 추가" title="${isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가'}" ${isLeaf ? 'disabled' : ''}>＋</button>
+          <button type="button" class="icon-button" data-action="edit" aria-label="편집" title="편집">✎</button>
+          <button type="button" class="icon-button" data-action="delete" aria-label="삭제" title="삭제">🗑</button>
         </div>
       </td>
       <td>${renderTreeCell(task.phase, task.depth)}</td>
@@ -647,9 +647,11 @@ function createChildDraft(task) {
 function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
-    sanitized[field] = (draft?.[field] || '').trim();
+    // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
+    sanitized[field] = String(draft?.[field] || '').trim();
   });
-  if (!sanitized.actualProgressStatus) {
+  // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
+  if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
     sanitized.actualProgressStatus = '미착수(0%)';
   }
   return sanitized;
@@ -802,6 +804,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
+  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
+  const taskById = new Map();
+  state.tasks.forEach((task) => taskById.set(task.id, task));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -822,7 +828,7 @@ function getVisibleTasks() {
         break;
       }
       visited.add(parentId);
-      const parent = findTask(parentId);
+      const parent = taskById.get(parentId);
       if (parent && !parent.expanded) {
         return false;
       }
@@ -1209,7 +1215,7 @@ async function handleCsvImport(event) {
   try {
     const text = await file.text();
     const imported = parseCsv(text);
-    state.tasks = normalizeImportedTasks(imported);
+    state.tasks = validateImportedTasks(normalizeImportedTasks(imported));
     closeEditor();
     persistState();
     renderAll();
@@ -1220,6 +1226,43 @@ async function handleCsvImport(event) {
     event.target.value = '';
   }
 }
+
+function validateImportedTasks(tasks) {
+  const seenIds = new Set();
+  for (const task of tasks) {
+    if (seenIds.has(task.id)) {
+      throw new Error(`중복된 ID가 발견되었습니다: ${task.id}`);
+    }
+    seenIds.add(task.id);
+  }
+  for (const task of tasks) {
+    if (task.parentId && !seenIds.has(task.parentId)) {
+      throw new Error(`존재하지 않는 부모 ID를 참조합니다: ${task.parentId}`);
+    }
+  }
+  // Detect cycles
+  for (const task of tasks) {
+    let current = task.parentId;
+    const visited = new Set([task.id]);
+    while (current) {
+      if (visited.has(current)) {
+        throw new Error(`순환 참조가 발견되었습니다: ${task.id}`);
+      }
+      visited.add(current);
+      const parentTask = tasks.find(t => t.id === current);
+      current = parentTask ? parentTask.parentId : null;
+    }
+  }
+  return tasks;
+}
+
+function validateCsvCell(value, fieldName) {
+  if (!value) return value;
+  return value.substring(0, 1000); // basic length restriction
+}
+function validateCsvId(value) { return value; }
+function validateCsvParentId(value) { return value; }
+function validateCsvDepth(value) { return value; }
 
 function parseCsv(text) {
   const rows = [];
@@ -1281,22 +1324,22 @@ function parseCsv(text) {
   });
 
   return rows.slice(1).filter((cells) => cells.some((cell) => cell.trim() !== '')).map((cells) => ({
-    phase: readCsvCell(cells, headerMap, '단계'),
-    activity: readCsvCell(cells, headerMap, 'Activity'),
-    task: readCsvCell(cells, headerMap, 'Task'),
-    categoryLarge: readCsvCell(cells, headerMap, '대분류'),
-    categoryMedium: readCsvCell(cells, headerMap, '중분류'),
-    documentName: readCsvCell(cells, headerMap, '산출물'),
-    owner: readCsvCell(cells, headerMap, '담당자'),
-    supportTeam: readCsvCell(cells, headerMap, '지원팀'),
-    plannedStartDate: readCsvCell(cells, headerMap, '계획시작일'),
-    plannedEndDdate: readCsvCell(cells, headerMap, '계획종료일'),
-    actualProgressStatus: readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)',
-    actualStartDate: readCsvCell(cells, headerMap, '실적시작일'),
-    actualEndDate: readCsvCell(cells, headerMap, '실적종료일'),
-    __id: readCsvCell(cells, headerMap, '__id'),
-    __parentId: readCsvCell(cells, headerMap, '__parentId'),
-    __depth: readCsvCell(cells, headerMap, '__depth')
+    phase: validateCsvCell(readCsvCell(cells, headerMap, '단계'), 'phase'),
+    activity: validateCsvCell(readCsvCell(cells, headerMap, 'Activity'), 'activity'),
+    task: validateCsvCell(readCsvCell(cells, headerMap, 'Task'), 'task'),
+    categoryLarge: validateCsvCell(readCsvCell(cells, headerMap, '대분류'), 'categoryLarge'),
+    categoryMedium: validateCsvCell(readCsvCell(cells, headerMap, '중분류'), 'categoryMedium'),
+    documentName: validateCsvCell(readCsvCell(cells, headerMap, '산출물'), 'documentName'),
+    owner: validateCsvCell(readCsvCell(cells, headerMap, '담당자'), 'owner'),
+    supportTeam: validateCsvCell(readCsvCell(cells, headerMap, '지원팀'), 'supportTeam'),
+    plannedStartDate: validateCsvCell(readCsvCell(cells, headerMap, '계획시작일'), 'plannedStartDate'),
+    plannedEndDdate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDdate'),
+    actualProgressStatus: validateCsvCell(readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)', 'actualProgressStatus'),
+    actualStartDate: validateCsvCell(readCsvCell(cells, headerMap, '실적시작일'), 'actualStartDate'),
+    actualEndDate: validateCsvCell(readCsvCell(cells, headerMap, '실적종료일'), 'actualEndDate'),
+    __id: validateCsvId(readCsvCell(cells, headerMap, '__id')),
+    __parentId: validateCsvParentId(readCsvCell(cells, headerMap, '__parentId')),
+    __depth: validateCsvDepth(readCsvCell(cells, headerMap, '__depth'))
   }));
 }
 
