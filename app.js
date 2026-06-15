@@ -323,7 +323,7 @@ function renderAll() {
 
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const toggleButton = hasChildren
-    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
+    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}" title="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
     : '<span class="toggle-placeholder"></span>';
   const isLeaf = task.depth >= 3;
 

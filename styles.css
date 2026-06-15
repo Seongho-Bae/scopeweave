@@ -298,13 +298,19 @@ button {
   box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);
 }
 
-.icon-button:hover,
-.toggle-button:hover {
+.icon-button:hover:not(:disabled),
+.toggle-button:hover:not(:disabled) {
   background: #f8fafc;
   border-color: var(--border-strong);
   color: var(--text);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05);
+}
+
+.icon-button:disabled,
+.toggle-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .icon-button:focus-visible,
