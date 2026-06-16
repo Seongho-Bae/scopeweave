@@ -11,3 +11,6 @@
 ## 2026-06-16 - Package Lock Drift during Testing
 **Learning:** Running `npm install` to set up the local testing environment (Playwright) can accidentally modify `package-lock.json`, which should not be committed unless dependencies were explicitly changed as part of the task.
 **Action:** Always run `git checkout package-lock.json` or `git restore package-lock.json` before creating a pull request if the task did not involve dependency updates.
+## 2026-06-16 - Safe HTML Rendering in UX Improvements
+**Learning:** Adding new UI elements or templates often requires building HTML strings and inserting them via `innerHTML`. However, if these templates include user-controllable data without escaping, it creates a Stored XSS vulnerability, which can be flagged by security scanners (like Strix) or exploited by attackers.
+**Action:** When improving UX with new layouts or lists, always use safe rendering methods: use `textContent` when updating pure text, and pass any dynamic user input through `escapeHtml()` when building larger template strings before injecting them into the DOM.

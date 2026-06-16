@@ -1428,7 +1428,7 @@ function closeGanttModal() {
 function renderGantt() {
   const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDdate));
   if (plannedTasks.length === 0) {
-    elements.ganttContent.innerHTML = '<div class="gantt-empty">계획 일정이 있는 작업이 없습니다.</div>';
+    elements.ganttContent.textContent = '계획 일정이 있는 작업이 없습니다.';
     return;
   }
 
