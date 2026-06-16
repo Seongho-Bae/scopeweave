@@ -1241,6 +1241,8 @@ function validateImportedTasks(tasks) {
     }
   }
   // Detect cycles
+  // ⚡ Bolt: Use O(1) Map lookup instead of O(N) tasks.find to prevent O(N^2) bottleneck during cycle detection
+  const taskById = new Map(tasks.map(t => [t.id, t]));
   for (const task of tasks) {
     let current = task.parentId;
     const visited = new Set([task.id]);
@@ -1249,7 +1251,7 @@ function validateImportedTasks(tasks) {
         throw new Error(`순환 참조가 발견되었습니다: ${task.id}`);
       }
       visited.add(current);
-      const parentTask = tasks.find(t => t.id === current);
+      const parentTask = taskById.get(current);
       current = parentTask ? parentTask.parentId : null;
     }
   }
