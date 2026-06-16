@@ -1535,11 +1535,18 @@ function createGanttBar(startDate, endDate, weekdays, type) {
     return '';
   }
   const startIndex = weekdays.findIndex((day) => compareDateStrings(day.date, startDate) >= 0);
-  const endIndex = [...weekdays].reverse().findIndex((day) => compareDateStrings(day.date, endDate) <= 0);
-  if (startIndex === -1 || endIndex === -1) {
+  // ⚡ Bolt: Replace O(N) array clone+reverse with reverse loop to avoid O(T*D) memory allocations in Gantt render
+  let normalizedEndIndex = -1;
+  for (let i = weekdays.length - 1; i >= 0; i -= 1) {
+    if (compareDateStrings(weekdays[i].date, endDate) <= 0) {
+      normalizedEndIndex = i;
+      break;
+    }
+  }
+
+  if (startIndex === -1 || normalizedEndIndex === -1) {
     return '';
   }
-  const normalizedEndIndex = weekdays.length - 1 - endIndex;
   if (normalizedEndIndex < startIndex) {
     return '';
   }
