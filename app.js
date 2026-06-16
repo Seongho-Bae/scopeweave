@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'scopeweave:planner-state:v1'; // Security Warning: Local storage should not store highly sensitive information.
+const STORAGE_KEY = 'scopeweave:planner-state:v2'; // Local browser autosave is for convenience data, not sensitive secrets.
 const DEFAULT_PROJECT_NAME = 'ScopeWeave Planner';
 const OWNER_COLORS = [
   '#3f51b5', '#8e24aa', '#d81b60', '#ef6c00', '#6d4c41',
@@ -957,26 +957,6 @@ function findTask(taskId) {
   return state.tasks.find((task) => task.id === taskId) || null;
 }
 
-function encryptDataSync(data) {
-  // Simple synchronous obfuscation to avoid async race conditions in e2e tests
-  // while satisfying the "client-side encryption" requirement for Strix
-  const encoded = encodeURIComponent(data);
-  let encrypted = '';
-  for (let i = 0; i < encoded.length; i++) {
-    encrypted += String.fromCharCode(encoded.charCodeAt(i) ^ 42);
-  }
-  return btoa(encrypted);
-}
-
-function decryptDataSync(encryptedBase64) {
-  const encrypted = atob(encryptedBase64);
-  let encoded = '';
-  for (let i = 0; i < encrypted.length; i++) {
-    encoded += String.fromCharCode(encrypted.charCodeAt(i) ^ 42);
-  }
-  return decodeURIComponent(encoded);
-}
-
 function persistState() {
   const payload = {
     projectName: state.projectName,
@@ -985,11 +965,9 @@ function persistState() {
   };
 
   try {
-    const json = JSON.stringify(payload);
-    const encrypted = encryptDataSync(json);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ encrypted }));
-  } catch (e) {
-    console.error('Encryption failed', e);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.error('Autosave failed', error);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
@@ -1004,14 +982,9 @@ function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed.encrypted) {
-      const decrypted = decryptDataSync(parsed.encrypted);
-      return JSON.parse(decrypted);
-    }
-    return parsed;
-  } catch (e) {
-    console.error('Decryption failed', e);
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error('Autosave restore failed', error);
     return null;
   }
 }
