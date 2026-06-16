@@ -4,3 +4,10 @@
 ## 2026-06-15 - Add required field indicators to editor fields
 **Learning:** Forms are difficult for screen-reader and visual users alike when required fields are unclear until submission fails. Combining a visual asterisk with a hidden (필수) text and aria-required significantly improves form accessibility.
 **Action:** Use aria-required="true", visual indicators like asterisks, and placeholders for dynamically generated form fields.
+## 2026-06-16 - Inline Styles vs Existing Classes
+**Learning:** Adding new UI states (like empty states) often tempts the use of inline styles when existing classes don't quite fit the new elements. However, this violates the strict rule against custom CSS and inline styles.
+**Action:** Always search the existing CSS files (`styles.css`) for utility classes before writing inline styles. If custom styling is absolutely necessary, add it directly to `styles.css` instead of using inline style attributes.
+
+## 2026-06-16 - Package Lock Drift during Testing
+**Learning:** Running `npm install` to set up the local testing environment (Playwright) can accidentally modify `package-lock.json`, which should not be committed unless dependencies were explicitly changed as part of the task.
+**Action:** Always run `git checkout package-lock.json` or `git restore package-lock.json` before creating a pull request if the task did not involve dependency updates.

@@ -317,6 +317,20 @@ function renderAll() {
     rows.unshift(renderEditorRow('root-create-anchor'));
   }
 
+  if (rows.length === 0) {
+    rows.push(`
+      <tr>
+        <td colspan="21">
+          <div class="gantt-empty">
+            <div class="empty-icon" aria-hidden="true">📋</div>
+            <h3 class="empty-title">등록된 작업이 없습니다</h3>
+            <p class="empty-desc">하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,<br>'CSV 가져오기'를 통해 기존 데이터를 불러오세요.</p>
+          </div>
+        </td>
+      </tr>
+    `);
+  }
+
   elements.tableBody.innerHTML = rows.join('');
   renderEditorValidation();
 }
