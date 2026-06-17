@@ -1533,17 +1533,22 @@ function buildWeekdayTimeline(minDate, maxDate) {
 
 function groupTimelineByWeek(days) {
   const groups = [];
+  // ⚡ Bolt: Cache existing weekly groups in an O(1) Map instead of calling O(N) groups.find
+  // to eliminate an O(N^2) bottleneck that slows down the rendering of the Gantt chart.
+  const groupMap = new Map();
   days.forEach((day) => {
     const monday = getMonday(day.date);
-    const existing = groups.find((group) => group.monday === monday);
+    const existing = groupMap.get(monday);
     if (existing) {
       existing.days.push(day);
     } else {
-      groups.push({
+      const newGroup = {
         monday,
         label: `${monday.slice(5, 7)}월 ${monday.slice(8, 10)}일 주간`,
         days: [day]
-      });
+      };
+      groups.push(newGroup);
+      groupMap.set(monday, newGroup);
     }
   });
   return groups;
