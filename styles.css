@@ -785,3 +785,21 @@ select[data-inline-progress]:focus {
     filter: none !important;
   }
 }
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.empty-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.empty-desc {
+  margin: 0;
+  line-height: 1.5;
+}

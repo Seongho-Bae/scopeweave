@@ -317,6 +317,20 @@ function renderAll() {
     rows.unshift(renderEditorRow('root-create-anchor'));
   }
 
+  if (rows.length === 0) {
+    rows.push(`
+      <tr>
+        <td colspan="21">
+          <div class="gantt-empty">
+            <div class="empty-icon" aria-hidden="true">📋</div>
+            <h3 class="empty-title">등록된 작업이 없습니다</h3>
+            <p class="empty-desc">하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,<br>'CSV 가져오기'를 통해 기존 데이터를 불러오세요.</p>
+          </div>
+        </td>
+      </tr>
+    `);
+  }
+
   elements.tableBody.innerHTML = rows.join('');
   renderEditorValidation();
 }
@@ -950,6 +964,7 @@ function persistState() {
     tasks: state.tasks.map((task) => ({ ...task }))
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {
       showToast('연결된 wbs.json 파일 저장에 실패했습니다.');
@@ -1414,7 +1429,11 @@ function closeGanttModal() {
 function renderGantt() {
   const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDdate));
   if (plannedTasks.length === 0) {
-    elements.ganttContent.innerHTML = '<div class="gantt-empty">계획 일정이 있는 작업이 없습니다.</div>';
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'gantt-empty';
+    emptyDiv.textContent = '계획 일정이 있는 작업이 없습니다.';
+    elements.ganttContent.innerHTML = '';
+    elements.ganttContent.appendChild(emptyDiv);
     return;
   }
 
@@ -1589,8 +1608,8 @@ function downloadFile(content, fileName, mimeType) {
 
 function csvEscape(value) {
   let normalized = String(value ?? '');
-  if (/^[=+\-@\s]/.test(normalized)) {
-    normalized = "'" + normalized;
+  if (/^\s*[=+\-@]/.test(normalized)) {
+    normalized = `\t${normalized}`;
   }
   return `"${normalized.replace(/"/g, '""')}"`;
 }
