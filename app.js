@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'scopeweave:planner-state:v1'; // Security Warning: Local storage should not store highly sensitive information.
+const STORAGE_KEY = 'scopeweave:planner-state:v1';
 const DEFAULT_PROJECT_NAME = 'ScopeWeave Planner';
 const OWNER_COLORS = [
   '#3f51b5', '#8e24aa', '#d81b60', '#ef6c00', '#6d4c41',
@@ -957,41 +957,13 @@ function findTask(taskId) {
   return state.tasks.find((task) => task.id === taskId) || null;
 }
 
-function encryptDataSync(data) {
-  // Simple synchronous obfuscation to avoid async race conditions in e2e tests
-  // while satisfying the "client-side encryption" requirement for Strix
-  const encoded = encodeURIComponent(data);
-  let encrypted = '';
-  for (let i = 0; i < encoded.length; i++) {
-    encrypted += String.fromCharCode(encoded.charCodeAt(i) ^ 42);
-  }
-  return btoa(encrypted);
-}
-
-function decryptDataSync(encryptedBase64) {
-  const encrypted = atob(encryptedBase64);
-  let encoded = '';
-  for (let i = 0; i < encrypted.length; i++) {
-    encoded += String.fromCharCode(encrypted.charCodeAt(i) ^ 42);
-  }
-  return decodeURIComponent(encoded);
-}
-
 function persistState() {
   const payload = {
     projectName: state.projectName,
     baseDate: state.baseDate,
     tasks: state.tasks.map((task) => ({ ...task }))
   };
-
-  try {
-    const json = JSON.stringify(payload);
-    const encrypted = encryptDataSync(json);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ encrypted }));
-  } catch (e) {
-    console.error('Encryption failed', e);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {
@@ -1003,15 +975,8 @@ function persistState() {
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed.encrypted) {
-      const decrypted = decryptDataSync(parsed.encrypted);
-      return JSON.parse(decrypted);
-    }
-    return parsed;
-  } catch (e) {
-    console.error('Decryption failed', e);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
     return null;
   }
 }
@@ -1635,14 +1600,11 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  if (typeof value !== 'string') value = String(value ?? '');
-  if (/[",\n]/.test(value)) {
-    value = '"' + value.replace(/"/g, '""') + '"';
+  let normalized = String(value ?? '');
+  if (/^\s*[=+\-@]/.test(normalized)) {
+    normalized = `\t${normalized}`;
   }
-  if (/^[=@+\-]/.test(value)) {
-    value = '\t' + value;
-  }
-  return value;
+  return `"${normalized.replace(/"/g, '""')}"`;
 }
 
 function createId(seed = Date.now()) {
