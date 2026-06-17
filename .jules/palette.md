@@ -20,3 +20,6 @@
 ## 2026-06-16 - CI dependency resolution
 **Learning:** During test runs, upstream tools like Strix Agent might occasionally fail due to unpinned or missing transitive dependencies (like `tzlocal` dropping out of `scrubadub` or `dateparser`).
 **Action:** When CI pipelines fail with `ModuleNotFoundError` for packages like `tzlocal` that should be present, explicitly append them to the CI dependency requirements files (e.g. `requirements-strix-ci.txt`).
+## 2026-06-17 - Disable unavailable actions instead of hiding or erroring
+**Learning:** Users can be confused if actions like 'Export CSV' or 'Gantt Chart' are clickable but do nothing (or show an error) when there's no data. Disabling the buttons with a clear `title` tooltip improves the experience.
+**Action:** Proactively disable buttons that require a certain state (like having tasks or browser API support) and explain the reason via a `title` tooltip.

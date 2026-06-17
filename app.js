@@ -118,6 +118,11 @@ bootstrap();
 async function bootstrap() {
   bindEvents();
 
+  if (!window.showSaveFilePicker) {
+    elements.connectJsonSyncButton.disabled = true;
+    elements.connectJsonSyncButton.title = '이 브라우저는 wbs.json 직접 저장 연결을 지원하지 않습니다.';
+  }
+
   const savedState = loadLocalState();
   if (savedState) {
     hydrateState(savedState);
@@ -294,6 +299,12 @@ function renderAll() {
   const ownerColorMap = createOwnerColorMap();
   const visibleTasks = getVisibleTasks();
   const rows = [];
+
+  const hasTasks = state.tasks.length > 0;
+  elements.exportCsvButton.disabled = !hasTasks;
+  elements.exportCsvButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.openGanttButton.disabled = !hasTasks;
+  elements.openGanttButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
   const hasChildrenSet = new Set();
