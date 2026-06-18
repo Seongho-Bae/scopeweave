@@ -342,8 +342,28 @@ function renderAll() {
     `);
   }
 
-  elements.tableBody.innerHTML = rows.join('');
+  setTableBodyRows(rows);
   renderEditorValidation();
+}
+
+function setTableBodyRows(rows) {
+  const template = document.createElement('template');
+  template.innerHTML = rows.join('');
+  stripUnsafeGeneratedMarkup(template.content);
+  elements.tableBody.replaceChildren(template.content);
+}
+
+function stripUnsafeGeneratedMarkup(root) {
+  root.querySelectorAll('script, iframe, object, embed, link, meta').forEach((node) => node.remove());
+  root.querySelectorAll('*').forEach((element) => {
+    Array.from(element.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim().toLowerCase();
+      if (name.startsWith('on') || ((name === 'href' || name === 'src' || name === 'xlink:href') && /^(javascript|data):/.test(value))) {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  });
 }
 
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
@@ -1290,7 +1310,11 @@ function validateImportedTasks(tasks) {
 
 function validateCsvCell(value, fieldName) {
   if (!value) return value;
-  return value.substring(0, 1000); // basic length restriction
+  const normalized = String(value).substring(0, 1000);
+  if (/[<>]/.test(normalized)) {
+    throw new Error(`${fieldName} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
+  }
+  return normalized;
 }
 function validateCsvId(value) { return value; }
 function validateCsvParentId(value) { return value; }
