@@ -716,12 +716,8 @@ function validateDraft(draft, depth) {
   validateDateField('실적시작일', sanitized.actualStartDate, errors);
   validateDateField('실적종료일', sanitized.actualEndDate, errors);
 
-  if (sanitized.plannedStartDate && sanitized.plannedEndDdate && compareDateStrings(sanitized.plannedStartDate, sanitized.plannedEndDdate) > 0) {
-    errors.push('계획종료일은 계획시작일보다 빠를 수 없습니다.');
-  }
-  if (sanitized.actualStartDate && sanitized.actualEndDate && compareDateStrings(sanitized.actualStartDate, sanitized.actualEndDate) > 0) {
-    errors.push('실적종료일은 실적시작일보다 빠를 수 없습니다.');
-  }
+  validateDateRange('계획시작일', sanitized.plannedStartDate, '계획종료일', sanitized.plannedEndDdate, errors);
+  validateDateRange('실적시작일', sanitized.actualStartDate, '실적종료일', sanitized.actualEndDate, errors);
 
   return Array.from(new Set(errors));
 }
@@ -732,6 +728,12 @@ function validateDateField(label, value, errors) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     errors.push(`${label}은 YYYY-MM-DD 형식이어야 합니다.`);
+  }
+}
+
+function validateDateRange(startLabel, startValue, endLabel, endValue, errors) {
+  if (startValue && endValue && compareDateStrings(startValue, endValue) > 0) {
+    errors.push(`${endLabel}은 ${startLabel}보다 빠를 수 없습니다.`);
   }
 }
 
@@ -1069,11 +1071,11 @@ function validateImportedTask(task, index) {
     }
   });
 
-  if (plannedStartDate && plannedEndDate && compareDateStrings(plannedStartDate, plannedEndDate) > 0) {
-    throw new Error(`${rowLabel}: 계획종료일은 계획시작일보다 빠를 수 없습니다.`);
-  }
-  if (actualStartDate && actualEndDate && compareDateStrings(actualStartDate, actualEndDate) > 0) {
-    throw new Error(`${rowLabel}: 실적종료일은 실적시작일보다 빠를 수 없습니다.`);
+  const dateRangeErrors = [];
+  validateDateRange('계획시작일', plannedStartDate, '계획종료일', plannedEndDate, dateRangeErrors);
+  validateDateRange('실적시작일', actualStartDate, '실적종료일', actualEndDate, dateRangeErrors);
+  if (dateRangeErrors.length > 0) {
+    throw new Error(`${rowLabel}: ${dateRangeErrors[0]}`);
   }
 }
 
