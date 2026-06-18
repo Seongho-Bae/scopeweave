@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('fs');
 
 const addTopLevelTask = async (page, values) => {
   await page.getByRole('button', { name: '최상위 작업 추가' }).click();
@@ -118,7 +119,7 @@ test.describe('ScopeWeave Planner', () => {
     });
 
     await addTopLevelTask(page, {
-      phase: '<img src=x onerror=alert(1)>',
+      phase: '<svg/onload=alert(1)>',
       categoryLarge: '간트검증',
       owner: '담당자A',
       plannedStartDate: '2026-05-18',
@@ -127,7 +128,7 @@ test.describe('ScopeWeave Planner', () => {
 
     await page.getByRole('button', { name: '간트차트보기' }).click();
     await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
-    await expect(page.locator('#gantt-content img')).toHaveCount(0);
+    await expect(page.locator('#gantt-content img, #gantt-content svg')).toHaveCount(0);
     await expect.poll(() => dialogOpened).toBe(false);
   });
 
@@ -273,10 +274,21 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test('can trigger CSV export download', async ({ page }) => {
+    await addTopLevelTask(page, {
+      phase: '=HYPERLINK("http://evil.test","Click")',
+      categoryLarge: 'CSV검증',
+      owner: '담당자A',
+      plannedStartDate: '2026-05-18',
+      plannedEndDate: '2026-05-20'
+    });
+
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'CSV 내보내기' }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^wbs_export_\d{8}\.csv$/);
+    const downloadPath = await download.path();
+    const csvText = fs.readFileSync(downloadPath, 'utf8');
+    expect(csvText).toContain('\t=HYPERLINK');
   });
 
   test('can trigger CSV import file chooser', async ({ page }) => {

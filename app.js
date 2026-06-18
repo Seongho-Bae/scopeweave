@@ -343,16 +343,35 @@ function setTableBodyRows(rows) {
 }
 
 function stripUnsafeGeneratedMarkup(root) {
-  root.querySelectorAll('script, iframe, object, embed, link, meta').forEach((node) => node.remove());
+  const safeTags = new Set(['button', 'div', 'form', 'input', 'label', 'option', 'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr']);
+  const safeAttributes = new Set([
+    'aria-hidden', 'aria-label', 'aria-required', 'class', 'colspan', 'data-action',
+    'data-editor-anchor', 'data-editor-field', 'data-editor-form', 'data-inline-progress',
+    'data-task-id', 'data-testid', 'disabled', 'draggable', 'id', 'placeholder',
+    'required', 'selected', 'title', 'type', 'value'
+  ]);
+  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => node.remove());
   root.querySelectorAll('*').forEach((element) => {
+    if (!safeTags.has(element.tagName.toLowerCase())) {
+      element.remove();
+      return;
+    }
     Array.from(element.attributes).forEach((attribute) => {
       const name = attribute.name.toLowerCase();
       const value = attribute.value.trim().toLowerCase();
-      if (name.startsWith('on') || ((name === 'href' || name === 'src' || name === 'xlink:href') && /^(javascript|data):/.test(value))) {
+      if (
+        name.startsWith('on') ||
+        !safeAttributes.has(name) && name !== 'style' ||
+        name === 'style' && !isSafeGeneratedStyle(value)
+      ) {
         element.removeAttribute(attribute.name);
       }
     });
   });
+}
+
+function isSafeGeneratedStyle(value) {
+  return /^(background:\s*#[0-9a-f]{3,6}|color:\s*var\(--danger\)|width:\s*\d+px|left:\s*\d+px;\s*width:\s*\d+px)$/i.test(value);
 }
 
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
@@ -1242,9 +1261,14 @@ function exportCsv() {
   });
 
   const csvText = [CSV_HEADERS, ...rows]
-    .map((row) => row.map(csvEscape).join(','))
+    .map((row) => row.map((cell) => csvEscape(escapeCsvFormula(cell))).join(','))
     .join('\r\n');
   downloadFile(csvText, `wbs_export_${formatCompactDate(new Date())}.csv`, 'text/csv;charset=utf-8');
+}
+
+function escapeCsvFormula(value) {
+  const text = String(value ?? '');
+  return /^[\s]*[=+\-@]/.test(text) ? `\t${text}` : text;
 }
 
 async function handleCsvImport(event) {
