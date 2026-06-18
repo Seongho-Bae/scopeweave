@@ -1128,6 +1128,7 @@ pull_request_scope_context_files() {
 	local needs_backend_python=0
 	local needs_frontend_email_api_context=0
 	local needs_deployment_context=0
+	local needs_static_app_contract_context=0
 	local changed_file normalized_changed_file
 	for changed_file in "$@"; do
 		normalized_changed_file="$(normalize_changed_file_path "$changed_file")" || return 2
@@ -1146,6 +1147,9 @@ pull_request_scope_context_files() {
 		# or VERSION context.
 		.github/workflows/* | Dockerfile | frontend/Dockerfile | frontend/next.config.ts | docker-compose*.yml | render.yaml)
 			needs_deployment_context=1
+			;;
+		app.js | index.html | styles.css | *.html | *.css)
+			needs_static_app_contract_context=1
 			;;
 		esac
 	done
@@ -1219,6 +1223,13 @@ frontend/postcss.config.mjs
 docker-compose.yml
 render.yaml
 VERSION
+EOF
+	fi
+
+	if [ "$needs_static_app_contract_context" -eq 1 ]; then
+		cat <<'EOF'
+README.md
+docs/user-guide.md
 EOF
 	fi
 }
@@ -3042,12 +3053,100 @@ vulnerability_file_has_hallucinated_source_claim() {
 	return 1
 }
 
+static_app_persistence_contract_present() {
+	local resolved_scan_target=""
+	if ! resolved_scan_target="$(resolve_current_target_path "$TARGET_PATH" 2>/dev/null)"; then
+		return 1
+	fi
+	if [ ! -d "$resolved_scan_target" ] || [ -L "$resolved_scan_target" ]; then
+		return 1
+	fi
+
+	local static_contract_seen=0
+	local local_storage_seen=0
+	if grep -R -Eiq \
+		--exclude-dir=".git" \
+		--exclude-dir="node_modules" \
+		--exclude-dir="strix_runs" \
+		'static-host compatible|GitHub Pages|pure HTML/CSS/JavaScript|static app|static repository' \
+		"$resolved_scan_target/README.md" "$resolved_scan_target/docs" 2>/dev/null; then
+		static_contract_seen=1
+	fi
+	if grep -R -Fq \
+		--exclude-dir=".git" \
+		--exclude-dir="node_modules" \
+		--exclude-dir="strix_runs" \
+		'localStorage' \
+		"$resolved_scan_target/README.md" "$resolved_scan_target/docs" 2>/dev/null; then
+		local_storage_seen=1
+	fi
+
+	[ "$static_contract_seen" -eq 1 ] && [ "$local_storage_seen" -eq 1 ]
+}
+
+vulnerability_file_has_static_app_auth_contract_finding() {
+	local vuln_file="$1"
+	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
+		return 1
+	fi
+	if ! static_app_persistence_contract_present; then
+		return 1
+	fi
+	python3 - "$vuln_file" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+auth_claim = re.search(
+    r"(no authentication|lacks? proper authentication|absence of authorization|no authorization checks|authentication and authorization deficiencies)",
+    text,
+    re.IGNORECASE,
+)
+static_storage_claim = re.search(
+    r"(localStorage|client-side|static app|no authentication bypass needed)",
+    text,
+    re.IGNORECASE,
+)
+raise SystemExit(0 if auth_claim and static_storage_claim else 1)
+PY
+}
+
+vulnerability_file_has_env_secret_reference_only() {
+	local vuln_file="$1"
+	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
+		return 1
+	fi
+	python3 - "$vuln_file" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+env_ref = re.search(r"\{env:[A-Z0-9_]*(?:TOKEN|SECRET|API_KEY)[A-Z0-9_]*\}", text)
+named_env_ref = re.search(r"\bSTRIX_GITHUB_MODELS_TOKEN\b", text) and re.search(
+    r"(environment variable|not a direct secret exposure|secret reference)",
+    text,
+    re.IGNORECASE,
+)
+raise SystemExit(0 if env_ref or named_env_ref else 1)
+PY
+}
+
 vulnerability_file_is_retryable_model_inconsistency() {
 	local vuln_file="$1"
 	if vulnerability_file_has_absent_endpoint_finding "$vuln_file"; then
 		return 0
 	fi
 	if vulnerability_file_has_hallucinated_source_claim "$vuln_file"; then
+		return 0
+	fi
+	if vulnerability_file_has_static_app_auth_contract_finding "$vuln_file"; then
+		echo "Detected Strix report contradicting static localStorage app contract; treating as retryable model inconsistency." >&2
+		return 0
+	fi
+	if vulnerability_file_has_env_secret_reference_only "$vuln_file"; then
+		echo "Detected Strix report treating an environment-variable reference as a hardcoded secret; treating as retryable model inconsistency." >&2
 		return 0
 	fi
 	return 1
