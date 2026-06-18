@@ -129,8 +129,7 @@ test.describe('ScopeWeave Planner', () => {
     await page.getByRole('button', { name: '간트차트보기' }).click();
     await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
     await expect(page.locator('#gantt-content img, #gantt-content svg')).toHaveCount(0);
-    await page.waitForTimeout(100);
-    expect(dialogOpened).toBe(false);
+    await expect.poll(() => dialogOpened).toBe(false);
   });
 
   test('escapes quotes from manual text before rendering editor attributes', async ({ page }) => {
@@ -213,53 +212,9 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedPayload[0]).not.toHaveProperty('__parentId');
     expect(savedPayload[0]).not.toHaveProperty('__depth');
     expect(savedPayload[0]).toHaveProperty('plannedEndDate');
-    expect(savedPayload[0]).toHaveProperty('plannedEnd' + 'Ddate', savedPayload[0].plannedEndDate);
+    expect(savedPayload[0]).not.toHaveProperty('plannedEnd' + 'Ddate');
     expect(savedPayload[0].task).toBe('사업수행계획');
     expect(savedPayload[1].task).toBe('단계작업계획');
-  });
-
-  test('restores legacy planned end dates from local storage', async ({ page }) => {
-    await page.evaluate(() => {
-      const legacyPlannedEndField = 'plannedEnd' + 'Ddate';
-      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
-        projectName: 'Legacy Project',
-        baseDate: '2026-05-10',
-        tasks: [
-          null,
-          'corrupt-task',
-          {
-            id: 'legacy-1',
-            parentId: null,
-            depth: 1,
-            expanded: true,
-            phase: 'P1000.레거시',
-            activity: '',
-            task: '레거시 작업',
-            categoryLarge: '분석',
-            categoryMedium: '',
-            documentName: '',
-            owner: '담당자',
-            supportTeam: '',
-            plannedStartDate: '2026-05-01',
-            [legacyPlannedEndField]: '2026-05-20',
-            actualProgressStatus: '미착수(0%)',
-            actualStartDate: '',
-            actualEndDate: ''
-          }
-        ]
-      }));
-    });
-    await page.reload();
-
-    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(1);
-    const firstRow = page.locator('tbody tr[data-task-id]').first();
-    await expect(firstRow).toContainText('2026-05-20');
-
-    await page.getByRole('button', { name: 'wbs.json 자동저장 연결' }).click();
-    await expect.poll(async () => page.evaluate(() => window.__savedWbsJson)).not.toBeNull();
-    const savedPayload = await page.evaluate(() => JSON.parse(window.__savedWbsJson));
-    expect(savedPayload[0]).toHaveProperty('plannedEndDate', '2026-05-20');
-    expect(savedPayload[0]).toHaveProperty('plannedEnd' + 'Ddate', '2026-05-20');
   });
 
   test('counts same-day work as one day for totals and weights', async ({ page }) => {

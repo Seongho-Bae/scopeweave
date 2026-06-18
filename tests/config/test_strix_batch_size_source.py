@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for Strix trusted PR-scope guardrails.
-
-The filename is historical; this module now also covers PR-scope sentinel behavior.
-"""
+"""Regression tests for Strix trusted PR-scope guardrails."""
 
 from pathlib import Path
 

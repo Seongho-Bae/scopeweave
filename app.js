@@ -362,7 +362,7 @@ function renderAll() {
     rows.push(`
       <tr>
         <td colspan="21">
-          <div class="table-empty">
+          <div class="gantt-empty">
             <div class="empty-icon" aria-hidden="true">📋</div>
             <h3 class="empty-title">등록된 작업이 없습니다</h3>
             <p class="empty-desc">하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,<br>'CSV 가져오기'를 통해 기존 데이터를 불러오세요.</p>
@@ -377,10 +377,11 @@ function renderAll() {
 }
 
 function setTableBodyRows(rows) {
-  const template = document.createElement('template');
-  template.innerHTML = `<table><tbody>${rows.join('')}</tbody></table>`;
-  stripUnsafeGeneratedMarkup(template.content);
-  const tableBody = template.content.querySelector('tbody');
+  const table = document.createElement('table');
+  const tableBody = document.createElement('tbody');
+  table.appendChild(tableBody);
+  tableBody.innerHTML = rows.join('');
+  stripUnsafeGeneratedMarkup(tableBody);
   elements.tableBody.replaceChildren(...Array.from(tableBody.children));
 }
 
@@ -393,14 +394,12 @@ function stripUnsafeGeneratedMarkup(root) {
     }
     Array.from(element.attributes).forEach((attribute) => {
       const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim().toLowerCase();
       if (
         name.startsWith('on') ||
-        !SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style'
+        !SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style' ||
+        name === 'style' && !isSafeGeneratedStyle(value)
       ) {
-        element.removeAttribute(attribute.name);
-        return;
-      }
-      if (name === 'style' && !isSafeGeneratedStyle(attribute.value.trim())) {
         element.removeAttribute(attribute.name);
       }
     });
@@ -1062,20 +1061,7 @@ function loadLocalState() {
 function hydrateState(savedState) {
   state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
-  state.tasks = Array.isArray(savedState.tasks)
-    ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
-    : [];
-}
-
-function normalizeStoredTask(task) {
-  const safeTask = isTaskRecord(task) ? task : {};
-  const normalizedTask = {
-    ...safeTask,
-    plannedEndDate: getPlannedEndDateValue(safeTask),
-    expanded: safeTask.expanded !== false
-  };
-  delete normalizedTask[LEGACY_PLANNED_END_FIELD];
-  return normalizedTask;
+  state.tasks = Array.isArray(savedState.tasks) ? savedState.tasks.map((task) => ({ ...task, expanded: task.expanded !== false })) : [];
 }
 
 async function loadSeedTasks() {
@@ -1091,14 +1077,7 @@ async function loadSeedTasks() {
 }
 
 function getPlannedEndDateValue(task) {
-  if (!isTaskRecord(task)) {
-    return '';
-  }
   return task.plannedEndDate || task[LEGACY_PLANNED_END_FIELD] || '';
-}
-
-function isTaskRecord(task) {
-  return task !== null && typeof task === 'object' && !Array.isArray(task);
 }
 
 function normalizeImportedTasks(sourceTasks) {
@@ -1518,7 +1497,6 @@ function exportJsonArray() {
     supportTeam: task.supportTeam,
     plannedStartDate: task.plannedStartDate,
     plannedEndDate: task.plannedEndDate,
-    [LEGACY_PLANNED_END_FIELD]: task.plannedEndDate,
     actualProgressStatus: task.actualProgressStatus,
     actualStartDate: task.actualStartDate,
     actualEndDate: task.actualEndDate
