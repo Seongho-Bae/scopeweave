@@ -2609,7 +2609,11 @@ LLM_PROVIDER_ONLY_REGEX='(litellm|openai|anthropic|VertexAI|Vertex_ai|vertex\.ai
 # was interrupted or incomplete.  Used as a guard to prevent the
 # below-threshold override from silently passing an aborted scan.
 has_detected_infrastructure_error() {
-	if grep -Eiq '(^|[^[:alpha:]])(Fatal|Denied|Warn|Warning)([^[:alpha:]]|$)' "$STRIX_LOG"; then
+	if grep -Eiq '(^|[^[:alpha:]])(Fatal|Denied):[[:space:]]' "$STRIX_LOG"; then
+		return 0
+	fi
+
+	if grep -Eiq '(^|[^[:alpha:]])Warn(ing)?:[[:space:]].*(provider|LLM|model|scan|incomplete|abort|credential|rate[ -]?limit|timeout|litellm|openai|anthropic|vertex|gemini|GitHub Models|deepseek)' "$STRIX_LOG"; then
 		return 0
 	fi
 
