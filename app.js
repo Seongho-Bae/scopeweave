@@ -1377,9 +1377,20 @@ function validateCsvCell(value, fieldName) {
   }
   return normalized;
 }
-function validateCsvId(value) { return value; }
-function validateCsvParentId(value) { return value; }
-function validateCsvDepth(value) { return value; }
+
+function validateCsvInternalValue(value, fieldName) {
+  return validateCsvCell(value, fieldName);
+}
+
+function validateCsvId(value) { return validateCsvInternalValue(value, '__id'); }
+function validateCsvParentId(value) { return validateCsvInternalValue(value, '__parentId'); }
+function validateCsvDepth(value) {
+  const normalized = validateCsvInternalValue(value, '__depth');
+  if (normalized && !/^[1-3]$/.test(normalized)) {
+    throw new Error('__depth 컬럼은 1, 2, 3 중 하나여야 합니다.');
+  }
+  return normalized;
+}
 
 function parseCsv(text) {
   const rows = [];
