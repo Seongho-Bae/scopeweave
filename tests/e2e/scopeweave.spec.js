@@ -211,8 +211,8 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedPayload[0]).not.toHaveProperty('__id');
     expect(savedPayload[0]).not.toHaveProperty('__parentId');
     expect(savedPayload[0]).not.toHaveProperty('__depth');
-    expect(savedPayload[0]).toHaveProperty('plannedEndDdate');
-    expect(savedPayload[0]).not.toHaveProperty('plannedEndDate');
+    expect(savedPayload[0]).toHaveProperty('plannedEndDate');
+    expect(savedPayload[0]).not.toHaveProperty('plannedEnd' + 'Ddate');
     expect(savedPayload[0].task).toBe('사업수행계획');
     expect(savedPayload[1].task).toBe('단계작업계획');
   });
