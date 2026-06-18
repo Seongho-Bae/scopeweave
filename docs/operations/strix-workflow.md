@@ -71,7 +71,7 @@ workflow's default contract.
 
 Behavior:
 
-- `pull_request`: use the current PR-scoped repository diff and the
+- `pull_request_target`: use the current PR-scoped repository diff and the
   GitHub Models route.
 - `push` / `schedule`: fail closed if GitHub's workflow token is not
   available.
