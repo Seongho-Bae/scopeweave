@@ -1280,6 +1280,60 @@ EOS
 			;;
 		esac
 		;;
+	pr-env-secret-reference-report-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/env-secret-reference-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-env-secret-reference/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-env-secret-reference/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** MEDIUM
+**Target:** config.json
+
+The configuration contains the environment variable reference `{env:STRIX_GITHUB_MODELS_TOKEN}`.
+This is not a direct secret exposure, but the model reported it as a hardcoded secret reference.
+EOS
+			echo "Severity: MEDIUM"
+			echo "Target: config.json"
+			echo "The config uses {env:STRIX_GITHUB_MODELS_TOKEN} as an environment variable reference."
+			echo "Penetration test failed: env secret reference"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after env reference retry"
+			exit 0
+			;;
+		*)
+			echo "Error: env-secret-reference scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 38
+			;;
+		esac
+		;;
+	pr-static-auth-contract-report-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/static-auth-contract-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-static-auth-contract/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-static-auth-contract/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** CRITICAL
+**Target:** /workspace/static-planner
+
+Critical Authentication and Authorization Deficiencies: the application has no authentication mechanism,
+no authorization checks, and stores data in localStorage.
+EOS
+			echo "Severity: CRITICAL"
+			echo "Critical Authentication and Authorization Deficiencies"
+			echo "No authentication bypass needed - no auth exists; localStorage stores project data."
+			echo "Penetration test failed: static auth contract"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after static auth contract retry"
+			exit 0
+			;;
+		*)
+			echo "Error: static-auth-contract scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 39
+			;;
+		esac
+		;;
 	endpoint-in-excluded-dir)
 		case "${STRIX_LLM:-}" in
 		vertex_ai/excluded-dir-primary)
@@ -2277,6 +2331,30 @@ EOS
 function renderStaticPlanner() {
   return 'static app';
 }
+EOS
+	elif [ "$scenario" = "pr-env-secret-reference-report-retries" ]; then
+		cat >"$repo_root_dir/config.json" <<'EOS'
+{
+  "provider": {
+    "github-models": {
+      "apiKey": "{env:STRIX_GITHUB_MODELS_TOKEN}"
+    }
+  }
+}
+EOS
+	elif [ "$scenario" = "pr-static-auth-contract-report-retries" ]; then
+		mkdir -p "$repo_root_dir/docs"
+		cat >"$repo_root_dir/README.md" <<'EOS'
+# Static Planner
+
+This pure HTML/CSS/JavaScript app stays static-host compatible for GitHub Pages.
+Every mutation is autosaved into localStorage.
+EOS
+		cat >"$repo_root_dir/docs/user-guide.md" <<'EOS'
+The browser localStorage autosave is the persistence model for this static app.
+EOS
+		cat >"$repo_root_dir/app.js" <<'EOS'
+localStorage.setItem('scopeweave:planner-state:v1', '{}');
 EOS
 	elif [ "$scenario" = "pr-changed-scope-bounded" ]; then
 		echo 'class Unrelated {}' >"$repo_root_dir/sync-module-system/smart-crawling-common/src/main/java/org/empasy/sync/common/system/util/JwtUtil.java"
@@ -5947,6 +6025,48 @@ run_gate_case "pr-absent-endpoint-report-plus-inline-retries" \
 	"" \
 	"0" \
 	"HIGH" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
+
+run_gate_case "pr-env-secret-reference-report-retries" \
+	"vertex_ai/env-secret-reference-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after env reference retry" \
+	"2" \
+	"vertex_ai/env-secret-reference-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"MEDIUM" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"config.json"
+
+run_gate_case "pr-static-auth-contract-report-retries" \
+	"vertex_ai/static-auth-contract-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after static auth contract retry" \
+	"2" \
+	"vertex_ai/static-auth-contract-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"CRITICAL" \
 	"0" \
 	"" \
 	"" \
