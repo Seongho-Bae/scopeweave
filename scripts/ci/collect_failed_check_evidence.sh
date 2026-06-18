@@ -280,7 +280,7 @@ gh api graphql \
 			| select((.headSha // "") == env.HEAD_SHA)
 			| select((.workflowName // "") == "Strix Security Scan" or (.workflowName // "") == "Strix")
 			| select((.status // "") == "completed")
-			| select((.conclusion // "" | ascii_downcase) as $c | ["failure","timed_out","action_required","cancelled","startup_failure"] | index($c))
+			| select((.conclusion // "" | ascii_downcase) as $c | ["failure","timed_out","action_required","startup_failure"] | index($c))
 			| [
 			"workflow_run",
 			(if (.workflowName // "") != "" then .workflowName else "workflow run" end),
