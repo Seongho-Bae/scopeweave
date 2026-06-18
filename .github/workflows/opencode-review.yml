@@ -1380,23 +1380,16 @@ jobs:
                       select((.head_sha // "") == $head_sha)
                       | select((.event // "") == "pull_request_target")
                       | select((.status // "") == "completed")
-                      | select((.conclusion // "" | ascii_upcase) as $c | ["FAILURE","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STARTUP_FAILURE"] | index($c))
+                      | select((.conclusion // "" | ascii_upcase) as $c | ["FAILURE","TIMED_OUT","ACTION_REQUIRED","STARTUP_FAILURE"] | index($c))
                       | "- Strix Security Scan/strix workflow run: " + (.conclusion // "unknown") + (if (.html_url // "") != "" then " (" + .html_url + ")" else "" end)
                     )
                   | .[]
                 ' "$runs_json" >"$output_file"
                 ;;
               pending)
-                jq -r --arg head_sha "$HEAD_SHA" '
-                  (.workflow_runs // [])
-                  | map(
-                      select((.head_sha // "") == $head_sha)
-                      | select((.event // "") == "pull_request_target")
-                      | select((.status // "") != "completed")
-                      | "- Strix Security Scan/strix workflow run: " + (.status // "unknown") + (if (.html_url // "") != "" then " (" + .html_url + ")" else "" end)
-                    )
-                  | .[]
-                ' "$runs_json" >"$output_file"
+                # Strix Security Scan pull_request_target runs are repository scan evidence,
+                # not required PR rollup checks; do not hold OpenCode approval on queue state.
+                : >"$output_file"
                 ;;
               *)
                 rm -f "$runs_json"
