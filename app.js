@@ -1759,13 +1759,16 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+const HTML_ESCAPE_ENTITIES = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+};
+
 function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return String(value).replace(/[&<>"']/g, (character) => HTML_ESCAPE_ENTITIES[character]);
 }
 
 function toKebab(value) {
