@@ -410,6 +410,68 @@ EOF
 	assert_equals "0" "$rc" "normalized OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "normalized OpenCode transcript gate result"
 
+	cat >"$output_file" <<'EOF'
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"REQUEST_CHANGES","reason":"Malformed line type.","summary":"Malformed finding.","findings":[{"path":"app.js","line":true,"severity":"HIGH","title":"Bad line","problem":"Boolean line values are not real line numbers.","root_cause":"JSON booleans must not pass integer validation.","fix_direction":"Reject non-integer line values.","regression_test_direction":"Keep this malformed control regression.","suggested_diff":"-old\n+new"}]}
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/bool-line.out" 2>"$tmp_dir/bool-line.err"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode review normalizer rejects boolean line values"
+	assert_file_contains "$tmp_dir/bool-line.err" "NO_CONCLUSION" "opencode review normalizer reports boolean line rejection"
+
+	rm -rf "$tmp_dir"
+}
+
+assert_opencode_review_gate_rejects_add_only_suggested_diff() {
+	local tmp_dir
+	local output_file
+	local rc
+	local gate_result
+	tmp_dir="$(mktemp -d)"
+	output_file="$tmp_dir/opencode-output.md"
+
+	cat >"$output_file" <<'EOF'
+<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
+<!-- opencode-review-control-v1
+{
+  "head_sha": "abc123",
+  "run_id": "42",
+  "run_attempt": "1",
+  "result": "REQUEST_CHANGES",
+  "reason": "Synthetic add-only diff should not be source-backed.",
+  "summary": "Synthetic review.",
+  "findings": [
+    {
+      "path": "scripts/ci/opencode_review_approve_gate.sh",
+      "line": 1,
+      "severity": "HIGH",
+      "title": "Synthetic add-only diff",
+      "problem": "Add-only suggested diffs do not prove the finding is tied to current source.",
+      "root_cause": "The diff has no removed or context line from the source file.",
+      "fix_direction": "Reject add-only suggested diffs in the gate.",
+      "regression_test_direction": "Keep this synthetic gate test.",
+      "suggested_diff": "+echo unsafe"
+    }
+  ]
+}
+-->
+EOF
+
+	set +e
+	gate_result="$(
+		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
+			"abc123" "42" "1" "$output_file"
+	)"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode review gate rejects add-only suggested_diff findings"
+	assert_equals "NO_CONCLUSION" "$gate_result" "add-only suggested_diff rejection reports no valid conclusion"
+
 	rm -rf "$tmp_dir"
 }
 
@@ -1202,6 +1264,114 @@ EOS
 		*)
 			echo "Error: stale-inline scenario unexpected model (${STRIX_LLM:-})" >&2
 			exit 36
+			;;
+		esac
+		;;
+	pr-absent-endpoint-report-plus-inline-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/absent-endpoint-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-absent-endpoint-inline/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-absent-endpoint-inline/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** HIGH
+**Endpoint:** /api/ghost-login
+
+**Location 1:** app.js:5
+EOS
+			echo "Severity: HIGH"
+			echo "Endpoint: /api/ghost-login"
+			echo "Location 1: app.js:5"
+			echo "Penetration test failed: absent endpoint inline duplicate"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after absent endpoint retry"
+			exit 0
+			;;
+		*)
+			echo "Error: absent-endpoint-inline scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 37
+			;;
+		esac
+		;;
+	pr-env-secret-reference-report-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/env-secret-reference-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-env-secret-reference/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-env-secret-reference/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** MEDIUM
+**Target:** config.json
+
+The configuration contains the environment variable reference `{env:STRIX_GITHUB_MODELS_TOKEN}`.
+This is not a direct secret exposure, but the model reported it as a hardcoded secret reference.
+EOS
+			echo "Severity: MEDIUM"
+			echo "Target: config.json"
+			echo "The config uses {env:STRIX_GITHUB_MODELS_TOKEN} as an environment variable reference."
+			echo "Penetration test failed: env secret reference"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after env reference retry"
+			exit 0
+			;;
+		*)
+			echo "Error: env-secret-reference scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 38
+			;;
+		esac
+		;;
+	pr-static-auth-contract-report-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/static-auth-contract-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-static-auth-contract/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-static-auth-contract/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** CRITICAL
+**Target:** /workspace/static-planner
+
+Critical Authentication and Authorization Deficiencies: the application has no authentication mechanism,
+no authorization checks, and stores data in localStorage.
+EOS
+			echo "Severity: CRITICAL"
+			echo "Critical Authentication and Authorization Deficiencies"
+			echo "No authentication bypass needed - no auth exists; localStorage stores project data."
+			echo "Penetration test failed: static auth contract"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after static auth contract retry"
+			exit 0
+			;;
+		*)
+			echo "Error: static-auth-contract scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 39
+			;;
+		esac
+		;;
+	pr-sanitized-table-xss-report-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/sanitized-table-xss-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-sanitized-table-xss/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-sanitized-table-xss/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** HIGH
+**Target:** app.js
+
+Stored Cross-Site Scripting (XSS) in Task Field. The issue occurs where template.innerHTML
+uses rows.join in setTableBodyRows. The renderTaskRow function includes unsanitized user input,
+and the recommended fix is to use DOMPurify before insertion.
+EOS
+			echo "Severity: HIGH"
+			echo "Stored Cross-Site Scripting (XSS) in Task Field"
+			echo "template.innerHTML rows.join renderTaskRow unsanitized user input DOMPurify"
+			echo "Penetration test failed: sanitized table xss false positive"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after sanitized table xss retry"
+			exit 0
+			;;
+		*)
+			echo "Error: sanitized-table-xss scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 40
 			;;
 		esac
 		;;
@@ -2197,6 +2367,60 @@ class WorkspaceRunnerConfig:
     )
 EOS
 		echo 'def real_changed_endpoint(): pass' >"$repo_root_dir/backend/api/emails.py"
+	elif [ "$scenario" = "pr-absent-endpoint-report-plus-inline-retries" ]; then
+		cat >"$repo_root_dir/app.js" <<'EOS'
+function renderStaticPlanner() {
+  return 'static app';
+}
+EOS
+	elif [ "$scenario" = "pr-env-secret-reference-report-retries" ]; then
+		cat >"$repo_root_dir/config.json" <<'EOS'
+{
+  "provider": {
+    "github-models": {
+      "apiKey": "{env:STRIX_GITHUB_MODELS_TOKEN}"
+    }
+  }
+}
+EOS
+	elif [ "$scenario" = "pr-static-auth-contract-report-retries" ]; then
+		mkdir -p "$repo_root_dir/docs"
+		cat >"$repo_root_dir/README.md" <<'EOS'
+# Static Planner
+
+This pure HTML/CSS/JavaScript app stays static-host compatible for GitHub Pages.
+Every mutation is autosaved into localStorage.
+EOS
+		cat >"$repo_root_dir/docs/user-guide.md" <<'EOS'
+The browser localStorage autosave is the persistence model for this static app.
+EOS
+		cat >"$repo_root_dir/app.js" <<'EOS'
+localStorage.setItem('scopeweave:planner-state:v1', '{}');
+EOS
+	elif [ "$scenario" = "pr-sanitized-table-xss-report-retries" ]; then
+		cat >"$repo_root_dir/app.js" <<'EOS'
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, '');
+}
+
+function renderTextCell(value) {
+  return `<span>${escapeHtml(value)}</span>`;
+}
+
+function setTableBodyRows(rows) {
+  const template = document.createElement('template');
+  template.innerHTML = `<table><tbody>${rows.join('')}</tbody></table>`;
+  stripUnsafeGeneratedMarkup(template.content);
+}
+
+function stripUnsafeGeneratedMarkup(root) {
+  root.querySelectorAll('script').forEach((node) => node.remove());
+}
+
+function renderTaskRow(task) {
+  return `<tr><td>${renderTextCell(task.task)}</td></tr>`;
+}
+EOS
 	elif [ "$scenario" = "pr-changed-scope-bounded" ]; then
 		echo 'class Unrelated {}' >"$repo_root_dir/sync-module-system/smart-crawling-common/src/main/java/org/empasy/sync/common/system/util/JwtUtil.java"
 	elif [ "$scenario" = "pr-python-scope-context" ]; then
@@ -2597,6 +2821,96 @@ EOF
 
 	assert_equals "0" "$rc" "case=$case_name exit code"
 	assert_file_contains "$output_log" "scan ok with PR head content" "case=$case_name output"
+
+	rm -rf "$tmp_dir"
+}
+
+run_pull_request_target_line_attribution_case() {
+	local case_name="$1"
+	local finding_line="$2"
+	local expected_exit="$3"
+	local expected_message="$4"
+
+	local tmp_dir
+	tmp_dir="$(mktemp -d)"
+	local bin_dir="$tmp_dir/bin"
+	local repo_root_dir="$tmp_dir/repo"
+	mkdir -p "$bin_dir" "$repo_root_dir/scripts/ci"
+	cp "$GATE_SCRIPT" "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+	cp "$REPO_ROOT/scripts/ci/strix_model_utils.sh" "$repo_root_dir/scripts/ci/strix_model_utils.sh"
+	chmod +x "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+
+	local fake_strix="$bin_dir/strix"
+	local output_log="$tmp_dir/output.log"
+	local strix_llm_file="$tmp_dir/strix_llm.txt"
+	local llm_api_key_file="$tmp_dir/llm_api_key.txt"
+
+	cat >"$fake_strix" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "${STRIX_REPORTS_DIR:?}/fake-pr-line-attribution/vulnerabilities"
+cat >"${STRIX_REPORTS_DIR:?}/fake-pr-line-attribution/vulnerabilities/vuln-0001.md" <<EOS
+Severity: CRITICAL
+Location 1:
+app.js:${FAKE_STRIX_FINDING_LINE:?}
+EOS
+echo "Penetration test failed: line attribution finding"
+exit 1
+EOF
+	chmod +x "$fake_strix"
+	printf '%s' 'gemini/test-model' >"$strix_llm_file"
+	printf '%s' 'dummy' >"$llm_api_key_file"
+
+	(
+		cd "$repo_root_dir"
+		git init -q
+		git config user.name 'Strix Test'
+		git config user.email 'strix-test@example.invalid'
+		cat >app.js <<'EOF'
+const storageKey = 'scopeweave:planner-state:v1';
+function persistState() {
+  localStorage.setItem(storageKey, JSON.stringify({ tasks: [] }));
+}
+const changedValue = 'base';
+export { persistState, changedValue };
+EOF
+		git add .
+		git commit -qm 'base commit'
+	)
+	local base_sha
+	base_sha="$(git -C "$repo_root_dir" rev-parse HEAD)"
+	(
+		cd "$repo_root_dir"
+		perl -0pi -e "s/const changedValue = 'base';/const changedValue = 'head';/" app.js
+		git add app.js
+		git commit -qm 'head commit'
+	)
+	local head_sha
+	head_sha="$(git -C "$repo_root_dir" rev-parse HEAD)"
+	git -C "$repo_root_dir" checkout -q "$base_sha"
+
+	set +e
+	(
+		cd "$repo_root_dir"
+		env -u GITHUB_EVENT_PATH \
+			PATH="$bin_dir:$PATH" \
+			STRIX_INPUT_FILE_ROOT="$tmp_dir" \
+			GITHUB_EVENT_NAME="pull_request_target" \
+			PR_BASE_SHA="$base_sha" \
+			PR_HEAD_SHA="$head_sha" \
+			FAKE_STRIX_FINDING_LINE="$finding_line" \
+			STRIX_DISABLE_PR_SCOPING="0" \
+			STRIX_LLM_FILE="$strix_llm_file" \
+			LLM_API_KEY_FILE="$llm_api_key_file" \
+			STRIX_TARGET_PATH="__PR_SCOPE__" \
+			bash "./scripts/ci/strix_quick_gate.sh" >"$output_log" 2>&1
+	)
+	local rc=$?
+	set -e
+
+	assert_equals "$expected_exit" "$rc" "case=$case_name exit code"
+	assert_file_contains "$output_log" "$expected_message" "case=$case_name output"
 
 	rm -rf "$tmp_dir"
 }
@@ -4796,6 +5110,8 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback
 
 assert_opencode_review_normalizer_accepts_transcript_json
 
+assert_opencode_review_gate_rejects_add_only_suggested_diff
+
 run_pull_request_target_head_scope_case \
 	"pull-request-target-modified-file-uses-head-blob" \
 	"src/app.py" \
@@ -4836,6 +5152,18 @@ run_pull_request_target_head_scope_case \
 	"HEAD_EXECUTABLE_SHOULD_BE_SCANNED_AS_DATA" \
 	"0" \
 	"1"
+
+run_pull_request_target_line_attribution_case \
+	"pull-request-target-same-file-unchanged-line-allows-baseline" \
+	"3" \
+	"0" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation."
+
+run_pull_request_target_line_attribution_case \
+	"pull-request-target-same-file-changed-line-blocks" \
+	"5" \
+	"1" \
+	"Strix finding intersects files changed in this pull request."
 
 run_pull_request_target_plaintext_runner_token_fails_closed_case
 
@@ -5748,6 +6076,90 @@ run_gate_case "pr-stale-report-plus-inline-changed-finding-blocks" \
 	"0" \
 	"pull_request" \
 	$'backend/db/models.py\nbackend/api/emails.py'
+
+run_gate_case "pr-absent-endpoint-report-plus-inline-retries" \
+	"vertex_ai/absent-endpoint-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after absent endpoint retry" \
+	"2" \
+	"vertex_ai/absent-endpoint-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"HIGH" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
+
+run_gate_case "pr-env-secret-reference-report-retries" \
+	"vertex_ai/env-secret-reference-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after env reference retry" \
+	"2" \
+	"vertex_ai/env-secret-reference-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"MEDIUM" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"config.json"
+
+run_gate_case "pr-static-auth-contract-report-retries" \
+	"vertex_ai/static-auth-contract-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after static auth contract retry" \
+	"2" \
+	"vertex_ai/static-auth-contract-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"CRITICAL" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
+
+run_gate_case "pr-sanitized-table-xss-report-retries" \
+	"vertex_ai/sanitized-table-xss-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after sanitized table xss retry" \
+	"2" \
+	"vertex_ai/sanitized-table-xss-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"HIGH" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
 
 run_gate_case "high-vuln-below-threshold" \
 	"vertex_ai/high-vuln-primary" \
