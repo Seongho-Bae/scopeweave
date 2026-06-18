@@ -75,6 +75,34 @@ const CSV_HEADERS = [
   '__depth'
 ];
 
+const SAFE_GENERATED_TAGS = new Set([
+  'br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p',
+  'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr'
+]);
+
+const SAFE_GENERATED_ATTRIBUTES = new Set([
+  'aria-hidden', 'aria-label', 'aria-required', 'class', 'colspan', 'data-action',
+  'data-editor-anchor', 'data-editor-field', 'data-editor-form', 'data-inline-progress',
+  'data-task-id', 'data-testid', 'disabled', 'draggable', 'id', 'placeholder',
+  'required', 'selected', 'title', 'type', 'value'
+]);
+
+const CSV_FIELD_LABELS = Object.freeze({
+  phase: '단계',
+  activity: 'Activity',
+  task: 'Task',
+  categoryLarge: '대분류',
+  categoryMedium: '중분류',
+  documentName: '산출물',
+  owner: '담당자',
+  supportTeam: '지원팀',
+  plannedStartDate: '계획시작일',
+  plannedEndDdate: '계획종료일',
+  actualProgressStatus: '실적진척상태',
+  actualStartDate: '실적시작일',
+  actualEndDate: '실적종료일'
+});
+
 const state = {
   projectName: DEFAULT_PROJECT_NAME,
   baseDate: formatLocalDateInput(new Date()),
@@ -345,16 +373,9 @@ function setTableBodyRows(rows) {
 }
 
 function stripUnsafeGeneratedMarkup(root) {
-  const safeTags = new Set(['br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p', 'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr']);
-  const safeAttributes = new Set([
-    'aria-hidden', 'aria-label', 'aria-required', 'class', 'colspan', 'data-action',
-    'data-editor-anchor', 'data-editor-field', 'data-editor-form', 'data-inline-progress',
-    'data-task-id', 'data-testid', 'disabled', 'draggable', 'id', 'placeholder',
-    'required', 'selected', 'title', 'type', 'value'
-  ]);
   root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => node.remove());
   root.querySelectorAll('*').forEach((element) => {
-    if (!safeTags.has(element.tagName.toLowerCase())) {
+    if (!SAFE_GENERATED_TAGS.has(element.tagName.toLowerCase())) {
       element.remove();
       return;
     }
@@ -363,7 +384,7 @@ function stripUnsafeGeneratedMarkup(root) {
       const value = attribute.value.trim().toLowerCase();
       if (
         name.startsWith('on') ||
-        !safeAttributes.has(name) && name !== 'style' ||
+        !SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style' ||
         name === 'style' && !isSafeGeneratedStyle(value)
       ) {
         element.removeAttribute(attribute.name);
@@ -1324,7 +1345,8 @@ function validateCsvCell(value, fieldName) {
   if (!value) return value;
   const normalized = String(value).substring(0, 1000);
   if (/[<>]/.test(normalized)) {
-    throw new Error(`${fieldName} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
+    const label = CSV_FIELD_LABELS[fieldName] || fieldName;
+    throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
   }
   return normalized;
 }
