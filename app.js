@@ -354,7 +354,7 @@ function setTableBodyRows(rows) {
 }
 
 function stripUnsafeGeneratedMarkup(root) {
-  const safeTags = new Set(['button', 'div', 'form', 'input', 'label', 'option', 'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr']);
+  const safeTags = new Set(['br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p', 'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr']);
   const safeAttributes = new Set([
     'aria-hidden', 'aria-label', 'aria-required', 'class', 'colspan', 'data-action',
     'data-editor-anchor', 'data-editor-field', 'data-editor-form', 'data-inline-progress',
@@ -382,7 +382,7 @@ function stripUnsafeGeneratedMarkup(root) {
 }
 
 function isSafeGeneratedStyle(value) {
-  return /^(background:\s*#[0-9a-f]{3,6}|color:\s*var\(--danger\)|width:\s*\d+px|left:\s*\d+px;\s*width:\s*\d+px)$/i.test(value);
+  return /^(background:\s*#[0-9a-f]{3,6}|color:\s*var\(--danger\)|width:\s*\d+px|left:\s*\d+px;?\s*width:\s*\d+px)$/i.test(value);
 }
 
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
@@ -475,7 +475,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
-  const requiredHtml = required ? ' <span class="text-red-500" style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
+  const requiredHtml = required ? ' <span style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
   const requiredAttr = required ? ' required aria-required="true"' : '';
   const placeholderAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
   return `
