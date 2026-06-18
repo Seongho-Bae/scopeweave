@@ -259,6 +259,12 @@ jobs:
           review_source_dir="${OPENCODE_REVIEW_WORKDIR}/repository"
           mkdir -p "$review_source_dir"
           tar --exclude=.git -cf - -C "$GITHUB_WORKSPACE" . | tar -xf - -C "$review_source_dir"
+          if [ -s "$OPENCODE_REVIEW_WORKDIR/bounded-review-evidence.md" ]; then
+            cp "$OPENCODE_REVIEW_WORKDIR/bounded-review-evidence.md" "$review_source_dir/bounded-review-evidence.md"
+          fi
+          if [ -s "$OPENCODE_REVIEW_WORKDIR/failed-check-evidence.md" ]; then
+            cp "$OPENCODE_REVIEW_WORKDIR/failed-check-evidence.md" "$review_source_dir/failed-check-evidence.md"
+          fi
 
           cat >"${OPENCODE_REVIEW_WORKDIR}/AGENTS.md" <<'EOF'
           # OpenCode CI Review Rules
