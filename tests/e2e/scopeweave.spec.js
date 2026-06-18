@@ -223,29 +223,34 @@ test.describe('ScopeWeave Planner', () => {
       localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
         projectName: 'Legacy Project',
         baseDate: '2026-05-10',
-        tasks: [{
-          id: 'legacy-1',
-          parentId: null,
-          depth: 1,
-          expanded: true,
-          phase: 'P1000.레거시',
-          activity: '',
-          task: '레거시 작업',
-          categoryLarge: '분석',
-          categoryMedium: '',
-          documentName: '',
-          owner: '담당자',
-          supportTeam: '',
-          plannedStartDate: '2026-05-01',
-          [legacyPlannedEndField]: '2026-05-20',
-          actualProgressStatus: '미착수(0%)',
-          actualStartDate: '',
-          actualEndDate: ''
-        }]
+        tasks: [
+          null,
+          'corrupt-task',
+          {
+            id: 'legacy-1',
+            parentId: null,
+            depth: 1,
+            expanded: true,
+            phase: 'P1000.레거시',
+            activity: '',
+            task: '레거시 작업',
+            categoryLarge: '분석',
+            categoryMedium: '',
+            documentName: '',
+            owner: '담당자',
+            supportTeam: '',
+            plannedStartDate: '2026-05-01',
+            [legacyPlannedEndField]: '2026-05-20',
+            actualProgressStatus: '미착수(0%)',
+            actualStartDate: '',
+            actualEndDate: ''
+          }
+        ]
       }));
     });
     await page.reload();
 
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(1);
     const firstRow = page.locator('tbody tr[data-task-id]').first();
     await expect(firstRow).toContainText('2026-05-20');
 

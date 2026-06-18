@@ -1061,14 +1061,17 @@ function loadLocalState() {
 function hydrateState(savedState) {
   state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
-  state.tasks = Array.isArray(savedState.tasks) ? savedState.tasks.map(normalizeStoredTask) : [];
+  state.tasks = Array.isArray(savedState.tasks)
+    ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
+    : [];
 }
 
 function normalizeStoredTask(task) {
+  const safeTask = isTaskRecord(task) ? task : {};
   const normalizedTask = {
-    ...task,
-    plannedEndDate: getPlannedEndDateValue(task),
-    expanded: task.expanded !== false
+    ...safeTask,
+    plannedEndDate: getPlannedEndDateValue(safeTask),
+    expanded: safeTask.expanded !== false
   };
   delete normalizedTask[LEGACY_PLANNED_END_FIELD];
   return normalizedTask;
@@ -1087,7 +1090,14 @@ async function loadSeedTasks() {
 }
 
 function getPlannedEndDateValue(task) {
+  if (!isTaskRecord(task)) {
+    return '';
+  }
   return task.plannedEndDate || task[LEGACY_PLANNED_END_FIELD] || '';
+}
+
+function isTaskRecord(task) {
+  return task !== null && typeof task === 'object' && !Array.isArray(task);
 }
 
 function normalizeImportedTasks(sourceTasks) {
