@@ -1325,9 +1325,9 @@ EOS
 			;;
 		esac
 		;;
-	pr-env-secret-reference-report-retries)
-		case "${STRIX_LLM:-}" in
-		vertex_ai/env-secret-reference-primary)
+		pr-env-secret-reference-report-retries)
+			case "${STRIX_LLM:-}" in
+			vertex_ai/env-secret-reference-primary)
 			mkdir -p "$STRIX_REPORTS_DIR/fake-env-secret-reference/vulnerabilities"
 			cat >"$STRIX_REPORTS_DIR/fake-env-secret-reference/vulnerabilities/vuln-0001.md" <<'EOS'
 **Severity:** MEDIUM
@@ -1350,10 +1350,24 @@ EOS
 			echo "Error: env-secret-reference scenario unexpected model (${STRIX_LLM:-})" >&2
 			exit 38
 			;;
-		esac
-		;;
-	pr-static-auth-contract-report-retries)
-		case "${STRIX_LLM:-}" in
+			esac
+			;;
+		pr-env-secret-reference-with-hardcoded-secret-blocks)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-env-secret-with-hardcoded-value/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-env-secret-with-hardcoded-value/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** MEDIUM
+**Target:** config.json
+
+The configuration contains the environment variable reference `{env:STRIX_GITHUB_MODELS_TOKEN}`.
+The same file also exposes a direct API key assignment: api_key = "sk-test1234567890abcdef".
+EOS
+			echo "Severity: MEDIUM"
+			echo "Target: config.json"
+			echo "Penetration test failed: env reference with hardcoded secret"
+			exit 1
+			;;
+		pr-static-auth-contract-report-retries)
+			case "${STRIX_LLM:-}" in
 		vertex_ai/static-auth-contract-primary)
 			mkdir -p "$STRIX_REPORTS_DIR/fake-static-auth-contract/vulnerabilities"
 			cat >"$STRIX_REPORTS_DIR/fake-static-auth-contract/vulnerabilities/vuln-0001.md" <<'EOS'
@@ -1887,8 +1901,8 @@ EOS
 EOS
 		cat >"$STRIX_REPORTS_DIR/fake-pr-generated-scope-infra/vulnerabilities/vuln-0002.md" <<EOS
 **Severity:** CRITICAL
-**Target:** /workspace/$local_scope_name/infra/deployment.yaml
-**Location 1:** \`infra/deployment.yaml\` (lines 1-10)
+**Target:** /workspace/$local_scope_name/infra/k8s/deployment.yaml
+**Location 1:** \`infra/k8s/deployment.yaml\` (lines 1-10)
 EOS
 		echo "Penetration test failed: generated PR scope infra finding"
 		exit 1
@@ -6245,6 +6259,27 @@ run_gate_case "pr-env-secret-reference-report-retries" \
 	"2" \
 	"vertex_ai/env-secret-reference-primary|vertex_ai/fallback-one" \
 	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"MEDIUM" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"config.json"
+
+run_gate_case "pr-env-secret-reference-with-hardcoded-secret-blocks" \
+	"vertex_ai/env-secret-reference-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"1" \
+	"Penetration test failed: env reference with hardcoded secret" \
+	"1" \
+	"vertex_ai/env-secret-reference-primary" \
+	"<unset>" \
 	"vertex_ai" \
 	"__DEFAULT__" \
 	"" \

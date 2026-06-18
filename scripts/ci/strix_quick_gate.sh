@@ -3167,7 +3167,17 @@ named_env_ref = re.search(r"\bSTRIX_GITHUB_MODELS_TOKEN\b", text) and re.search(
     text,
     re.IGNORECASE,
 )
-raise SystemExit(0 if env_ref or named_env_ref else 1)
+direct_secret_literal = re.search(
+    r"\b(?:sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b",
+    text,
+)
+direct_secret_assignment = re.search(
+    r"\b(?:api[_ -]?key|token|secret|password|credential)\b\s*[:=]\s*[`'\"]?(?!\{env:)[A-Za-z0-9][A-Za-z0-9_./+=-]{15,}",
+    text,
+    re.IGNORECASE,
+)
+reference_only = (env_ref or named_env_ref) and not (direct_secret_literal or direct_secret_assignment)
+raise SystemExit(0 if reference_only else 1)
 PY
 }
 
