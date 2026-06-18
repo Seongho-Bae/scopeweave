@@ -1717,7 +1717,7 @@ function downloadFile(content, fileName, mimeType) {
 function csvEscape(value) {
   let normalized = String(value ?? '');
   if (/^\s*[=+\-@]/.test(normalized)) {
-    normalized = `\t${normalized}`;
+    normalized = `'${normalized}`;
   }
   return `"${normalized.replace(/"/g, '""')}"`;
 }

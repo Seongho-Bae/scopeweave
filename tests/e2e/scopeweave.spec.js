@@ -356,7 +356,7 @@ test.describe('ScopeWeave Planner', () => {
       await download.saveAs(csvPath);
     }
     const csvText = fs.readFileSync(csvPath, 'utf8');
-    expect(csvText).toContain('\t=HYPERLINK');
+    expect(csvText).toContain(`"'=HYPERLINK(""http://evil.test"",""Click"")"`);
   });
 
   test('can trigger CSV import file chooser', async ({ page }) => {
