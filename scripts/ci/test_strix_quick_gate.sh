@@ -413,6 +413,55 @@ EOF
 	rm -rf "$tmp_dir"
 }
 
+assert_opencode_review_gate_rejects_add_only_suggested_diff() {
+	local tmp_dir
+	local output_file
+	local rc
+	local gate_result
+	tmp_dir="$(mktemp -d)"
+	output_file="$tmp_dir/opencode-output.md"
+
+	cat >"$output_file" <<'EOF'
+<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
+<!-- opencode-review-control-v1
+{
+  "head_sha": "abc123",
+  "run_id": "42",
+  "run_attempt": "1",
+  "result": "REQUEST_CHANGES",
+  "reason": "Synthetic add-only diff should not be source-backed.",
+  "summary": "Synthetic review.",
+  "findings": [
+    {
+      "path": "scripts/ci/opencode_review_approve_gate.sh",
+      "line": 1,
+      "severity": "HIGH",
+      "title": "Synthetic add-only diff",
+      "problem": "Add-only suggested diffs do not prove the finding is tied to current source.",
+      "root_cause": "The diff has no removed or context line from the source file.",
+      "fix_direction": "Reject add-only suggested diffs in the gate.",
+      "regression_test_direction": "Keep this synthetic gate test.",
+      "suggested_diff": "+echo unsafe"
+    }
+  ]
+}
+-->
+EOF
+
+	set +e
+	gate_result="$(
+		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
+			"abc123" "42" "1" "$output_file"
+	)"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode review gate rejects add-only suggested_diff findings"
+	assert_equals "NO_CONCLUSION" "$gate_result" "add-only suggested_diff rejection reports no valid conclusion"
+
+	rm -rf "$tmp_dir"
+}
+
 assert_internal_pr_scope_targets() {
 	local target_log_file="$1"
 	local repo_root_dir="$2"
@@ -4795,6 +4844,8 @@ assert_strix_child_target_uses_constant_argument
 assert_opencode_review_uses_codegraph_and_gpt5_fallback
 
 assert_opencode_review_normalizer_accepts_transcript_json
+
+assert_opencode_review_gate_rejects_add_only_suggested_diff
 
 run_pull_request_target_head_scope_case \
 	"pull-request-target-modified-file-uses-head-blob" \
