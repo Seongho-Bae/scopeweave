@@ -198,6 +198,14 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
   });
 
+  test('rejects HTML payloads from imported CSV', async ({ page }) => {
+    await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', 'P3000.검증단계,,<img src=x onerror=alert(1)>,검증,,,담당자A,,,2026-03-01,2026-03-02,,,미착수(0%),,,'].join('\n'));
+
+    await expect(page.locator('#toast')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+    await expect(page.locator('tbody')).not.toContainText('onerror');
+  });
+
   test('normalizes imported task rows into a full phase-activity-task hierarchy', async ({ page }) => {
     await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', 'P4000.이행단계,,고아Task,이행,,,담당자A,,,2026-06-01,2026-06-03,,,미착수(0%),,,'].join('\n'));
 
