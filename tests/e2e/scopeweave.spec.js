@@ -132,6 +132,25 @@ test.describe('ScopeWeave Planner', () => {
     await expect.poll(() => dialogOpened).toBe(false);
   });
 
+  test('escapes quotes from manual text before rendering editor attributes', async ({ page }) => {
+    const ownerPayload = '" onmouseover="alert(1)';
+
+    await addTopLevelTask(page, {
+      phase: '속성검증',
+      categoryLarge: '보안검증',
+      owner: ownerPayload,
+      plannedStartDate: '2026-05-18',
+      plannedEndDate: '2026-05-20'
+    });
+
+    const taskRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '속성검증' }).first();
+    await taskRow.getByRole('button', { name: '편집' }).click();
+
+    const ownerInput = page.locator('[data-testid="editor-owner"]');
+    await expect(ownerInput).toHaveValue(ownerPayload);
+    await expect(ownerInput).not.toHaveAttribute('onmouseover', /alert/);
+  });
+
   test('keeps descendant rows attached when reordering an activity subtree', async ({ page }) => {
     const secondActivityRow = await createActivitySubtree(page, '테스트 활동', '테스트 태스크');
 
