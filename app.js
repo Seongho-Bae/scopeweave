@@ -1261,14 +1261,9 @@ function exportCsv() {
   });
 
   const csvText = [CSV_HEADERS, ...rows]
-    .map((row) => row.map((cell) => csvEscape(escapeCsvFormula(cell))).join(','))
+    .map((row) => row.map((cell) => csvEscape(cell)).join(','))
     .join('\r\n');
   downloadFile(csvText, `wbs_export_${formatCompactDate(new Date())}.csv`, 'text/csv;charset=utf-8');
-}
-
-function escapeCsvFormula(value) {
-  const text = String(value ?? '');
-  return /^[\s]*[=+\-@]/.test(text) ? `\t${text}` : text;
 }
 
 async function handleCsvImport(event) {
