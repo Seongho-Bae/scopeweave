@@ -311,6 +311,8 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" '"read": "allow"' "opencode review allows read-only file inspection"
 	assert_file_contains "$workflow_file" '"grep": "allow"' "opencode review allows focused literal searches"
 	assert_file_contains "$workflow_file" "Read bounded-review-evidence.md before concluding." "opencode review prompt keeps large PR evidence in workspace files instead of the model prompt"
+	assert_file_contains "$workflow_file" 'cp "$OPENCODE_REVIEW_WORKDIR/bounded-review-evidence.md" "$review_source_dir/bounded-review-evidence.md"' "opencode review copies bounded evidence into the configured source workspace"
+	assert_file_contains "$workflow_file" 'cp "$OPENCODE_REVIEW_WORKDIR/failed-check-evidence.md" "$review_source_dir/failed-check-evidence.md"' "opencode review copies failed-check evidence into the configured source workspace"
 	assert_file_contains "$workflow_file" "If failed-check-evidence.md says no completed failed GitHub Checks were present, do not treat failed-check lookup as a blocker." "opencode review prompt treats successful failed-check lookup with no failures as non-blocking"
 	assert_file_contains "$workflow_file" 'bash scripts/ci/collect_failed_check_evidence.sh "$evidence_file"' "opencode review evidence collection runs shell helpers through bash"
 	assert_file_contains "$workflow_file" 'bash scripts/ci/validate_opencode_failed_check_review.sh "$control_json" "$failed_checks_file" "$failed_check_evidence_file"' "opencode review failed-check validation runs shell helpers through bash"
