@@ -1609,8 +1609,11 @@ PY
 }
 
 extract_vulnerability_locations() {
+	extract_vulnerability_location_spans "$1" | cut -f1 | sort -u
+}
+
+extract_vulnerability_location_spans() {
 	local vuln_file="$1"
-	local location
 	local resolved_scan_target=""
 	local narrowed_workspace_prefix=""
 
@@ -1620,29 +1623,54 @@ extract_vulnerability_locations() {
 		fi
 	fi
 
-	extract_candidate_source_paths_from_report() {
+	extract_candidate_source_spans_from_report() {
 		python3 - "$1" <<'PY'
 from pathlib import Path
 import re
 import sys
 
 text = Path(sys.argv[1]).read_text(encoding='utf-8', errors='replace')
+entries = []
+
+def emit(path: str, start: str = "", end: str = "") -> None:
+    value = path.strip()
+    if not value:
+        return
+    start = start.strip()
+    end = end.strip() or start
+    entries.append((value, start, end))
+
+for location in re.finditer(r'<location\b[^>]*>(?P<body>.*?)</location>', text, re.IGNORECASE | re.DOTALL):
+    body = location.group('body')
+    file_match = re.search(r'<file>\s*(?P<path>.*?)\s*</file>', body, re.IGNORECASE | re.DOTALL)
+    if not file_match:
+        continue
+    start_match = re.search(r'<start_line>\s*(?P<line>\d+)\s*</start_line>', body, re.IGNORECASE)
+    end_match = re.search(r'<end_line>\s*(?P<line>\d+)\s*</end_line>', body, re.IGNORECASE)
+    emit(file_match.group('path'), start_match.group('line') if start_match else "", end_match.group('line') if end_match else "")
+
 patterns = [
-    re.compile(r'(?P<path>/workspace/[^`\r\n]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+):\d+'),
+    re.compile(r'(?P<path>/workspace/[^`\r\n]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+):(?P<line>\d+)'),
     re.compile(r'<file>\s*(?P<path>/workspace/[^<`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)\s*</file>'),
     re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Target:(?:\*\*)?[ \t]*(?:File:[ \t]*)?(?P<path>/workspace/[^`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)', re.MULTILINE),
     re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Endpoint:(?:\*\*)?[ \t]*(?P<path>/workspace/[^`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)', re.MULTILINE),
     re.compile(r'(?i)(?:in\s+)?file\s+`(?P<path>(?:\.\.?/)?[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+)`'),
     re.compile(r'(?i)`(?P<path>(?:\.\.?/)?[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+)`\s+file\b'),
 ]
-seen = set()
 for pattern in patterns:
     for match in pattern.finditer(text):
-        value = match.group('path').strip()
-        if value and value not in seen:
-            seen.add(value)
-for value in sorted(seen):
-    print(value)
+        emit(match.group('path'), match.groupdict().get('line') or "")
+
+precise_paths = {path for path, start, _end in entries if start}
+seen = set()
+for path, start, end in entries:
+    if not start and path in precise_paths:
+        continue
+    key = (path, start, end)
+    if key in seen:
+        continue
+    seen.add(key)
+    print("\t".join(key))
 PY
 	}
 
@@ -1738,10 +1766,86 @@ PY
 	}
 
 	{
-		while IFS= read -r location; do
-			normalize_vulnerability_location "$location" || true
-		done < <(extract_candidate_source_paths_from_report "$vuln_file")
+		local raw_span raw_location raw_start_line raw_end_line normalized_location
+		while IFS=$'\t' read -r raw_location raw_start_line raw_end_line; do
+			normalized_location="$(normalize_vulnerability_location "$raw_location")" || continue
+			printf '%s\t%s\t%s\n' "$normalized_location" "$raw_start_line" "$raw_end_line"
+		done < <(extract_candidate_source_spans_from_report "$vuln_file")
 	} | sort -u
+}
+
+vulnerability_span_intersects_pull_request_change() {
+	local relative_path="$1"
+	local start_line="$2"
+	local end_line="$3"
+	local base_sha head_sha
+
+	if ! [[ "$start_line" =~ ^[0-9]+$ ]]; then
+		return 0
+	fi
+	if ! [[ "$end_line" =~ ^[0-9]+$ ]]; then
+		end_line="$start_line"
+	fi
+	if [ "$end_line" -lt "$start_line" ]; then
+		end_line="$start_line"
+	fi
+
+	base_sha="$(trim_whitespace "${PR_BASE_SHA:-}")"
+	head_sha="$(trim_whitespace "${PR_HEAD_SHA:-}")"
+	if [ -z "$base_sha" ] || [ -z "$head_sha" ]; then
+		return 0
+	fi
+	if ! is_valid_git_commit_sha "$base_sha" || ! is_valid_git_commit_sha "$head_sha"; then
+		return 0
+	fi
+	if ! git rev-parse --verify --quiet "$base_sha^{commit}" >/dev/null; then
+		return 0
+	fi
+	if ! git rev-parse --verify --quiet "$head_sha^{commit}" >/dev/null; then
+		return 0
+	fi
+
+	local line_intersects_rc=0
+	python3 - "$base_sha" "$head_sha" "$relative_path" "$start_line" "$end_line" <<'PY' || line_intersects_rc=$?
+import re
+import subprocess
+import sys
+
+base_sha, head_sha, relative_path, start_raw, end_raw = sys.argv[1:6]
+start_line = int(start_raw)
+end_line = int(end_raw)
+
+def diff_for(args):
+    return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False)
+
+result = diff_for(["git", "diff", "--unified=0", f"{base_sha}...{head_sha}", "--", relative_path])
+if result.returncode != 0:
+    result = diff_for(["git", "diff", "--unified=0", base_sha, head_sha, "--", relative_path])
+if result.returncode != 0:
+    raise SystemExit(2)
+
+for match in re.finditer(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@", result.stdout, re.MULTILINE):
+    hunk_start = int(match.group("start"))
+    hunk_count = int(match.group("count") or "1")
+    if hunk_count <= 0:
+        continue
+    hunk_end = hunk_start + hunk_count - 1
+    if start_line <= hunk_end and end_line >= hunk_start:
+        raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+	case "$line_intersects_rc" in
+	0)
+		return 0
+		;;
+	1)
+		return 1
+		;;
+	*)
+		return 0
+		;;
+	esac
 }
 
 extract_first_severity_rank() {
@@ -1779,6 +1883,7 @@ evaluate_pull_request_findings() {
 	local found_retryable_model_inconsistency=0
 	local found_any_vuln_file=0
 	local run_dir vulnerabilities_dir vuln_file line severity rank
+	local -a vulnerability_location_spans vulnerability_locations
 	for run_dir in "$STRIX_REPORTS_DIR"/*; do
 		if [ ! -d "$run_dir" ] || [ -L "$run_dir" ]; then
 			continue
@@ -1808,7 +1913,12 @@ evaluate_pull_request_findings() {
 				found_retryable_model_inconsistency=1
 				continue
 			fi
-			mapfile -t vulnerability_locations < <(extract_vulnerability_locations "$vuln_file")
+			mapfile -t vulnerability_location_spans < <(extract_vulnerability_location_spans "$vuln_file")
+			if [ "${#vulnerability_location_spans[@]}" -eq 0 ]; then
+				vulnerability_locations=()
+			else
+				mapfile -t vulnerability_locations < <(printf '%s\n' "${vulnerability_location_spans[@]}" | cut -f1 | sort -u)
+			fi
 			if [ "${#vulnerability_locations[@]}" -eq 0 ]; then
 				PR_FINDINGS_DECISION="block_unmapped"
 				echo "Unable to map Strix findings to changed files; failing closed for pull request." >&2
@@ -1835,10 +1945,12 @@ evaluate_pull_request_findings() {
 				continue
 			fi
 			found_baseline_threshold_finding=1
-			local changed_file vulnerability_location
-			for vulnerability_location in "${vulnerability_locations[@]}"; do
+			local changed_file vulnerability_span vulnerability_location vulnerability_start_line vulnerability_end_line
+			for vulnerability_span in "${vulnerability_location_spans[@]}"; do
+				IFS=$'\t' read -r vulnerability_location vulnerability_start_line vulnerability_end_line <<<"$vulnerability_span"
 				for changed_file in "${CHANGED_FILES[@]}"; do
-					if [ "$vulnerability_location" = "$changed_file" ]; then
+					if [ "$vulnerability_location" = "$changed_file" ] &&
+						vulnerability_span_intersects_pull_request_change "$vulnerability_location" "$vulnerability_start_line" "$vulnerability_end_line"; then
 						PR_FINDINGS_DECISION="block_changed"
 						echo "Strix finding intersects files changed in this pull request." >&2
 						return 1
@@ -1858,7 +1970,12 @@ evaluate_pull_request_findings() {
 			return 1
 		fi
 		if [ "$rank" -ge "$threshold_rank" ]; then
-			mapfile -t vulnerability_locations < <(extract_vulnerability_locations "$STRIX_LOG")
+			mapfile -t vulnerability_location_spans < <(extract_vulnerability_location_spans "$STRIX_LOG")
+			if [ "${#vulnerability_location_spans[@]}" -eq 0 ]; then
+				vulnerability_locations=()
+			else
+				mapfile -t vulnerability_locations < <(printf '%s\n' "${vulnerability_location_spans[@]}" | cut -f1 | sort -u)
+			fi
 			if [ "${#vulnerability_locations[@]}" -eq 0 ]; then
 				PR_FINDINGS_DECISION="block_unmapped"
 				echo "Unable to map Strix findings to changed files; failing closed for pull request." >&2
@@ -1884,10 +2001,12 @@ evaluate_pull_request_findings() {
 				fi
 			else
 				found_baseline_threshold_finding=1
-				local changed_file vulnerability_location
-				for vulnerability_location in "${vulnerability_locations[@]}"; do
+				local changed_file vulnerability_span vulnerability_location vulnerability_start_line vulnerability_end_line
+				for vulnerability_span in "${vulnerability_location_spans[@]}"; do
+					IFS=$'\t' read -r vulnerability_location vulnerability_start_line vulnerability_end_line <<<"$vulnerability_span"
 					for changed_file in "${CHANGED_FILES[@]}"; do
-						if [ "$vulnerability_location" = "$changed_file" ]; then
+						if [ "$vulnerability_location" = "$changed_file" ] &&
+							vulnerability_span_intersects_pull_request_change "$vulnerability_location" "$vulnerability_start_line" "$vulnerability_end_line"; then
 							PR_FINDINGS_DECISION="block_changed"
 							echo "Strix finding intersects files changed in this pull request." >&2
 							return 1

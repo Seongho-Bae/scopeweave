@@ -2650,6 +2650,96 @@ EOF
 	rm -rf "$tmp_dir"
 }
 
+run_pull_request_target_line_attribution_case() {
+	local case_name="$1"
+	local finding_line="$2"
+	local expected_exit="$3"
+	local expected_message="$4"
+
+	local tmp_dir
+	tmp_dir="$(mktemp -d)"
+	local bin_dir="$tmp_dir/bin"
+	local repo_root_dir="$tmp_dir/repo"
+	mkdir -p "$bin_dir" "$repo_root_dir/scripts/ci"
+	cp "$GATE_SCRIPT" "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+	cp "$REPO_ROOT/scripts/ci/strix_model_utils.sh" "$repo_root_dir/scripts/ci/strix_model_utils.sh"
+	chmod +x "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+
+	local fake_strix="$bin_dir/strix"
+	local output_log="$tmp_dir/output.log"
+	local strix_llm_file="$tmp_dir/strix_llm.txt"
+	local llm_api_key_file="$tmp_dir/llm_api_key.txt"
+
+	cat >"$fake_strix" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "${STRIX_REPORTS_DIR:?}/fake-pr-line-attribution/vulnerabilities"
+cat >"${STRIX_REPORTS_DIR:?}/fake-pr-line-attribution/vulnerabilities/vuln-0001.md" <<EOS
+Severity: CRITICAL
+Location 1:
+app.js:${FAKE_STRIX_FINDING_LINE:?}
+EOS
+echo "Penetration test failed: line attribution finding"
+exit 1
+EOF
+	chmod +x "$fake_strix"
+	printf '%s' 'gemini/test-model' >"$strix_llm_file"
+	printf '%s' 'dummy' >"$llm_api_key_file"
+
+	(
+		cd "$repo_root_dir"
+		git init -q
+		git config user.name 'Strix Test'
+		git config user.email 'strix-test@example.invalid'
+		cat >app.js <<'EOF'
+const storageKey = 'scopeweave:planner-state:v1';
+function persistState() {
+  localStorage.setItem(storageKey, JSON.stringify({ tasks: [] }));
+}
+const changedValue = 'base';
+export { persistState, changedValue };
+EOF
+		git add .
+		git commit -qm 'base commit'
+	)
+	local base_sha
+	base_sha="$(git -C "$repo_root_dir" rev-parse HEAD)"
+	(
+		cd "$repo_root_dir"
+		perl -0pi -e "s/const changedValue = 'base';/const changedValue = 'head';/" app.js
+		git add app.js
+		git commit -qm 'head commit'
+	)
+	local head_sha
+	head_sha="$(git -C "$repo_root_dir" rev-parse HEAD)"
+	git -C "$repo_root_dir" checkout -q "$base_sha"
+
+	set +e
+	(
+		cd "$repo_root_dir"
+		env -u GITHUB_EVENT_PATH \
+			PATH="$bin_dir:$PATH" \
+			STRIX_INPUT_FILE_ROOT="$tmp_dir" \
+			GITHUB_EVENT_NAME="pull_request_target" \
+			PR_BASE_SHA="$base_sha" \
+			PR_HEAD_SHA="$head_sha" \
+			FAKE_STRIX_FINDING_LINE="$finding_line" \
+			STRIX_DISABLE_PR_SCOPING="0" \
+			STRIX_LLM_FILE="$strix_llm_file" \
+			LLM_API_KEY_FILE="$llm_api_key_file" \
+			STRIX_TARGET_PATH="__PR_SCOPE__" \
+			bash "./scripts/ci/strix_quick_gate.sh" >"$output_log" 2>&1
+	)
+	local rc=$?
+	set -e
+
+	assert_equals "$expected_exit" "$rc" "case=$case_name exit code"
+	assert_file_contains "$output_log" "$expected_message" "case=$case_name output"
+
+	rm -rf "$tmp_dir"
+}
+
 run_pull_request_target_plaintext_runner_token_fails_closed_case() {
 	local tmp_dir
 	tmp_dir="$(mktemp -d)"
@@ -4887,6 +4977,18 @@ run_pull_request_target_head_scope_case \
 	"HEAD_EXECUTABLE_SHOULD_BE_SCANNED_AS_DATA" \
 	"0" \
 	"1"
+
+run_pull_request_target_line_attribution_case \
+	"pull-request-target-same-file-unchanged-line-allows-baseline" \
+	"3" \
+	"0" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation."
+
+run_pull_request_target_line_attribution_case \
+	"pull-request-target-same-file-changed-line-blocks" \
+	"5" \
+	"1" \
+	"Strix finding intersects files changed in this pull request."
 
 run_pull_request_target_plaintext_runner_token_fails_closed_case
 
