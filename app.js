@@ -1469,8 +1469,7 @@ function renderGantt() {
     const emptyDiv = document.createElement('div');
     emptyDiv.className = 'gantt-empty';
     emptyDiv.textContent = '계획 일정이 있는 작업이 없습니다.';
-    elements.ganttContent.innerHTML = '';
-    elements.ganttContent.appendChild(emptyDiv);
+    elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }
 
@@ -1512,7 +1511,7 @@ function renderGantt() {
     `;
   }).join('');
 
-  elements.ganttContent.innerHTML = `
+  setGanttContent(`
     <div class="gantt-shell">
       <div class="gantt-meta">
         <table>
@@ -1549,7 +1548,14 @@ function renderGantt() {
         </table>
       </div>
     </div>
-  `;
+  `);
+}
+
+function setGanttContent(markup) {
+  const template = document.createElement('template');
+  template.innerHTML = markup;
+  stripUnsafeGeneratedMarkup(template.content);
+  elements.ganttContent.replaceChildren(template.content);
 }
 
 function buildWeekdayTimeline(minDate, maxDate) {
