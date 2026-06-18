@@ -1334,6 +1334,34 @@ EOS
 			;;
 		esac
 		;;
+	pr-sanitized-table-xss-report-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/sanitized-table-xss-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-sanitized-table-xss/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-sanitized-table-xss/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** HIGH
+**Target:** app.js
+
+Stored Cross-Site Scripting (XSS) in Task Field. The issue occurs where template.innerHTML
+uses rows.join in setTableBodyRows. The renderTaskRow function includes unsanitized user input,
+and the recommended fix is to use DOMPurify before insertion.
+EOS
+			echo "Severity: HIGH"
+			echo "Stored Cross-Site Scripting (XSS) in Task Field"
+			echo "template.innerHTML rows.join renderTaskRow unsanitized user input DOMPurify"
+			echo "Penetration test failed: sanitized table xss false positive"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after sanitized table xss retry"
+			exit 0
+			;;
+		*)
+			echo "Error: sanitized-table-xss scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 40
+			;;
+		esac
+		;;
 	endpoint-in-excluded-dir)
 		case "${STRIX_LLM:-}" in
 		vertex_ai/excluded-dir-primary)
@@ -2355,6 +2383,30 @@ The browser localStorage autosave is the persistence model for this static app.
 EOS
 		cat >"$repo_root_dir/app.js" <<'EOS'
 localStorage.setItem('scopeweave:planner-state:v1', '{}');
+EOS
+	elif [ "$scenario" = "pr-sanitized-table-xss-report-retries" ]; then
+		cat >"$repo_root_dir/app.js" <<'EOS'
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, '');
+}
+
+function renderTextCell(value) {
+  return `<span>${escapeHtml(value)}</span>`;
+}
+
+function setTableBodyRows(rows) {
+  const template = document.createElement('template');
+  template.innerHTML = `<table><tbody>${rows.join('')}</tbody></table>`;
+  stripUnsafeGeneratedMarkup(template.content);
+}
+
+function stripUnsafeGeneratedMarkup(root) {
+  root.querySelectorAll('script').forEach((node) => node.remove());
+}
+
+function renderTaskRow(task) {
+  return `<tr><td>${renderTextCell(task.task)}</td></tr>`;
+}
 EOS
 	elif [ "$scenario" = "pr-changed-scope-bounded" ]; then
 		echo 'class Unrelated {}' >"$repo_root_dir/sync-module-system/smart-crawling-common/src/main/java/org/empasy/sync/common/system/util/JwtUtil.java"
@@ -6067,6 +6119,27 @@ run_gate_case "pr-static-auth-contract-report-retries" \
 	"" \
 	"0" \
 	"CRITICAL" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
+
+run_gate_case "pr-sanitized-table-xss-report-retries" \
+	"vertex_ai/sanitized-table-xss-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after sanitized table xss retry" \
+	"2" \
+	"vertex_ai/sanitized-table-xss-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"HIGH" \
 	"0" \
 	"" \
 	"" \
