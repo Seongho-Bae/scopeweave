@@ -438,6 +438,7 @@ copy_pr_head_blob_to_file() {
 
 is_supported_source_file() {
 	case "$1" in
+	Dockerfile | */Dockerfile | \
 	*.java | *.kt | *.kts | *.groovy | *.scala | *.py | *.js | *.jsx | *.ts | *.tsx | *.vue | *.yaml | *.yml | *.sh | *.sql | *.xml | *.json | *.html | *.css | *.md)
 		return 0
 		;;
@@ -1661,16 +1662,17 @@ for location in re.finditer(r'<location\b[^>]*>(?P<body>.*?)</location>', text, 
     emit(file_match.group('path'), start_match.group('line') if start_match else "", end_match.group('line') if end_match else "")
 
 patterns = [
+    re.compile(r'(?i)(?:\*\*)?Location\s+\d+\s*:(?:\*\*)?\s*`(?P<path>[A-Za-z0-9_./ \[\]-]+)`\s*\(lines?\s+(?P<line>\d+)(?:\s*[-–]\s*(?P<end>\d+))?'),
     re.compile(r'(?P<path>/workspace/[^`\r\n]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+):(?P<line>\d+)'),
     re.compile(r'<file>\s*(?P<path>/workspace/[^<`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)\s*</file>'),
-    re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Target:(?:\*\*)?[ \t]*(?:File:[ \t]*)?(?P<path>/workspace/[^`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)', re.MULTILINE),
+    re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Target:(?:\*\*)?[ \t]*(?:File:[ \t]*)?(?P<path>/workspace/[^`│\r\n]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*(?:\.[A-Za-z0-9_]+|Dockerfile))', re.MULTILINE),
     re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Endpoint:(?:\*\*)?[ \t]*(?P<path>/workspace/[^`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)', re.MULTILINE),
     re.compile(r'(?i)(?:in\s+)?file\s+`(?P<path>(?:\.\.?/)?[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+)`'),
     re.compile(r'(?i)`(?P<path>(?:\.\.?/)?[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+)`\s+file\b'),
 ]
 for pattern in patterns:
     for match in pattern.finditer(text):
-        emit(match.group('path'), match.groupdict().get('line') or "")
+        emit(match.group('path'), match.groupdict().get('line') or "", match.groupdict().get('end') or "")
 
 precise_paths = {path for path, start, _end in entries if start}
 seen = set()
@@ -1719,6 +1721,33 @@ def try_normalize_within(base: Path, location: str) -> Path | None:
     except SystemExit:
         return None
 
+def try_unique_descendant(base: Path, location: str) -> Path | None:
+    relative = Path(location)
+    if relative.is_absolute() or len(relative.parts) < 2:
+        return None
+    if any(part in {"", ".", ".."} for part in relative.parts):
+        return None
+    anchor = (base / relative.parts[0]).resolve(strict=False)
+    try:
+        anchor.relative_to(base)
+    except ValueError:
+        return None
+    if not anchor.is_dir():
+        return None
+    matches = []
+    for candidate in anchor.rglob(relative.name):
+        if candidate.is_file() and not candidate.is_symlink():
+            resolved = candidate.resolve(strict=True)
+            try:
+                resolved.relative_to(base)
+            except ValueError:
+                continue
+            matches.append(resolved)
+    unique_matches = sorted(set(matches))
+    if len(unique_matches) == 1:
+        return unique_matches[0]
+    return None
+
 def emit_repo_relative(candidate: Path, fallback_relative: Path | None = None) -> None:
     try:
         relative = candidate.relative_to(repo_root)
@@ -1739,7 +1768,9 @@ if scan_target_root and scan_target_workspace_prefix and raw_location.startswith
     suffix = raw_location[len(scan_target_workspace_prefix):]
     if not suffix:
         raise SystemExit(1)
-    candidate = normalize_within(scan_target_root, suffix)
+    candidate = try_normalize_within(scan_target_root, suffix) or try_unique_descendant(scan_target_root, suffix)
+    if candidate is None:
+        raise SystemExit(1)
     emit_repo_relative(candidate, candidate.relative_to(scan_target_root))
 
 prefixes = (
@@ -1754,11 +1785,14 @@ for prefix in prefixes:
         emit_repo_relative(normalize_within(repo_root, relative_location))
 
 if scan_target_root is not None:
-    candidate = try_normalize_within(scan_target_root, raw_location)
+    candidate = try_normalize_within(scan_target_root, raw_location) or try_unique_descendant(scan_target_root, raw_location)
     if candidate is not None:
         emit_repo_relative(candidate, candidate.relative_to(scan_target_root))
 
-emit_repo_relative(normalize_within(repo_root, raw_location))
+repo_candidate = try_normalize_within(repo_root, raw_location) or try_unique_descendant(repo_root, raw_location)
+if repo_candidate is None:
+    raise SystemExit(1)
+emit_repo_relative(repo_candidate)
 PY
 		})" || return 1
 		if [ -z "$raw_location" ]; then
