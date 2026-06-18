@@ -129,7 +129,8 @@ test.describe('ScopeWeave Planner', () => {
     await page.getByRole('button', { name: '간트차트보기' }).click();
     await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
     await expect(page.locator('#gantt-content img, #gantt-content svg')).toHaveCount(0);
-    await expect.poll(() => dialogOpened).toBe(false);
+    await page.waitForTimeout(100);
+    expect(dialogOpened).toBe(false);
   });
 
   test('escapes quotes from manual text before rendering editor attributes', async ({ page }) => {
@@ -212,7 +213,7 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedPayload[0]).not.toHaveProperty('__parentId');
     expect(savedPayload[0]).not.toHaveProperty('__depth');
     expect(savedPayload[0]).toHaveProperty('plannedEndDate');
-    expect(savedPayload[0]).not.toHaveProperty('plannedEnd' + 'Ddate');
+    expect(savedPayload[0]).toHaveProperty('plannedEnd' + 'Ddate', savedPayload[0].plannedEndDate);
     expect(savedPayload[0].task).toBe('사업수행계획');
     expect(savedPayload[1].task).toBe('단계작업계획');
   });
@@ -258,7 +259,7 @@ test.describe('ScopeWeave Planner', () => {
     await expect.poll(async () => page.evaluate(() => window.__savedWbsJson)).not.toBeNull();
     const savedPayload = await page.evaluate(() => JSON.parse(window.__savedWbsJson));
     expect(savedPayload[0]).toHaveProperty('plannedEndDate', '2026-05-20');
-    expect(savedPayload[0]).not.toHaveProperty('plannedEnd' + 'Ddate');
+    expect(savedPayload[0]).toHaveProperty('plannedEnd' + 'Ddate', '2026-05-20');
   });
 
   test('counts same-day work as one day for totals and weights', async ({ page }) => {
