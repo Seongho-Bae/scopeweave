@@ -273,7 +273,7 @@ test.describe('ScopeWeave Planner', () => {
     await expect(targetRow.locator('.owner-badge')).toHaveText(originalOwner);
   });
 
-  test('can trigger CSV export download', async ({ page }) => {
+  test('can trigger CSV export download', async ({ page }, testInfo) => {
     await addTopLevelTask(page, {
       phase: '=HYPERLINK("http://evil.test","Click")',
       categoryLarge: 'CSV검증',
@@ -287,7 +287,11 @@ test.describe('ScopeWeave Planner', () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^wbs_export_\d{8}\.csv$/);
     const downloadPath = await download.path();
-    const csvText = fs.readFileSync(downloadPath, 'utf8');
+    const csvPath = downloadPath || testInfo.outputPath(download.suggestedFilename());
+    if (!downloadPath) {
+      await download.saveAs(csvPath);
+    }
+    const csvText = fs.readFileSync(csvPath, 'utf8');
     expect(csvText).toContain('\t=HYPERLINK');
   });
 
