@@ -395,7 +395,7 @@ function stripUnsafeGeneratedMarkup(root) {
       const name = attribute.name.toLowerCase();
       if (
         name.startsWith('on') ||
-        !SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style'
+        (!SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style')
       ) {
         element.removeAttribute(attribute.name);
         return;
