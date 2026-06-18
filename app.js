@@ -1061,7 +1061,17 @@ function loadLocalState() {
 function hydrateState(savedState) {
   state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
-  state.tasks = Array.isArray(savedState.tasks) ? savedState.tasks.map((task) => ({ ...task, expanded: task.expanded !== false })) : [];
+  state.tasks = Array.isArray(savedState.tasks) ? savedState.tasks.map(normalizeStoredTask) : [];
+}
+
+function normalizeStoredTask(task) {
+  const normalizedTask = {
+    ...task,
+    plannedEndDate: getPlannedEndDateValue(task),
+    expanded: task.expanded !== false
+  };
+  delete normalizedTask[LEGACY_PLANNED_END_FIELD];
+  return normalizedTask;
 }
 
 async function loadSeedTasks() {

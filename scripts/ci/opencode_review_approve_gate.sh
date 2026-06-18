@@ -194,7 +194,7 @@ def finding_is_source_backed(finding: dict[str, object]) -> bool:
             if stripped:
                 added_lines.append(stripped)
 
-    if not removed_lines and not added_lines:
+    if not removed_lines:
         return False
     for removed_line in removed_lines:
         if removed_line not in source_line_set:
