@@ -1961,6 +1961,11 @@ evaluate_pull_request_findings() {
 	done
 
 	if [ "$found_baseline_threshold_finding" -eq 0 ] && [ "$found_changed_manifest_only_threshold_finding" -eq 0 ]; then
+		if [ "$found_retryable_model_inconsistency" -eq 1 ] &&
+			vulnerability_file_is_retryable_model_inconsistency "$STRIX_LOG"; then
+			PR_FINDINGS_DECISION="retry_model_inconsistency"
+			return 1
+		fi
 		rank="$(extract_first_severity_rank "$STRIX_LOG")"
 		if [ "$rank" -lt 0 ]; then
 			if [ "$found_retryable_model_inconsistency" -eq 1 ]; then
