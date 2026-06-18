@@ -410,6 +410,19 @@ EOF
 	assert_equals "0" "$rc" "normalized OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "normalized OpenCode transcript gate result"
 
+	cat >"$output_file" <<'EOF'
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"REQUEST_CHANGES","reason":"Malformed line type.","summary":"Malformed finding.","findings":[{"path":"app.js","line":true,"severity":"HIGH","title":"Bad line","problem":"Boolean line values are not real line numbers.","root_cause":"JSON booleans must not pass integer validation.","fix_direction":"Reject non-integer line values.","regression_test_direction":"Keep this malformed control regression.","suggested_diff":"-old\n+new"}]}
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/bool-line.out" 2>"$tmp_dir/bool-line.err"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode review normalizer rejects boolean line values"
+	assert_file_contains "$tmp_dir/bool-line.err" "NO_CONCLUSION" "opencode review normalizer reports boolean line rejection"
+
 	rm -rf "$tmp_dir"
 }
 
