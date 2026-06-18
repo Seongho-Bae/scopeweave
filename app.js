@@ -1480,11 +1480,22 @@ function createGanttBar(startDate, endDate, weekdays, type) {
     return '';
   }
   const startIndex = weekdays.findIndex((day) => compareDateStrings(day.date, startDate) >= 0);
-  const endIndex = [...weekdays].reverse().findIndex((day) => compareDateStrings(day.date, endDate) <= 0);
-  if (startIndex === -1 || endIndex === -1) {
+
+  // ⚡ Bolt Performance Optimization:
+  // Replaced `[...weekdays].reverse().findIndex(...)` with a standard reverse `for` loop.
+  // This avoids O(N) memory allocation and garbage collection overhead during hot render passes
+  // when drawing the Gantt chart for many tasks.
+  let normalizedEndIndex = -1;
+  for (let i = weekdays.length - 1; i >= 0; i--) {
+    if (compareDateStrings(weekdays[i].date, endDate) <= 0) {
+      normalizedEndIndex = i;
+      break;
+    }
+  }
+
+  if (startIndex === -1 || normalizedEndIndex === -1) {
     return '';
   }
-  const normalizedEndIndex = weekdays.length - 1 - endIndex;
   if (normalizedEndIndex < startIndex) {
     return '';
   }
