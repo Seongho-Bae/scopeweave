@@ -178,7 +178,9 @@ failed_contexts="$(mktemp)"
 workflow_run_contexts="$(mktemp)"
 tmp_files=("$failed_contexts" "$workflow_run_contexts")
 cleanup() {
-	rm -f "${tmp_files[@]}"
+	if [ "${#tmp_files[@]}" -gt 0 ]; then
+		rm -f "${tmp_files[@]}"
+	fi
 }
 trap cleanup EXIT
 
