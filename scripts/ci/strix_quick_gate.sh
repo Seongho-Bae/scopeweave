@@ -3133,6 +3133,53 @@ raise SystemExit(0 if env_ref or named_env_ref else 1)
 PY
 }
 
+static_app_table_rendering_escapes_and_sanitizes() {
+	local resolved_scan_target=""
+	if ! resolved_scan_target="$(resolve_current_target_path "$TARGET_PATH" 2>/dev/null)"; then
+		return 1
+	fi
+	if [ ! -d "$resolved_scan_target" ] || [ -L "$resolved_scan_target" ]; then
+		return 1
+	fi
+
+	local app_js="$resolved_scan_target/app.js"
+	if [ ! -f "$app_js" ] || [ -L "$app_js" ]; then
+		return 1
+	fi
+
+	grep -Fq 'function escapeHtml' "$app_js" &&
+		grep -Fq 'function renderTextCell' "$app_js" &&
+		grep -Fq 'escapeHtml(value)' "$app_js" &&
+		grep -Fq 'function stripUnsafeGeneratedMarkup' "$app_js" &&
+		grep -Fq 'stripUnsafeGeneratedMarkup(template.content)' "$app_js" &&
+		grep -Fq 'renderTextCell(task.task)' "$app_js"
+}
+
+vulnerability_file_has_sanitized_table_xss_false_positive() {
+	local vuln_file="$1"
+	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
+		return 1
+	fi
+	if ! static_app_table_rendering_escapes_and_sanitizes; then
+		return 1
+	fi
+	python3 - "$vuln_file" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+xss_claim = re.search(r"(stored cross-site scripting|stored xss|CWE-79)", text, re.IGNORECASE)
+table_claim = re.search(r"(template\.innerHTML|rows\.join|renderTaskRow|task field)", text, re.IGNORECASE)
+sanitizer_contradiction = re.search(
+    r"(without proper sanitization|unsanitized user input|DOMPurify)",
+    text,
+    re.IGNORECASE,
+)
+raise SystemExit(0 if xss_claim and table_claim and sanitizer_contradiction else 1)
+PY
+}
+
 vulnerability_file_is_retryable_model_inconsistency() {
 	local vuln_file="$1"
 	if vulnerability_file_has_absent_endpoint_finding "$vuln_file"; then
@@ -3147,6 +3194,10 @@ vulnerability_file_is_retryable_model_inconsistency() {
 	fi
 	if vulnerability_file_has_env_secret_reference_only "$vuln_file"; then
 		echo "Detected Strix report treating an environment-variable reference as a hardcoded secret; treating as retryable model inconsistency." >&2
+		return 0
+	fi
+	if vulnerability_file_has_sanitized_table_xss_false_positive "$vuln_file"; then
+		echo "Detected Strix report contradicting table escaping and generated-markup sanitizer; treating as retryable model inconsistency." >&2
 		return 0
 	fi
 	return 1
