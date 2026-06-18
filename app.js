@@ -466,7 +466,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
-  const requiredHtml = required ? ' <span style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
+  const requiredHtml = required ? ' <span aria-hidden="true" style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
   const requiredAttr = required ? ' required aria-required="true"' : '';
   const placeholderAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
   return `
