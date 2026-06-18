@@ -1254,6 +1254,32 @@ EOS
 			;;
 		esac
 		;;
+	pr-absent-endpoint-report-plus-inline-retries)
+		case "${STRIX_LLM:-}" in
+		vertex_ai/absent-endpoint-primary)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-absent-endpoint-inline/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-absent-endpoint-inline/vulnerabilities/vuln-0001.md" <<'EOS'
+**Severity:** HIGH
+**Endpoint:** /api/ghost-login
+
+**Location 1:** app.js:5
+EOS
+			echo "Severity: HIGH"
+			echo "Endpoint: /api/ghost-login"
+			echo "Location 1: app.js:5"
+			echo "Penetration test failed: absent endpoint inline duplicate"
+			exit 1
+			;;
+		vertex_ai/fallback-one)
+			echo "scan ok after absent endpoint retry"
+			exit 0
+			;;
+		*)
+			echo "Error: absent-endpoint-inline scenario unexpected model (${STRIX_LLM:-})" >&2
+			exit 37
+			;;
+		esac
+		;;
 	endpoint-in-excluded-dir)
 		case "${STRIX_LLM:-}" in
 		vertex_ai/excluded-dir-primary)
@@ -2246,6 +2272,12 @@ class WorkspaceRunnerConfig:
     )
 EOS
 		echo 'def real_changed_endpoint(): pass' >"$repo_root_dir/backend/api/emails.py"
+	elif [ "$scenario" = "pr-absent-endpoint-report-plus-inline-retries" ]; then
+		cat >"$repo_root_dir/app.js" <<'EOS'
+function renderStaticPlanner() {
+  return 'static app';
+}
+EOS
 	elif [ "$scenario" = "pr-changed-scope-bounded" ]; then
 		echo 'class Unrelated {}' >"$repo_root_dir/sync-module-system/smart-crawling-common/src/main/java/org/empasy/sync/common/system/util/JwtUtil.java"
 	elif [ "$scenario" = "pr-python-scope-context" ]; then
@@ -5901,6 +5933,27 @@ run_gate_case "pr-stale-report-plus-inline-changed-finding-blocks" \
 	"0" \
 	"pull_request" \
 	$'backend/db/models.py\nbackend/api/emails.py'
+
+run_gate_case "pr-absent-endpoint-report-plus-inline-retries" \
+	"vertex_ai/absent-endpoint-primary" \
+	"vertex_ai/fallback-one vertex_ai/fallback-two" \
+	"0" \
+	"scan ok after absent endpoint retry" \
+	"2" \
+	"vertex_ai/absent-endpoint-primary|vertex_ai/fallback-one" \
+	"<unset>|<unset>" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"HIGH" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
 
 run_gate_case "high-vuln-below-threshold" \
 	"vertex_ai/high-vuln-primary" \
