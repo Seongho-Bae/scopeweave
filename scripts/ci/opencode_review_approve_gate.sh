@@ -181,7 +181,6 @@ def finding_is_source_backed(finding: dict[str, object]) -> bool:
     }
     suggested_diff = str(finding.get("suggested_diff", ""))
     removed_lines = []
-    added_lines = []
     for raw_line in suggested_diff.splitlines():
         if raw_line.startswith("--- ") or raw_line.startswith("+++ "):
             continue
@@ -189,10 +188,6 @@ def finding_is_source_backed(finding: dict[str, object]) -> bool:
             stripped = normalized_line(raw_line[1:])
             if stripped:
                 removed_lines.append(stripped)
-        elif raw_line.startswith("+"):
-            stripped = normalized_line(raw_line[1:])
-            if stripped:
-                added_lines.append(stripped)
 
     if not removed_lines:
         return False
