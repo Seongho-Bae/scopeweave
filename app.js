@@ -347,10 +347,12 @@ function renderAll() {
 }
 
 function setTableBodyRows(rows) {
-  const template = document.createElement('template');
-  template.innerHTML = rows.join('');
-  stripUnsafeGeneratedMarkup(template.content);
-  elements.tableBody.replaceChildren(template.content);
+  const table = document.createElement('table');
+  const tableBody = document.createElement('tbody');
+  table.appendChild(tableBody);
+  tableBody.innerHTML = rows.join('');
+  stripUnsafeGeneratedMarkup(tableBody);
+  elements.tableBody.replaceChildren(...Array.from(tableBody.children));
 }
 
 function stripUnsafeGeneratedMarkup(root) {
