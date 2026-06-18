@@ -1877,6 +1877,22 @@ EOS
 		echo "Penetration test failed: baseline critical finding"
 		exit 1
 		;;
+	pr-baseline-generated-scope-infra-paths)
+		mkdir -p "$STRIX_REPORTS_DIR/fake-pr-generated-scope-infra/vulnerabilities"
+		local_scope_name="$(basename -- "$target_path")"
+		cat >"$STRIX_REPORTS_DIR/fake-pr-generated-scope-infra/vulnerabilities/vuln-0001.md" <<EOS
+**Severity:** CRITICAL
+**Target:** /workspace/$local_scope_name/Dockerfile
+**Location 1:** \`Dockerfile\` (lines 1-6)
+EOS
+		cat >"$STRIX_REPORTS_DIR/fake-pr-generated-scope-infra/vulnerabilities/vuln-0002.md" <<EOS
+**Severity:** CRITICAL
+**Target:** /workspace/$local_scope_name/infra/deployment.yaml
+**Location 1:** \`infra/deployment.yaml\` (lines 1-10)
+EOS
+		echo "Penetration test failed: generated PR scope infra finding"
+		exit 1
+		;;
 	pr-critical-changed)
 		mkdir -p "$STRIX_REPORTS_DIR/fake-pr-changed/vulnerabilities"
 		cat >"$STRIX_REPORTS_DIR/fake-pr-changed/vulnerabilities/vuln-0001.md" <<'EOS'
@@ -2460,6 +2476,29 @@ function stripUnsafeGeneratedMarkup(root) {
 function renderTaskRow(task) {
   return `<tr><td>${renderTextCell(task.task)}</td></tr>`;
 }
+EOS
+	elif [ "$scenario" = "pr-baseline-generated-scope-infra-paths" ]; then
+		mkdir -p "$repo_root_dir/infra/k8s"
+		echo 'const app = "static";' >"$repo_root_dir/app.js"
+		cat >"$repo_root_dir/Dockerfile" <<'EOS'
+FROM node:18
+WORKDIR /app
+COPY . .
+RUN npm install
+EXPOSE 3000
+CMD ["node", "app.js"]
+EOS
+		cat >"$repo_root_dir/infra/k8s/deployment.yaml" <<'EOS'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  template:
+    spec:
+      containers:
+      - name: my-app
+        image: my-app:latest
 EOS
 	elif [ "$scenario" = "pr-changed-scope-bounded" ]; then
 		echo 'class Unrelated {}' >"$repo_root_dir/sync-module-system/smart-crawling-common/src/main/java/org/empasy/sync/common/system/util/JwtUtil.java"
@@ -6895,6 +6934,27 @@ run_gate_case "pr-baseline-critical-unchanged" \
 	"0" \
 	"pull_request" \
 	"sync-module-system/smart-crawling-biz/src/main/java/org/empasy/sync/modules/system/controller/SysPositionController.java"
+
+run_gate_case "pr-baseline-generated-scope-infra-paths" \
+	"openai/gpt-4o-mini" \
+	"" \
+	"0" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation." \
+	"1" \
+	"openai/gpt-4o-mini" \
+	"https://example.invalid" \
+	"vertex_ai" \
+	"__DEFAULT__" \
+	"" \
+	"0" \
+	"CRITICAL" \
+	"0" \
+	"" \
+	"" \
+	"1200" \
+	"0" \
+	"pull_request" \
+	"app.js"
 
 run_gate_case "pr-baseline-critical-absolute-target" \
 	"openai/gpt-4o-mini" \
