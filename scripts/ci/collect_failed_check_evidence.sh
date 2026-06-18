@@ -182,6 +182,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
+resolve_workflow_job_id() {
+	local workflow_run_id="$1"
+	local check_run_id="$2"
+
+	if [ -z "$workflow_run_id" ] || [ -z "$check_run_id" ]; then
+		return 1
+	fi
+
+	CHECK_RUN_ID="$check_run_id" gh api -X GET \
+		"repos/${GH_REPOSITORY}/actions/runs/${workflow_run_id}/jobs" \
+		--paginate \
+		--jq '.jobs[]? | select((.check_run_url // "") | endswith("/" + env.CHECK_RUN_ID)) | .id' |
+		sed -n '1p'
+}
+
 # shellcheck disable=SC2016
 gh api graphql \
 	-f owner="$owner" \
@@ -320,28 +335,28 @@ done <"$workflow_run_contexts"
 		fi
 		printf '\n'
 
-			if [ "$kind" = "workflow_run" ] && [ -n "$run_id" ]; then
-				log_file="$(mktemp)"
-				stripped_log_file="$(mktemp)"
-				tmp_files+=("$log_file" "$stripped_log_file")
-				if gh run view "$run_id" --repo "$GH_REPOSITORY" --log-failed >"$log_file" 2>&1; then
-					strip_ansi <"$log_file" >"$stripped_log_file"
-					if [ -s "$stripped_log_file" ]; then
-						emit_failure_signal_summary "$stripped_log_file" || true
-						printf '### Failed workflow run log excerpt\n\n'
-						printf '```text\n'
-						emit_bounded_file "$stripped_log_file" "$FAILED_CHECK_LOG_LINES"
-						printf '\n```\n\n'
-						if [[ "$label" == *Strix* ]]; then
-							emit_strix_vulnerability_evidence "$stripped_log_file" || true
-						fi
-					else
-						printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
-						if [ "$conclusion" = "cancelled" ]; then
-							printf 'The workflow run completed as cancelled before GitHub emitted a failed job log. Treat this as missing current-head security evidence, not as a source-code vulnerability report.\n\n'
-						fi
+		if [ "$kind" = "workflow_run" ] && [ -n "$run_id" ]; then
+			log_file="$(mktemp)"
+			stripped_log_file="$(mktemp)"
+			tmp_files+=("$log_file" "$stripped_log_file")
+			if gh run view "$run_id" --repo "$GH_REPOSITORY" --log-failed >"$log_file" 2>&1; then
+				strip_ansi <"$log_file" >"$stripped_log_file"
+				if [ -s "$stripped_log_file" ]; then
+					emit_failure_signal_summary "$stripped_log_file" || true
+					printf '### Failed workflow run log excerpt\n\n'
+					printf '```text\n'
+					emit_bounded_file "$stripped_log_file" "$FAILED_CHECK_LOG_LINES"
+					printf '\n```\n\n'
+					if [[ "$label" == *Strix* ]]; then
+						emit_strix_vulnerability_evidence "$stripped_log_file" || true
 					fi
 				else
+					printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
+					if [ "$conclusion" = "cancelled" ]; then
+						printf 'The workflow run completed as cancelled before GitHub emitted a failed job log. Treat this as missing current-head security evidence, not as a source-code vulnerability report.\n\n'
+					fi
+				fi
+			else
 				strip_ansi <"$log_file" >"$stripped_log_file"
 				printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
 				printf '```text\n'
@@ -356,9 +371,17 @@ done <"$workflow_run_contexts"
 			continue
 		fi
 
+		workflow_job_id=""
+		if [ -n "$run_id" ]; then
+			workflow_job_id="$(resolve_workflow_job_id "$run_id" "$check_run_id" || true)"
+		fi
+		if [ -n "$workflow_job_id" ]; then
+			printf -- '- Workflow job id: `%s`\n\n' "$workflow_job_id"
+		fi
+
 		job_json="$(mktemp)"
 		tmp_files+=("$job_json")
-		if gh api -X GET "repos/${GH_REPOSITORY}/actions/jobs/${check_run_id}" >"$job_json" 2>/dev/null; then
+		if [ -n "$workflow_job_id" ] && gh api -X GET "repos/${GH_REPOSITORY}/actions/jobs/${workflow_job_id}" >"$job_json" 2>/dev/null; then
 			failed_steps="$(
 				jq -r '
 					(.steps // [])
@@ -390,9 +413,9 @@ done <"$workflow_run_contexts"
 		log_raw="$(mktemp)"
 		log_clean="$(mktemp)"
 		tmp_files+=("$log_raw" "$log_clean")
-		if [ -n "$run_id" ] && gh run view "$run_id" \
+		if [ -n "$run_id" ] && [ -n "$workflow_job_id" ] && gh run view "$run_id" \
 			--repo "$GH_REPOSITORY" \
-			--job "$check_run_id" \
+			--job "$workflow_job_id" \
 			--log-failed >"$log_raw" 2>&1; then
 			strip_ansi <"$log_raw" >"$log_clean"
 			if [ -s "$log_clean" ]; then
