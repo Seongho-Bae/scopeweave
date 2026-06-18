@@ -43,7 +43,7 @@ const EDITABLE_FIELDS = [
   'owner',
   'supportTeam',
   'plannedStartDate',
-  'plannedEndDdate',
+  'plannedEndDate',
   'actualProgressStatus',
   'actualStartDate',
   'actualEndDate'
@@ -97,11 +97,13 @@ const CSV_FIELD_LABELS = Object.freeze({
   owner: '담당자',
   supportTeam: '지원팀',
   plannedStartDate: '계획시작일',
-  plannedEndDdate: '계획종료일',
+  plannedEndDate: '계획종료일',
   actualProgressStatus: '실적진척상태',
   actualStartDate: '실적시작일',
   actualEndDate: '실적종료일'
 });
+
+const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
 const state = {
   projectName: DEFAULT_PROJECT_NAME,
@@ -434,7 +436,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
       <td class="priority-desktop">${renderTextCell(task.supportTeam)}</td>
       <td class="priority-mobile">${renderStatusCell(taskMetrics.progressState)}</td>
       <td class="priority-mobile">${renderTextCell(task.plannedStartDate)}</td>
-      <td class="priority-mobile">${renderTextCell(task.plannedEndDdate)}</td>
+      <td class="priority-mobile">${renderTextCell(task.plannedEndDate)}</td>
       <td class="priority-desktop"><span class="metric-text" data-testid="task-duration-days">${formatNumber(taskMetrics.durationDays)}</span></td>
       <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.plannedProgressRatio * 100, 2)}</span></td>
       <td class="priority-desktop"><span class="metric-text" data-testid="task-weight-ratio">${formatDecimal(taskMetrics.weightRatio, 3)}</span></td>
@@ -466,7 +468,7 @@ function renderEditorRow(anchorId) {
               ${renderEditorField('담당자', 'owner', draft.owner)}
               ${renderEditorField('지원팀', 'supportTeam', draft.supportTeam)}
               ${renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date')}
-              ${renderEditorField('계획종료일', 'plannedEndDdate', draft.plannedEndDdate, 'date')}
+              ${renderEditorField('계획종료일', 'plannedEndDate', draft.plannedEndDate, 'date')}
               ${renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS)}
               ${renderEditorField('실적시작일', 'actualStartDate', draft.actualStartDate, 'date')}
               ${renderEditorField('실적종료일', 'actualEndDate', draft.actualEndDate, 'date')}
@@ -494,7 +496,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     owner: 'editor-owner',
     supportTeam: 'editor-support-team',
     plannedStartDate: 'editor-planned-start',
-    plannedEndDdate: 'editor-planned-end',
+    plannedEndDate: 'editor-planned-end',
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
@@ -716,7 +718,7 @@ function createEmptyTaskDraft() {
     owner: '',
     supportTeam: '',
     plannedStartDate: '',
-    plannedEndDdate: '',
+    plannedEndDate: '',
     actualProgressStatus: '미착수(0%)',
     actualStartDate: '',
     actualEndDate: '',
@@ -765,11 +767,11 @@ function validateDraft(draft, depth) {
   }
 
   validateDateField('계획시작일', sanitized.plannedStartDate, errors);
-  validateDateField('계획종료일', sanitized.plannedEndDdate, errors);
+  validateDateField('계획종료일', sanitized.plannedEndDate, errors);
   validateDateField('실적시작일', sanitized.actualStartDate, errors);
   validateDateField('실적종료일', sanitized.actualEndDate, errors);
 
-  validateDateRange('계획시작일', sanitized.plannedStartDate, '계획종료일', sanitized.plannedEndDdate, errors);
+  validateDateRange('계획시작일', sanitized.plannedStartDate, '계획종료일', sanitized.plannedEndDate, errors);
   validateDateRange('실적시작일', sanitized.actualStartDate, '실적종료일', sanitized.actualEndDate, errors);
 
   return Array.from(new Set(errors));
@@ -792,7 +794,7 @@ function validateDateRange(startLabel, startValue, endLabel, endValue, errors) {
 
 function computeTaskMetrics() {
   const totalDays = state.tasks.reduce((sum, task) => {
-    const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDdate);
+    const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
     return sum + duration;
   }, 0);
 
@@ -802,13 +804,13 @@ function computeTaskMetrics() {
   let totalWeightedActualRatio = 0;
 
   state.tasks.forEach((task) => {
-    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDdate);
+    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
-    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDdate);
+    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
     const weightedPlannedRatio = weightRatio * plannedProgressRatio;
     const weightedActualRatio = weightRatio * actualProgressRatio;
-    const plannedDateWarning = getDateRangeWarning(task.plannedStartDate, task.plannedEndDdate, '계획종료일이 시작일보다 빠릅니다.');
+    const plannedDateWarning = getDateRangeWarning(task.plannedStartDate, task.plannedEndDate, '계획종료일이 시작일보다 빠릅니다.');
     const actualDateWarning = getDateRangeWarning(task.actualStartDate, task.actualEndDate, '실적종료일이 시작일보다 빠릅니다.');
     const progressState = deriveProgressState(task, baseDate);
 
@@ -837,14 +839,14 @@ function computeTaskMetrics() {
 }
 
 function deriveProgressState(task, baseDate) {
-  if (!task.plannedStartDate || !task.plannedEndDdate) {
+  if (!task.plannedStartDate || !task.plannedEndDate) {
     return { label: '', className: '' };
   }
 
   if (task.actualStartDate && task.actualEndDate) {
     return { label: '완료', className: 'done' };
   }
-  if (compareDateStrings(baseDate, task.plannedEndDdate) >= 0 && (!task.actualStartDate || !task.actualEndDate)) {
+  if (compareDateStrings(baseDate, task.plannedEndDate) >= 0 && (!task.actualStartDate || !task.actualEndDate)) {
     return { label: '지연', className: 'delay' };
   }
   if (task.actualStartDate && !task.actualEndDate) {
@@ -1074,6 +1076,10 @@ async function loadSeedTasks() {
   }
 }
 
+function getPlannedEndDateValue(task) {
+  return task.plannedEndDate || task[LEGACY_PLANNED_END_FIELD] || '';
+}
+
 function normalizeImportedTasks(sourceTasks) {
   if (!Array.isArray(sourceTasks)) {
     return [];
@@ -1097,7 +1103,7 @@ function normalizeImportedTasks(sourceTasks) {
     owner: task.owner || '',
     supportTeam: task.supportTeam || '',
     plannedStartDate: task.plannedStartDate || '',
-    plannedEndDdate: task.plannedEndDdate || task.plannedEndDate || '',
+    plannedEndDate: getPlannedEndDateValue(task),
     actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
     actualStartDate: task.actualStartDate || '',
     actualEndDate: task.actualEndDate || '',
@@ -1109,7 +1115,7 @@ function normalizeImportedTasks(sourceTasks) {
 function validateImportedTask(task, index) {
   const rowLabel = `${index + 2}행`;
   const plannedStartDate = task.plannedStartDate || '';
-  const plannedEndDate = task.plannedEndDdate || task.plannedEndDate || '';
+  const plannedEndDate = getPlannedEndDateValue(task);
   const actualStartDate = task.actualStartDate || '';
   const actualEndDate = task.actualEndDate || '';
 
@@ -1151,7 +1157,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     owner: task.owner || '',
     supportTeam: task.supportTeam || '',
     plannedStartDate: task.plannedStartDate || '',
-    plannedEndDdate: task.plannedEndDdate || task.plannedEndDate || '',
+    plannedEndDate: getPlannedEndDateValue(task),
     actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
     actualStartDate: task.actualStartDate || '',
     actualEndDate: task.actualEndDate || ''
@@ -1278,7 +1284,7 @@ function exportCsv() {
       task.supportTeam,
       taskMetrics.progressState.label,
       task.plannedStartDate,
-      task.plannedEndDdate,
+      task.plannedEndDate,
       formatNumber(taskMetrics.durationDays),
       formatPercent(taskMetrics.plannedProgressRatio * 100, 2),
       formatDecimal(taskMetrics.weightRatio, 3),
@@ -1434,7 +1440,7 @@ function parseCsv(text) {
     owner: validateCsvCell(readCsvCell(cells, headerMap, '담당자'), 'owner'),
     supportTeam: validateCsvCell(readCsvCell(cells, headerMap, '지원팀'), 'supportTeam'),
     plannedStartDate: validateCsvCell(readCsvCell(cells, headerMap, '계획시작일'), 'plannedStartDate'),
-    plannedEndDdate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDdate'),
+    plannedEndDate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDate'),
     actualProgressStatus: validateCsvCell(readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)', 'actualProgressStatus'),
     actualStartDate: validateCsvCell(readCsvCell(cells, headerMap, '실적시작일'), 'actualStartDate'),
     actualEndDate: validateCsvCell(readCsvCell(cells, headerMap, '실적종료일'), 'actualEndDate'),
@@ -1490,7 +1496,7 @@ function exportJsonArray() {
     owner: task.owner,
     supportTeam: task.supportTeam,
     plannedStartDate: task.plannedStartDate,
-    plannedEndDdate: task.plannedEndDdate,
+    plannedEndDate: task.plannedEndDate,
     actualProgressStatus: task.actualProgressStatus,
     actualStartDate: task.actualStartDate,
     actualEndDate: task.actualEndDate
@@ -1507,7 +1513,7 @@ function closeGanttModal() {
 }
 
 function renderGantt() {
-  const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDdate));
+  const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDate));
   if (plannedTasks.length === 0) {
     const emptyDiv = document.createElement('div');
     emptyDiv.className = 'gantt-empty';
@@ -1517,7 +1523,7 @@ function renderGantt() {
   }
 
   const minDate = plannedTasks.reduce((min, task) => (compareDateStrings(task.plannedStartDate, min) < 0 ? task.plannedStartDate : min), plannedTasks[0].plannedStartDate);
-  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDdate, max) > 0 ? task.plannedEndDdate : max), plannedTasks[0].plannedEndDdate);
+  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDate, max) > 0 ? task.plannedEndDate : max), plannedTasks[0].plannedEndDate);
   const weekdays = buildWeekdayTimeline(minDate, maxDate);
   const weeks = groupTimelineByWeek(weekdays);
 
@@ -1532,7 +1538,7 @@ function renderGantt() {
       <td>${renderTextCell(task.owner)}</td>
       <td>${renderTextCell(task.supportTeam)}</td>
       <td>${renderTextCell(task.plannedStartDate)}</td>
-      <td>${renderTextCell(task.plannedEndDdate)}</td>
+      <td>${renderTextCell(task.plannedEndDate)}</td>
       <td>${renderTextCell(task.actualStartDate)}</td>
       <td>${renderTextCell(task.actualEndDate)}</td>
     </tr>
@@ -1540,7 +1546,7 @@ function renderGantt() {
 
   const totalWidth = weekdays.length * 36;
   const chartRows = state.tasks.map((task) => {
-    const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDdate, weekdays, 'plan');
+    const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
     const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
     return `
       <tr>
