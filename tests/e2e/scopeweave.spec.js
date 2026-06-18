@@ -110,6 +110,27 @@ test.describe('ScopeWeave Planner', () => {
     await expect(firstBar).toHaveAttribute('style', /left:\s*\d+px/);
   });
 
+  test('does not create HTML elements from manual text in the gantt chart', async ({ page }) => {
+    let dialogOpened = false;
+    page.on('dialog', async (dialog) => {
+      dialogOpened = true;
+      await dialog.dismiss();
+    });
+
+    await addTopLevelTask(page, {
+      phase: '<img src=x onerror=alert(1)>',
+      categoryLarge: '간트검증',
+      owner: '담당자A',
+      plannedStartDate: '2026-05-18',
+      plannedEndDate: '2026-05-20'
+    });
+
+    await page.getByRole('button', { name: '간트차트보기' }).click();
+    await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
+    await expect(page.locator('#gantt-content img')).toHaveCount(0);
+    await expect.poll(() => dialogOpened).toBe(false);
+  });
+
   test('keeps descendant rows attached when reordering an activity subtree', async ({ page }) => {
     const secondActivityRow = await createActivitySubtree(page, '테스트 활동', '테스트 태스크');
 
