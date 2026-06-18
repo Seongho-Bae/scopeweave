@@ -68,6 +68,23 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
   });
 
+  test('disables export and gantt actions when there are no tasks', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+        projectName: 'Empty Scope',
+        baseDate: '2026-04-20',
+        tasks: []
+      }));
+    });
+    await page.reload();
+
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '등록된 작업이 없습니다');
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '등록된 작업이 없습니다');
+  });
+
   test('adds a top-level task and restores it after reload', async ({ page }) => {
     const phaseName = 'P1000.분석단계';
 
@@ -287,6 +304,21 @@ test.describe('ScopeWeave Planner', () => {
     await page.getByRole('button', { name: '저장', exact: true }).click();
 
     await expect(page.locator('#editor-errors')).toContainText('계획종료일은 계획시작일보다 빠를 수 없습니다');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects invalid calendar dates in the editor', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('P3000.검증단계');
+    await page.locator('[data-testid="editor-planned-start"]').evaluate((input) => {
+      input.setAttribute('type', 'text');
+    });
+
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-02-31');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다');
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
