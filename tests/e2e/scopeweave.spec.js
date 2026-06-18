@@ -291,6 +291,21 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
 
+  test('rejects invalid calendar dates in the editor', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('P3000.검증단계');
+    await page.locator('[data-testid="editor-planned-start"]').evaluate((input) => {
+      input.setAttribute('type', 'text');
+    });
+
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-02-31');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
   test('rejects invalid calendar dates from imported CSV', async ({ page }) => {
     await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', 'P3000.검증단계,,잘못된날짜,검증,,,담당자A,,,2026-02-31,2026-03-02,,,미착수(0%),,,'].join('\n'));
 

@@ -771,8 +771,8 @@ function validateDateField(label, value, errors) {
   if (!value) {
     return;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    errors.push(`${label}은 YYYY-MM-DD 형식이어야 합니다.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !isValidDateString(value)) {
+    errors.push(`${label}은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.`);
   }
 }
 
