@@ -50,26 +50,32 @@ The repository tracks those CI-only Python dependencies in
 `requirements-strix-ci.txt` so Strix and the companion SCA workflows
 reason about the same supply-chain surface.
 
-### Secrets and fail-closed behavior
+### GitHub Models route and fail-closed behavior
 
-Required secrets:
+The default Strix route uses GitHub Models. Configure the
+`STRIX_GITHUB_MODELS_TOKEN` repository or organization secret with a
+GitHub Models PAT. The workflow fails closed when that secret is absent;
+it does not fall back to the workflow-scoped `github.token`.
 
-- `STRIX_LLM`
-- `LLM_API_KEY`
+- primary model: `openai/gpt-5` by default, overrideable for manual
+  evidence runs with the `workflow_dispatch` `strix_llm` input
+- fallback models: `deepseek/deepseek-r1-0528` and
+  `deepseek/deepseek-v3-0324` for the GitHub Models route
+- API base: `https://models.github.ai/inference`
+- required workflow permission: `models: read`
 
-Optional secrets:
-
-- `GCP_SA_KEY`
-- `LLM_API_BASE`
+No legacy repository Strix LLM secrets are required for the default route.
+Legacy Vertex/OpenAI secrets are intentionally not part of this imported
+workflow's default contract.
 
 Behavior:
 
-- `pull_request`: skip if required secrets are absent
-- `push` / `schedule`: fail closed if required secrets are absent
-- `GCP_SA_KEY` absent + Vertex-authenticated model: `pull_request`
-  skips cleanly, while `push` / `schedule` fail closed
-- `GCP_SA_KEY` absent + non-Vertex model: the workflow can still run as
-  long as the required Strix secrets exist
+- `pull_request_target`: use the current PR-scoped repository diff and the
+  GitHub Models route; fail closed if the required secret is unavailable.
+- `push` / `schedule`: use the default GitHub Models route and fail closed
+  if the required secret is unavailable.
+- Provider infrastructure failures remain failed evidence; a clean run
+  must complete the scan and publish a report artifact.
 
 ## Artifacts
 

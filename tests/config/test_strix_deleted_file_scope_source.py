@@ -12,6 +12,6 @@ def test_strix_scope_normalizer_skips_deleted_changed_files_without_tracebacks()
 ):
     source = STRIX_GATE.read_text(encoding="utf-8")
 
-    assert "src_path = (repo_root / relative_path).resolve(strict=False)" in source
-    assert "if not src_path.exists():" in source
-    assert "raise SystemExit(1)" in source
+    assert "candidate = (repo_root / relative_path).resolve(strict=False)" in source
+    assert "candidate.relative_to(repo_root)" in source
+    assert "if not src_path.exists():" not in source
