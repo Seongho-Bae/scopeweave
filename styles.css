@@ -298,8 +298,8 @@ button {
   box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);
 }
 
-.icon-button:hover,
-.toggle-button:hover {
+.icon-button:hover:not(:disabled),
+.toggle-button:hover:not(:disabled) {
   background: #f8fafc;
   border-color: var(--border-strong);
   color: var(--text);
@@ -307,11 +307,23 @@ button {
   box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05);
 }
 
+.icon-button:disabled,
+.toggle-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .icon-button:focus-visible,
 .toggle-button:focus-visible {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
   outline: none;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
 }
 
 .toggle-placeholder {
@@ -405,6 +417,18 @@ button {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.editor-field .required-indicator {
+  color: var(--danger);
+}
+
+.editor-field input:focus,
+.editor-field select:focus,
+select[data-inline-progress]:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  outline: none;
 }
 
 .editor-actions {
@@ -698,6 +722,7 @@ button {
 .gantt-bar.plan { background: var(--gantt-plan); box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15); }
 .gantt-bar.actual { background: var(--gantt-actual); box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
 
+.table-empty,
 .gantt-empty {
   padding: 60px;
   text-align: center;
@@ -764,4 +789,22 @@ button {
     transform: none !important;
     filter: none !important;
   }
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.empty-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.empty-desc {
+  margin: 0;
+  line-height: 1.5;
 }
