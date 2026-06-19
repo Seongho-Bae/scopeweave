@@ -68,6 +68,23 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
   });
 
+  test('disables export and gantt actions when there are no tasks', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+        projectName: 'Empty Scope',
+        baseDate: '2026-04-20',
+        tasks: []
+      }));
+    });
+    await page.reload();
+
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '등록된 작업이 없습니다');
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '등록된 작업이 없습니다');
+  });
+
   test('adds a top-level task and restores it after reload', async ({ page }) => {
     const phaseName = 'P1000.분석단계';
 
