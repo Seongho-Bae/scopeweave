@@ -2453,6 +2453,17 @@ EOS
   }
 }
 EOS
+	elif [ "$scenario" = "pr-env-secret-reference-with-hardcoded-secret-blocks" ]; then
+		cat >"$repo_root_dir/config.json" <<'EOS'
+{
+  "provider": {
+    "github-models": {
+      "apiKey": "{env:STRIX_GITHUB_MODELS_TOKEN}",
+      "fallbackApiKey": "sk-test1234567890abcdef"
+    }
+  }
+}
+EOS
 	elif [ "$scenario" = "pr-static-auth-contract-report-retries" ]; then
 		mkdir -p "$repo_root_dir/docs"
 		cat >"$repo_root_dir/README.md" <<'EOS'
