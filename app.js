@@ -1589,9 +1589,12 @@ function validateImportedTasks(tasks) {
 
 function validateCsvCell(value, fieldName) {
   if (!value) return value;
-  const normalized = String(value).substring(0, 1000);
+  const normalized = String(value);
+  const label = CSV_FIELD_LABELS[fieldName] || fieldName;
+  if (normalized.length > 1000) {
+    throw new Error(`${label} 컬럼은 1000자 이하로 입력해야 합니다.`);
+  }
   if (/[<>]/.test(normalized)) {
-    const label = CSV_FIELD_LABELS[fieldName] || fieldName;
     throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
   }
   return normalized;
