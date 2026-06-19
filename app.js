@@ -359,17 +359,7 @@ function renderAll() {
   }
 
   if (rows.length === 0) {
-    rows.push(`
-      <tr>
-        <td colspan="21">
-          <div class="table-empty">
-            <div class="empty-icon" aria-hidden="true">📋</div>
-            <h3 class="empty-title">등록된 작업이 없습니다</h3>
-            <p class="empty-desc">하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,<br>'CSV 가져오기'를 통해 기존 데이터를 불러오세요.</p>
-          </div>
-        </td>
-      </tr>
-    `);
+    rows.push(createEmptyStateRow());
   }
 
   setTableBodyRows(rows);
@@ -377,11 +367,49 @@ function renderAll() {
 }
 
 function setTableBodyRows(rows) {
-  const template = document.createElement('template');
-  template.innerHTML = `<table><tbody>${rows.join('')}</tbody></table>`;
-  stripUnsafeGeneratedMarkup(template.content);
-  const tableBody = template.content.querySelector('tbody');
-  elements.tableBody.replaceChildren(...Array.from(tableBody.children));
+  elements.tableBody.replaceChildren(...rows);
+}
+
+function createEmptyStateRow() {
+  const row = document.createElement('tr');
+  const cell = document.createElement('td');
+  cell.colSpan = 21;
+
+  const emptyState = document.createElement('div');
+  emptyState.className = 'table-empty';
+
+  const icon = document.createElement('div');
+  icon.className = 'empty-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = '📋';
+
+  const title = document.createElement('h3');
+  title.className = 'empty-title';
+  title.textContent = '등록된 작업이 없습니다';
+
+  const description = document.createElement('p');
+  description.className = 'empty-desc';
+  description.append(
+    "하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,",
+    document.createElement('br'),
+    "'CSV 가져오기'를 통해 기존 데이터를 불러오세요."
+  );
+
+  emptyState.append(icon, title, description);
+  cell.appendChild(emptyState);
+  row.appendChild(cell);
+  return row;
+}
+
+function createTableCell(className, content) {
+  const cell = document.createElement('td');
+  if (className) {
+    cell.className = className;
+  }
+  if (content) {
+    cell.appendChild(content);
+  }
+  return cell;
 }
 
 function stripUnsafeGeneratedMarkup(root) {
@@ -412,78 +440,133 @@ function isSafeGeneratedStyle(value) {
 }
 
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
-  const toggleButton = hasChildren
-    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}" title="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
-    : '<span class="toggle-placeholder"></span>';
-  const isLeaf = task.depth >= 3;
+  const row = document.createElement('tr');
+  row.className = `task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}`;
+  row.dataset.taskId = task.id;
+  row.draggable = true;
 
-  return `
-    <tr class="task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}" data-task-id="${escapeHtml(task.id)}" draggable="true">
-      <td>
-        <div class="action-stack">
-          ${toggleButton}
-          <button type="button" class="icon-button" data-action="add-child" aria-label="하위 추가" title="${isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가'}" ${isLeaf ? 'disabled' : ''}>＋</button>
-          <button type="button" class="icon-button" data-action="edit" aria-label="편집" title="편집">✎</button>
-          <button type="button" class="icon-button" data-action="delete" aria-label="삭제" title="삭제">🗑</button>
-        </div>
-      </td>
-      <td>${renderTreeCell(task.phase, task.depth)}</td>
-      <td>${renderTextCell(task.activity)}</td>
-      <td>${renderTextCell(task.task)}</td>
-      <td class="priority-mobile">${renderTextCell(task.categoryLarge)}</td>
-      <td class="priority-mobile">${renderTextCell(task.categoryMedium)}</td>
-      <td class="priority-desktop">${renderTextCell(task.documentName)}</td>
-      <td class="priority-mobile">${renderOwnerCell(task.owner, ownerColorMap)}</td>
-      <td class="priority-desktop">${renderTextCell(task.supportTeam)}</td>
-      <td class="priority-mobile">${renderStatusCell(taskMetrics.progressState)}</td>
-      <td class="priority-mobile">${renderTextCell(task.plannedStartDate)}</td>
-      <td class="priority-mobile">${renderTextCell(task.plannedEndDate)}</td>
-      <td class="priority-desktop"><span class="metric-text" data-testid="task-duration-days">${formatNumber(taskMetrics.durationDays)}</span></td>
-      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.plannedProgressRatio * 100, 2)}</span></td>
-      <td class="priority-desktop"><span class="metric-text" data-testid="task-weight-ratio">${formatDecimal(taskMetrics.weightRatio, 3)}</span></td>
-      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.weightedPlannedRatio * 100, 2)}</span></td>
-      <td class="priority-mobile">${renderActualProgressCell(task, taskMetrics)}</td>
-      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.actualProgressRatio * 100, 2)}</span></td>
-      <td class="priority-mobile">${renderTextCell(task.actualStartDate, taskMetrics.actualDateWarning)}</td>
-      <td class="priority-mobile">${renderTextCell(task.actualEndDate, taskMetrics.actualDateWarning)}</td>
-      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.weightedActualRatio * 100, 2)}</span></td>
-    </tr>
-  `;
+  const actionCell = document.createElement('td');
+  const actionStack = document.createElement('div');
+  actionStack.className = 'action-stack';
+
+  if (hasChildren) {
+    const toggleButton = document.createElement('button');
+    const toggleLabel = task.expanded ? '접기' : '펼치기';
+    toggleButton.type = 'button';
+    toggleButton.className = 'toggle-button';
+    toggleButton.dataset.action = 'toggle';
+    toggleButton.setAttribute('aria-label', toggleLabel);
+    toggleButton.title = toggleLabel;
+    toggleButton.textContent = task.expanded ? '▼' : '▶';
+    actionStack.appendChild(toggleButton);
+  } else {
+    const placeholder = document.createElement('span');
+    placeholder.className = 'toggle-placeholder';
+    actionStack.appendChild(placeholder);
+  }
+
+  const isLeaf = task.depth >= 3;
+  const addChildButton = createActionButton('하위 추가', '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
+  addChildButton.disabled = isLeaf;
+  actionStack.append(
+    addChildButton,
+    createActionButton('편집', '✎', 'edit', '편집'),
+    createActionButton('삭제', '🗑', 'delete', '삭제')
+  );
+  actionCell.appendChild(actionStack);
+  row.appendChild(actionCell);
+
+  row.append(
+    createTableCell('', createTreeCellContent(task.phase, task.depth)),
+    createTableCell('', createTextCellContent(task.activity)),
+    createTableCell('', createTextCellContent(task.task)),
+    createTableCell('priority-mobile', createTextCellContent(task.categoryLarge)),
+    createTableCell('priority-mobile', createTextCellContent(task.categoryMedium)),
+    createTableCell('priority-desktop', createTextCellContent(task.documentName)),
+    createTableCell('priority-mobile', createOwnerCellContent(task.owner, ownerColorMap)),
+    createTableCell('priority-desktop', createTextCellContent(task.supportTeam)),
+    createTableCell('priority-mobile', createStatusCellContent(taskMetrics.progressState)),
+    createTableCell('priority-mobile', createTextCellContent(task.plannedStartDate)),
+    createTableCell('priority-mobile', createTextCellContent(task.plannedEndDate)),
+    createTableCell('priority-desktop', createMetricText(formatNumber(taskMetrics.durationDays), 'task-duration-days')),
+    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.plannedProgressRatio * 100, 2))),
+    createTableCell('priority-desktop', createMetricText(formatDecimal(taskMetrics.weightRatio, 3), 'task-weight-ratio')),
+    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedPlannedRatio * 100, 2))),
+    createTableCell('priority-mobile', createActualProgressCellContent(task, taskMetrics)),
+    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.actualProgressRatio * 100, 2))),
+    createTableCell('priority-mobile', createTextCellContent(task.actualStartDate, taskMetrics.actualDateWarning)),
+    createTableCell('priority-mobile', createTextCellContent(task.actualEndDate, taskMetrics.actualDateWarning)),
+    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedActualRatio * 100, 2)))
+  );
+
+  return row;
+}
+
+function createActionButton(label, text, action, title) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'icon-button';
+  button.dataset.action = action;
+  button.setAttribute('aria-label', label);
+  button.title = title;
+  button.textContent = text;
+  return button;
 }
 
 function renderEditorRow(anchorId) {
   const draft = state.editor.draft || createEmptyTaskDraft();
   const depth = state.editor.depth;
-  return `
-    <tr class="editor-row" data-editor-anchor="${escapeHtml(anchorId)}">
-      <td colspan="21">
-        <div class="editor-panel">
-          <form data-editor-form="true">
-            <div class="editor-grid">
-              ${renderEditorField('단계', 'phase', draft.phase, 'text', depth === 1, '예: P1000.분석단계')}
-              ${renderEditorField('Activity', 'activity', draft.activity, 'text', depth === 2, '예: 요구사항 분석')}
-              ${renderEditorField('Task', 'task', draft.task, 'text', depth === 3, '예: 인터뷰 진행')}
-              ${renderEditorField('대분류', 'categoryLarge', draft.categoryLarge)}
-              ${renderEditorField('중분류', 'categoryMedium', draft.categoryMedium)}
-              ${renderEditorField('산출물', 'documentName', draft.documentName)}
-              ${renderEditorField('담당자', 'owner', draft.owner)}
-              ${renderEditorField('지원팀', 'supportTeam', draft.supportTeam)}
-              ${renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date')}
-              ${renderEditorField('계획종료일', 'plannedEndDate', draft.plannedEndDate, 'date')}
-              ${renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS)}
-              ${renderEditorField('실적시작일', 'actualStartDate', draft.actualStartDate, 'date')}
-              ${renderEditorField('실적종료일', 'actualEndDate', draft.actualEndDate, 'date')}
-            </div>
-            <div class="editor-actions">
-              <button type="submit" class="primary-button">저장</button>
-              <button type="button" class="secondary-button" data-action="cancel-editor">취소</button>
-              <div id="editor-errors" class="validation-message"></div>
-            </div>
-          </form>
-        </div>
-      </td>
-    </tr>
-  `;
+
+  const row = document.createElement('tr');
+  row.className = 'editor-row';
+  row.dataset.editorAnchor = anchorId;
+
+  const cell = document.createElement('td');
+  cell.colSpan = 21;
+  const panel = document.createElement('div');
+  panel.className = 'editor-panel';
+  const form = document.createElement('form');
+  form.dataset.editorForm = 'true';
+  const editorGrid = document.createElement('div');
+  editorGrid.className = 'editor-grid';
+
+  [
+    renderEditorField('단계', 'phase', draft.phase, 'text', depth === 1, '예: P1000.분석단계'),
+    renderEditorField('Activity', 'activity', draft.activity, 'text', depth === 2, '예: 요구사항 분석'),
+    renderEditorField('Task', 'task', draft.task, 'text', depth === 3, '예: 인터뷰 진행'),
+    renderEditorField('대분류', 'categoryLarge', draft.categoryLarge),
+    renderEditorField('중분류', 'categoryMedium', draft.categoryMedium),
+    renderEditorField('산출물', 'documentName', draft.documentName),
+    renderEditorField('담당자', 'owner', draft.owner),
+    renderEditorField('지원팀', 'supportTeam', draft.supportTeam),
+    renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date'),
+    renderEditorField('계획종료일', 'plannedEndDate', draft.plannedEndDate, 'date'),
+    renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS),
+    renderEditorField('실적시작일', 'actualStartDate', draft.actualStartDate, 'date'),
+    renderEditorField('실적종료일', 'actualEndDate', draft.actualEndDate, 'date')
+  ].forEach((field) => editorGrid.appendChild(field));
+
+  const editorActions = document.createElement('div');
+  editorActions.className = 'editor-actions';
+  const saveButton = document.createElement('button');
+  saveButton.type = 'submit';
+  saveButton.className = 'primary-button';
+  saveButton.textContent = '저장';
+  const cancelButton = document.createElement('button');
+  cancelButton.type = 'button';
+  cancelButton.className = 'secondary-button';
+  cancelButton.dataset.action = 'cancel-editor';
+  cancelButton.textContent = '취소';
+  const errors = document.createElement('div');
+  errors.id = 'editor-errors';
+  errors.className = 'validation-message';
+  editorActions.append(saveButton, cancelButton, errors);
+
+  form.append(editorGrid, editorActions);
+  panel.appendChild(form);
+  cell.appendChild(panel);
+  row.appendChild(cell);
+  return row;
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
@@ -501,26 +584,151 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
-  const requiredHtml = required ? ' <span class="required-indicator" aria-hidden="true">*</span><span class="sr-only">(필수)</span>' : '';
-  const requiredAttr = required ? ' required aria-required="true"' : '';
-  const placeholderAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
-  return `
-    <label class="editor-field">
-      <span>${label}${requiredHtml}</span>
-      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}"${requiredAttr}${placeholderAttr} />
-    </label>
-  `;
+
+  const labelElement = document.createElement('label');
+  labelElement.className = 'editor-field';
+  const labelText = document.createElement('span');
+  labelText.textContent = label;
+  if (required) {
+    const marker = document.createElement('span');
+    marker.className = 'required-indicator';
+    marker.setAttribute('aria-hidden', 'true');
+    marker.textContent = '*';
+    const srOnly = document.createElement('span');
+    srOnly.className = 'sr-only';
+    srOnly.textContent = '(필수)';
+    labelText.append(' ', marker, srOnly);
+  }
+  const input = document.createElement('input');
+  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
+  input.dataset.editorField = field;
+  input.type = type;
+  input.value = value || '';
+  if (required) {
+    input.required = true;
+    input.setAttribute('aria-required', 'true');
+  }
+  if (placeholder) {
+    input.placeholder = placeholder;
+  }
+  labelElement.append(labelText, input);
+  return labelElement;
 }
 
 function renderEditorSelectField(label, field, value, options) {
-  return `
-    <label class="editor-field">
-      <span>${label}</span>
-      <select data-editor-field="${field}">
-        ${options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
-      </select>
-    </label>
-  `;
+  const labelElement = document.createElement('label');
+  labelElement.className = 'editor-field';
+  const labelText = document.createElement('span');
+  labelText.textContent = label;
+  const select = document.createElement('select');
+  select.dataset.editorField = field;
+  options.forEach((optionValue) => {
+    const option = document.createElement('option');
+    option.value = optionValue;
+    option.textContent = optionValue;
+    option.selected = optionValue === value;
+    select.appendChild(option);
+  });
+  labelElement.append(labelText, select);
+  return labelElement;
+}
+
+function createTreeCellContent(value, depth) {
+  const treeValue = document.createElement('div');
+  treeValue.className = `tree-value indent-${depth}`;
+  if (value) {
+    treeValue.textContent = value;
+  } else {
+    treeValue.appendChild(createEmptyCell());
+  }
+  return treeValue;
+}
+
+function createTextCellContent(value, warning = '') {
+  if (!value) {
+    return warning ? createWarningBadge(warning) : createEmptyCell();
+  }
+  if (!warning) {
+    return document.createTextNode(value);
+  }
+  const wrapper = document.createElement('div');
+  wrapper.append(value);
+  const validation = document.createElement('div');
+  validation.className = 'validation-message';
+  validation.textContent = warning;
+  wrapper.appendChild(validation);
+  return wrapper;
+}
+
+function createEmptyCell() {
+  const emptyCell = document.createElement('span');
+  emptyCell.className = 'empty-cell';
+  emptyCell.textContent = '-';
+  return emptyCell;
+}
+
+function createWarningBadge(warning) {
+  const badge = document.createElement('span');
+  badge.className = 'warning-badge';
+  badge.textContent = warning;
+  return badge;
+}
+
+function createOwnerCellContent(owner, ownerColorMap) {
+  if (!owner) {
+    return createEmptyCell();
+  }
+  const badge = document.createElement('span');
+  badge.className = 'owner-badge';
+  badge.style.background = ownerColorMap.get(owner);
+  badge.textContent = owner;
+  return badge;
+}
+
+function createStatusCellContent(progressState) {
+  if (!progressState.label) {
+    return createEmptyCell();
+  }
+  const badge = document.createElement('span');
+  badge.className = `status-badge ${progressState.className}`;
+  badge.textContent = progressState.label;
+  return badge;
+}
+
+function createMetricText(value, testId = '') {
+  const metric = document.createElement('span');
+  metric.className = 'metric-text';
+  if (testId) {
+    metric.setAttribute('data-testid', testId);
+  }
+  metric.textContent = value;
+  return metric;
+}
+
+function createActualProgressCellContent(task, taskMetrics) {
+  const label = document.createElement('label');
+  const srOnly = document.createElement('span');
+  srOnly.className = 'sr-only';
+  srOnly.textContent = '실적진척상태';
+  const select = document.createElement('select');
+  select.dataset.inlineProgress = task.id;
+  ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
+    const option = document.createElement('option');
+    option.value = optionValue;
+    option.textContent = optionValue;
+    option.selected = task.actualProgressStatus === optionValue;
+    select.appendChild(option);
+  });
+  label.append(srOnly, select);
+
+  const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
+  if (warning) {
+    const validation = document.createElement('div');
+    validation.className = 'validation-message';
+    validation.textContent = warning;
+    label.appendChild(validation);
+  }
+  return label;
 }
 
 function renderTreeCell(value, depth) {
