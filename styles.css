@@ -419,10 +419,6 @@ button {
   letter-spacing: 0.05em;
 }
 
-.editor-field .required-indicator {
-  color: var(--danger);
-}
-
 .editor-field input:focus,
 .editor-field select:focus,
 select[data-inline-progress]:focus {
@@ -722,7 +718,6 @@ select[data-inline-progress]:focus {
 .gantt-bar.plan { background: var(--gantt-plan); box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15); }
 .gantt-bar.actual { background: var(--gantt-actual); box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
 
-.table-empty,
 .gantt-empty {
   padding: 60px;
   text-align: center;

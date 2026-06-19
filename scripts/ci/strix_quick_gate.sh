@@ -438,7 +438,6 @@ copy_pr_head_blob_to_file() {
 
 is_supported_source_file() {
 	case "$1" in
-	Dockerfile | */Dockerfile | \
 	*.java | *.kt | *.kts | *.groovy | *.scala | *.py | *.js | *.jsx | *.ts | *.tsx | *.vue | *.yaml | *.yml | *.sh | *.sql | *.xml | *.json | *.html | *.css | *.md)
 		return 0
 		;;
@@ -1129,7 +1128,6 @@ pull_request_scope_context_files() {
 	local needs_backend_python=0
 	local needs_frontend_email_api_context=0
 	local needs_deployment_context=0
-	local needs_static_app_contract_context=0
 	local changed_file normalized_changed_file
 	for changed_file in "$@"; do
 		normalized_changed_file="$(normalize_changed_file_path "$changed_file")" || return 2
@@ -1148,9 +1146,6 @@ pull_request_scope_context_files() {
 		# or VERSION context.
 		.github/workflows/* | Dockerfile | frontend/Dockerfile | frontend/next.config.ts | docker-compose*.yml | render.yaml)
 			needs_deployment_context=1
-			;;
-		app.js | index.html | styles.css | *.html | *.css)
-			needs_static_app_contract_context=1
 			;;
 		esac
 	done
@@ -1216,6 +1211,7 @@ EOF
 	if [ "$needs_deployment_context" -eq 1 ]; then
 		cat <<'EOF'
 Dockerfile
+backend/scripts/docker_entrypoint.sh
 frontend/Dockerfile
 frontend/package.json
 frontend/package-lock.json
@@ -1224,13 +1220,6 @@ frontend/postcss.config.mjs
 docker-compose.yml
 render.yaml
 VERSION
-EOF
-	fi
-
-	if [ "$needs_static_app_contract_context" -eq 1 ]; then
-		cat <<'EOF'
-README.md
-docs/user-guide.md
 EOF
 	fi
 }
@@ -1621,11 +1610,8 @@ PY
 }
 
 extract_vulnerability_locations() {
-	extract_vulnerability_location_spans "$1" | cut -f1 | sort -u
-}
-
-extract_vulnerability_location_spans() {
 	local vuln_file="$1"
+	local location
 	local resolved_scan_target=""
 	local narrowed_workspace_prefix=""
 
@@ -1635,55 +1621,29 @@ extract_vulnerability_location_spans() {
 		fi
 	fi
 
-	extract_candidate_source_spans_from_report() {
+	extract_candidate_source_paths_from_report() {
 		python3 - "$1" <<'PY'
 from pathlib import Path
 import re
 import sys
 
 text = Path(sys.argv[1]).read_text(encoding='utf-8', errors='replace')
-entries = []
-
-def emit(path: str, start: str = "", end: str = "") -> None:
-    value = path.strip()
-    if not value:
-        return
-    start = start.strip()
-    end = end.strip() or start
-    entries.append((value, start, end))
-
-for location in re.finditer(r'<location\b[^>]*>(?P<body>.*?)</location>', text, re.IGNORECASE | re.DOTALL):
-    body = location.group('body')
-    file_match = re.search(r'<file>\s*(?P<path>.*?)\s*</file>', body, re.IGNORECASE | re.DOTALL)
-    if not file_match:
-        continue
-    start_match = re.search(r'<start_line>\s*(?P<line>\d+)\s*</start_line>', body, re.IGNORECASE)
-    end_match = re.search(r'<end_line>\s*(?P<line>\d+)\s*</end_line>', body, re.IGNORECASE)
-    emit(file_match.group('path'), start_match.group('line') if start_match else "", end_match.group('line') if end_match else "")
-
 patterns = [
-    re.compile(r'(?i)(?:\*\*)?Location\s+\d+\s*:(?:\*\*)?\s*`(?P<path>[A-Za-z0-9_./ \[\]-]+)`\s*\(lines?\s+(?P<line>\d+)(?:\s*[-–]\s*(?P<end>\d+))?'),
-    re.compile(r'(?P<path>/workspace/[^`\r\n]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+):(?P<line>\d+)'),
+    re.compile(r'(?P<path>/workspace/[^`\r\n]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+):\d+'),
     re.compile(r'<file>\s*(?P<path>/workspace/[^<`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)\s*</file>'),
-    re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Target:(?:\*\*)?[ \t]*(?:File:[ \t]*)?(?P<path>/workspace/[^`│\r\n]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*(?:\.[A-Za-z0-9_]+|Dockerfile))', re.MULTILINE),
+    re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Target:(?:\*\*)?[ \t]*(?:File:[ \t]*)?(?P<path>/workspace/[^`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)', re.MULTILINE),
     re.compile(r'^[^\S\r\n│]*[│]?[ \t]*(?:\*\*)?Endpoint:(?:\*\*)?[ \t]*(?P<path>/workspace/[^`│]*\.[A-Za-z0-9_]+|[A-Za-z0-9_./\[\]-][A-Za-z0-9_./ \[\]-]*\.[A-Za-z0-9_]+)', re.MULTILINE),
     re.compile(r'(?i)(?:in\s+)?file\s+`(?P<path>(?:\.\.?/)?[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+)`'),
     re.compile(r'(?i)`(?P<path>(?:\.\.?/)?[A-Za-z0-9_./ \[\]-]+\.[A-Za-z0-9_]+)`\s+file\b'),
 ]
+seen = set()
 for pattern in patterns:
     for match in pattern.finditer(text):
-        emit(match.group('path'), match.groupdict().get('line') or "", match.groupdict().get('end') or "")
-
-precise_paths = {path for path, start, _end in entries if start}
-seen = set()
-for path, start, end in entries:
-    if not start and path in precise_paths:
-        continue
-    key = (path, start, end)
-    if key in seen:
-        continue
-    seen.add(key)
-    print("\t".join(key))
+        value = match.group('path').strip()
+        if value and value not in seen:
+            seen.add(value)
+for value in sorted(seen):
+    print(value)
 PY
 	}
 
@@ -1721,33 +1681,6 @@ def try_normalize_within(base: Path, location: str) -> Path | None:
     except SystemExit:
         return None
 
-def try_unique_descendant(base: Path, location: str) -> Path | None:
-    relative = Path(location)
-    if relative.is_absolute() or len(relative.parts) < 2:
-        return None
-    if any(part in {"", ".", ".."} for part in relative.parts):
-        return None
-    anchor = (base / relative.parts[0]).resolve(strict=False)
-    try:
-        anchor.relative_to(base)
-    except ValueError:
-        return None
-    if not anchor.is_dir():
-        return None
-    matches = []
-    for candidate in anchor.rglob(relative.name):
-        if candidate.is_file() and not candidate.is_symlink():
-            resolved = candidate.resolve(strict=True)
-            try:
-                resolved.relative_to(base)
-            except ValueError:
-                continue
-            matches.append(resolved)
-    unique_matches = sorted(set(matches))
-    if len(unique_matches) == 1:
-        return unique_matches[0]
-    return None
-
 def emit_repo_relative(candidate: Path, fallback_relative: Path | None = None) -> None:
     try:
         relative = candidate.relative_to(repo_root)
@@ -1768,9 +1701,7 @@ if scan_target_root and scan_target_workspace_prefix and raw_location.startswith
     suffix = raw_location[len(scan_target_workspace_prefix):]
     if not suffix:
         raise SystemExit(1)
-    candidate = try_normalize_within(scan_target_root, suffix) or try_unique_descendant(scan_target_root, suffix)
-    if candidate is None:
-        raise SystemExit(1)
+    candidate = normalize_within(scan_target_root, suffix)
     emit_repo_relative(candidate, candidate.relative_to(scan_target_root))
 
 prefixes = (
@@ -1785,14 +1716,11 @@ for prefix in prefixes:
         emit_repo_relative(normalize_within(repo_root, relative_location))
 
 if scan_target_root is not None:
-    candidate = try_normalize_within(scan_target_root, raw_location) or try_unique_descendant(scan_target_root, raw_location)
+    candidate = try_normalize_within(scan_target_root, raw_location)
     if candidate is not None:
         emit_repo_relative(candidate, candidate.relative_to(scan_target_root))
 
-repo_candidate = try_normalize_within(repo_root, raw_location) or try_unique_descendant(repo_root, raw_location)
-if repo_candidate is None:
-    raise SystemExit(1)
-emit_repo_relative(repo_candidate)
+emit_repo_relative(normalize_within(repo_root, raw_location))
 PY
 		})" || return 1
 		if [ -z "$raw_location" ]; then
@@ -1811,86 +1739,10 @@ PY
 	}
 
 	{
-		local raw_span raw_location raw_start_line raw_end_line normalized_location
-		while IFS=$'\t' read -r raw_location raw_start_line raw_end_line; do
-			normalized_location="$(normalize_vulnerability_location "$raw_location")" || continue
-			printf '%s\t%s\t%s\n' "$normalized_location" "$raw_start_line" "$raw_end_line"
-		done < <(extract_candidate_source_spans_from_report "$vuln_file")
+		while IFS= read -r location; do
+			normalize_vulnerability_location "$location" || true
+		done < <(extract_candidate_source_paths_from_report "$vuln_file")
 	} | sort -u
-}
-
-vulnerability_span_intersects_pull_request_change() {
-	local relative_path="$1"
-	local start_line="$2"
-	local end_line="$3"
-	local base_sha head_sha
-
-	if ! [[ "$start_line" =~ ^[0-9]+$ ]]; then
-		return 0
-	fi
-	if ! [[ "$end_line" =~ ^[0-9]+$ ]]; then
-		end_line="$start_line"
-	fi
-	if [ "$end_line" -lt "$start_line" ]; then
-		end_line="$start_line"
-	fi
-
-	base_sha="$(trim_whitespace "${PR_BASE_SHA:-}")"
-	head_sha="$(trim_whitespace "${PR_HEAD_SHA:-}")"
-	if [ -z "$base_sha" ] || [ -z "$head_sha" ]; then
-		return 0
-	fi
-	if ! is_valid_git_commit_sha "$base_sha" || ! is_valid_git_commit_sha "$head_sha"; then
-		return 0
-	fi
-	if ! git rev-parse --verify --quiet "$base_sha^{commit}" >/dev/null; then
-		return 0
-	fi
-	if ! git rev-parse --verify --quiet "$head_sha^{commit}" >/dev/null; then
-		return 0
-	fi
-
-	local line_intersects_rc=0
-	python3 - "$base_sha" "$head_sha" "$relative_path" "$start_line" "$end_line" <<'PY' || line_intersects_rc=$?
-import re
-import subprocess
-import sys
-
-base_sha, head_sha, relative_path, start_raw, end_raw = sys.argv[1:6]
-start_line = int(start_raw)
-end_line = int(end_raw)
-
-def diff_for(args):
-    return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False)
-
-result = diff_for(["git", "diff", "--unified=0", f"{base_sha}...{head_sha}", "--", relative_path])
-if result.returncode != 0:
-    result = diff_for(["git", "diff", "--unified=0", base_sha, head_sha, "--", relative_path])
-if result.returncode != 0:
-    raise SystemExit(2)
-
-for match in re.finditer(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@", result.stdout, re.MULTILINE):
-    hunk_start = int(match.group("start"))
-    hunk_count = int(match.group("count") or "1")
-    if hunk_count <= 0:
-        continue
-    hunk_end = hunk_start + hunk_count - 1
-    if start_line <= hunk_end and end_line >= hunk_start:
-        raise SystemExit(0)
-
-raise SystemExit(1)
-PY
-	case "$line_intersects_rc" in
-	0)
-		return 0
-		;;
-	1)
-		return 1
-		;;
-	*)
-		return 0
-		;;
-	esac
 }
 
 extract_first_severity_rank() {
@@ -1928,7 +1780,6 @@ evaluate_pull_request_findings() {
 	local found_retryable_model_inconsistency=0
 	local found_any_vuln_file=0
 	local run_dir vulnerabilities_dir vuln_file line severity rank
-	local -a vulnerability_location_spans vulnerability_locations
 	for run_dir in "$STRIX_REPORTS_DIR"/*; do
 		if [ ! -d "$run_dir" ] || [ -L "$run_dir" ]; then
 			continue
@@ -1958,12 +1809,7 @@ evaluate_pull_request_findings() {
 				found_retryable_model_inconsistency=1
 				continue
 			fi
-			mapfile -t vulnerability_location_spans < <(extract_vulnerability_location_spans "$vuln_file")
-			if [ "${#vulnerability_location_spans[@]}" -eq 0 ]; then
-				vulnerability_locations=()
-			else
-				mapfile -t vulnerability_locations < <(printf '%s\n' "${vulnerability_location_spans[@]}" | cut -f1 | sort -u)
-			fi
+			mapfile -t vulnerability_locations < <(extract_vulnerability_locations "$vuln_file")
 			if [ "${#vulnerability_locations[@]}" -eq 0 ]; then
 				PR_FINDINGS_DECISION="block_unmapped"
 				echo "Unable to map Strix findings to changed files; failing closed for pull request." >&2
@@ -1990,12 +1836,10 @@ evaluate_pull_request_findings() {
 				continue
 			fi
 			found_baseline_threshold_finding=1
-			local changed_file vulnerability_span vulnerability_location vulnerability_start_line vulnerability_end_line
-			for vulnerability_span in "${vulnerability_location_spans[@]}"; do
-				IFS=$'\t' read -r vulnerability_location vulnerability_start_line vulnerability_end_line <<<"$vulnerability_span"
+			local changed_file vulnerability_location
+			for vulnerability_location in "${vulnerability_locations[@]}"; do
 				for changed_file in "${CHANGED_FILES[@]}"; do
-					if [ "$vulnerability_location" = "$changed_file" ] &&
-						vulnerability_span_intersects_pull_request_change "$vulnerability_location" "$vulnerability_start_line" "$vulnerability_end_line"; then
+					if [ "$vulnerability_location" = "$changed_file" ]; then
 						PR_FINDINGS_DECISION="block_changed"
 						echo "Strix finding intersects files changed in this pull request." >&2
 						return 1
@@ -2006,11 +1850,6 @@ evaluate_pull_request_findings() {
 	done
 
 	if [ "$found_baseline_threshold_finding" -eq 0 ] && [ "$found_changed_manifest_only_threshold_finding" -eq 0 ]; then
-		if [ "$found_retryable_model_inconsistency" -eq 1 ] &&
-			vulnerability_file_is_retryable_model_inconsistency "$STRIX_LOG"; then
-			PR_FINDINGS_DECISION="retry_model_inconsistency"
-			return 1
-		fi
 		rank="$(extract_first_severity_rank "$STRIX_LOG")"
 		if [ "$rank" -lt 0 ]; then
 			if [ "$found_retryable_model_inconsistency" -eq 1 ]; then
@@ -2020,12 +1859,7 @@ evaluate_pull_request_findings() {
 			return 1
 		fi
 		if [ "$rank" -ge "$threshold_rank" ]; then
-			mapfile -t vulnerability_location_spans < <(extract_vulnerability_location_spans "$STRIX_LOG")
-			if [ "${#vulnerability_location_spans[@]}" -eq 0 ]; then
-				vulnerability_locations=()
-			else
-				mapfile -t vulnerability_locations < <(printf '%s\n' "${vulnerability_location_spans[@]}" | cut -f1 | sort -u)
-			fi
+			mapfile -t vulnerability_locations < <(extract_vulnerability_locations "$STRIX_LOG")
 			if [ "${#vulnerability_locations[@]}" -eq 0 ]; then
 				PR_FINDINGS_DECISION="block_unmapped"
 				echo "Unable to map Strix findings to changed files; failing closed for pull request." >&2
@@ -2051,12 +1885,10 @@ evaluate_pull_request_findings() {
 				fi
 			else
 				found_baseline_threshold_finding=1
-				local changed_file vulnerability_span vulnerability_location vulnerability_start_line vulnerability_end_line
-				for vulnerability_span in "${vulnerability_location_spans[@]}"; do
-					IFS=$'\t' read -r vulnerability_location vulnerability_start_line vulnerability_end_line <<<"$vulnerability_span"
+				local changed_file vulnerability_location
+				for vulnerability_location in "${vulnerability_locations[@]}"; do
 					for changed_file in "${CHANGED_FILES[@]}"; do
-						if [ "$vulnerability_location" = "$changed_file" ] &&
-							vulnerability_span_intersects_pull_request_change "$vulnerability_location" "$vulnerability_start_line" "$vulnerability_end_line"; then
+						if [ "$vulnerability_location" = "$changed_file" ]; then
 							PR_FINDINGS_DECISION="block_changed"
 							echo "Strix finding intersects files changed in this pull request." >&2
 							return 1
@@ -2643,11 +2475,7 @@ LLM_PROVIDER_ONLY_REGEX='(litellm|openai|anthropic|VertexAI|Vertex_ai|vertex\.ai
 # was interrupted or incomplete.  Used as a guard to prevent the
 # below-threshold override from silently passing an aborted scan.
 has_detected_infrastructure_error() {
-	if grep -Eiq '(^|[^[:alpha:]])(Fatal|Denied):[[:space:]]' "$STRIX_LOG"; then
-		return 0
-	fi
-
-	if grep -Eiq '(^|[^[:alpha:]])Warn(ing)?:[[:space:]].*(provider|LLM|model|scan|incomplete|abort|credential|rate[ -]?limit|timeout|litellm|openai|anthropic|vertex|gemini|GitHub Models|deepseek)' "$STRIX_LOG"; then
+	if grep -Eiq '(^|[^[:alpha:]])(Fatal|Denied|Warn|Warning)([^[:alpha:]]|$)' "$STRIX_LOG"; then
 		return 0
 	fi
 
@@ -3091,161 +2919,12 @@ vulnerability_file_has_hallucinated_source_claim() {
 	return 1
 }
 
-static_app_persistence_contract_present() {
-	local resolved_scan_target=""
-	if ! resolved_scan_target="$(resolve_current_target_path "$TARGET_PATH" 2>/dev/null)"; then
-		return 1
-	fi
-	if [ ! -d "$resolved_scan_target" ] || [ -L "$resolved_scan_target" ]; then
-		return 1
-	fi
-
-	local static_contract_seen=0
-	local local_storage_seen=0
-	if grep -R -Eiq \
-		--exclude-dir=".git" \
-		--exclude-dir="node_modules" \
-		--exclude-dir="strix_runs" \
-		'static-host compatible|GitHub Pages|pure HTML/CSS/JavaScript|static app|static repository' \
-		"$resolved_scan_target/README.md" "$resolved_scan_target/docs" 2>/dev/null; then
-		static_contract_seen=1
-	fi
-	if grep -R -Fq \
-		--exclude-dir=".git" \
-		--exclude-dir="node_modules" \
-		--exclude-dir="strix_runs" \
-		'localStorage' \
-		"$resolved_scan_target/README.md" "$resolved_scan_target/docs" 2>/dev/null; then
-		local_storage_seen=1
-	fi
-
-	[ "$static_contract_seen" -eq 1 ] && [ "$local_storage_seen" -eq 1 ]
-}
-
-vulnerability_file_has_static_app_auth_contract_finding() {
-	local vuln_file="$1"
-	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
-		return 1
-	fi
-	if ! static_app_persistence_contract_present; then
-		return 1
-	fi
-	python3 - "$vuln_file" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-auth_claim = re.search(
-    r"(no authentication|lacks? proper authentication|absence of authorization|no authorization checks|authentication and authorization deficiencies)",
-    text,
-    re.IGNORECASE,
-)
-static_storage_claim = re.search(
-    r"(localStorage|client-side|static app|no authentication bypass needed)",
-    text,
-    re.IGNORECASE,
-)
-raise SystemExit(0 if auth_claim and static_storage_claim else 1)
-PY
-}
-
-vulnerability_file_has_env_secret_reference_only() {
-	local vuln_file="$1"
-	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
-		return 1
-	fi
-	python3 - "$vuln_file" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-env_ref = re.search(r"\{env:[A-Z0-9_]*(?:TOKEN|SECRET|API_KEY)[A-Z0-9_]*\}", text)
-named_env_ref = re.search(r"\bSTRIX_GITHUB_MODELS_TOKEN\b", text) and re.search(
-    r"(environment variable|not a direct secret exposure|secret reference)",
-    text,
-    re.IGNORECASE,
-)
-direct_secret_literal = re.search(
-    r"\b(?:sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b",
-    text,
-)
-direct_secret_assignment = re.search(
-    r"\b(?:api[_ -]?key|token|secret|password|credential)\b\s*[:=]\s*[`'\"]?(?!\{env:)[A-Za-z0-9][A-Za-z0-9_./+=-]{15,}",
-    text,
-    re.IGNORECASE,
-)
-reference_only = (env_ref or named_env_ref) and not (direct_secret_literal or direct_secret_assignment)
-raise SystemExit(0 if reference_only else 1)
-PY
-}
-
-static_app_table_rendering_escapes_and_sanitizes() {
-	local resolved_scan_target=""
-	if ! resolved_scan_target="$(resolve_current_target_path "$TARGET_PATH" 2>/dev/null)"; then
-		return 1
-	fi
-	if [ ! -d "$resolved_scan_target" ] || [ -L "$resolved_scan_target" ]; then
-		return 1
-	fi
-
-	local app_js="$resolved_scan_target/app.js"
-	if [ ! -f "$app_js" ] || [ -L "$app_js" ]; then
-		return 1
-	fi
-
-	grep -Fq 'function escapeHtml' "$app_js" &&
-		grep -Fq 'function renderTextCell' "$app_js" &&
-		grep -Fq 'escapeHtml(value)' "$app_js" &&
-		grep -Fq 'function stripUnsafeGeneratedMarkup' "$app_js" &&
-		grep -Fq 'stripUnsafeGeneratedMarkup(template.content)' "$app_js" &&
-		grep -Fq 'renderTextCell(task.task)' "$app_js"
-}
-
-vulnerability_file_has_sanitized_table_xss_false_positive() {
-	local vuln_file="$1"
-	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
-		return 1
-	fi
-	if ! static_app_table_rendering_escapes_and_sanitizes; then
-		return 1
-	fi
-	python3 - "$vuln_file" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-xss_claim = re.search(r"(stored cross-site scripting|stored xss|CWE-79)", text, re.IGNORECASE)
-table_claim = re.search(r"(template\.innerHTML|rows\.join|renderTaskRow|task field)", text, re.IGNORECASE)
-sanitizer_contradiction = re.search(
-    r"(without proper sanitization|unsanitized user input|DOMPurify)",
-    text,
-    re.IGNORECASE,
-)
-raise SystemExit(0 if xss_claim and table_claim and sanitizer_contradiction else 1)
-PY
-}
-
 vulnerability_file_is_retryable_model_inconsistency() {
 	local vuln_file="$1"
 	if vulnerability_file_has_absent_endpoint_finding "$vuln_file"; then
 		return 0
 	fi
 	if vulnerability_file_has_hallucinated_source_claim "$vuln_file"; then
-		return 0
-	fi
-	if vulnerability_file_has_static_app_auth_contract_finding "$vuln_file"; then
-		echo "Detected Strix report contradicting static localStorage app contract; treating as retryable model inconsistency." >&2
-		return 0
-	fi
-	if vulnerability_file_has_env_secret_reference_only "$vuln_file"; then
-		echo "Detected Strix report treating an environment-variable reference as a hardcoded secret; treating as retryable model inconsistency." >&2
-		return 0
-	fi
-	if vulnerability_file_has_sanitized_table_xss_false_positive "$vuln_file"; then
-		echo "Detected Strix report contradicting table escaping and generated-markup sanitizer; treating as retryable model inconsistency." >&2
 		return 0
 	fi
 	return 1

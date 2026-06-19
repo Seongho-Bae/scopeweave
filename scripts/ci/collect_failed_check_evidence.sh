@@ -178,26 +178,9 @@ failed_contexts="$(mktemp)"
 workflow_run_contexts="$(mktemp)"
 tmp_files=("$failed_contexts" "$workflow_run_contexts")
 cleanup() {
-	if [ "${#tmp_files[@]}" -gt 0 ]; then
-		rm -f "${tmp_files[@]}"
-	fi
+	rm -f "${tmp_files[@]}"
 }
 trap cleanup EXIT
-
-resolve_workflow_job_id() {
-	local workflow_run_id="$1"
-	local check_run_id="$2"
-
-	if [ -z "$workflow_run_id" ] || [ -z "$check_run_id" ]; then
-		return 1
-	fi
-
-	CHECK_RUN_ID="$check_run_id" gh api -X GET \
-		"repos/${GH_REPOSITORY}/actions/runs/${workflow_run_id}/jobs" \
-		--paginate \
-		--jq '.jobs[]? | select((.check_run_url // "") | endswith("/" + env.CHECK_RUN_ID)) | .id' |
-		sed -n '1p'
-}
 
 # shellcheck disable=SC2016
 gh api graphql \
@@ -282,7 +265,7 @@ gh api graphql \
 			| select((.headSha // "") == env.HEAD_SHA)
 			| select((.workflowName // "") == "Strix Security Scan" or (.workflowName // "") == "Strix")
 			| select((.status // "") == "completed")
-			| select((.conclusion // "" | ascii_downcase) as $c | ["failure","timed_out","action_required","startup_failure"] | index($c))
+			| select((.conclusion // "" | ascii_downcase) as $c | ["failure","timed_out","action_required","cancelled","startup_failure"] | index($c))
 			| [
 			"workflow_run",
 			(if (.workflowName // "") != "" then .workflowName else "workflow run" end),
@@ -337,28 +320,28 @@ done <"$workflow_run_contexts"
 		fi
 		printf '\n'
 
-		if [ "$kind" = "workflow_run" ] && [ -n "$run_id" ]; then
-			log_file="$(mktemp)"
-			stripped_log_file="$(mktemp)"
-			tmp_files+=("$log_file" "$stripped_log_file")
-			if gh run view "$run_id" --repo "$GH_REPOSITORY" --log-failed >"$log_file" 2>&1; then
-				strip_ansi <"$log_file" >"$stripped_log_file"
-				if [ -s "$stripped_log_file" ]; then
-					emit_failure_signal_summary "$stripped_log_file" || true
-					printf '### Failed workflow run log excerpt\n\n'
-					printf '```text\n'
-					emit_bounded_file "$stripped_log_file" "$FAILED_CHECK_LOG_LINES"
-					printf '\n```\n\n'
-					if [[ "$label" == *Strix* ]]; then
-						emit_strix_vulnerability_evidence "$stripped_log_file" || true
+			if [ "$kind" = "workflow_run" ] && [ -n "$run_id" ]; then
+				log_file="$(mktemp)"
+				stripped_log_file="$(mktemp)"
+				tmp_files+=("$log_file" "$stripped_log_file")
+				if gh run view "$run_id" --repo "$GH_REPOSITORY" --log-failed >"$log_file" 2>&1; then
+					strip_ansi <"$log_file" >"$stripped_log_file"
+					if [ -s "$stripped_log_file" ]; then
+						emit_failure_signal_summary "$stripped_log_file" || true
+						printf '### Failed workflow run log excerpt\n\n'
+						printf '```text\n'
+						emit_bounded_file "$stripped_log_file" "$FAILED_CHECK_LOG_LINES"
+						printf '\n```\n\n'
+						if [[ "$label" == *Strix* ]]; then
+							emit_strix_vulnerability_evidence "$stripped_log_file" || true
+						fi
+					else
+						printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
+						if [ "$conclusion" = "cancelled" ]; then
+							printf 'The workflow run completed as cancelled before GitHub emitted a failed job log. Treat this as missing current-head security evidence, not as a source-code vulnerability report.\n\n'
+						fi
 					fi
 				else
-					printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
-					if [ "$conclusion" = "cancelled" ]; then
-						printf 'The workflow run completed as cancelled before GitHub emitted a failed job log. Treat this as missing current-head security evidence, not as a source-code vulnerability report.\n\n'
-					fi
-				fi
-			else
 				strip_ansi <"$log_file" >"$stripped_log_file"
 				printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
 				printf '```text\n'
@@ -373,17 +356,9 @@ done <"$workflow_run_contexts"
 			continue
 		fi
 
-		workflow_job_id=""
-		if [ -n "$run_id" ]; then
-			workflow_job_id="$(resolve_workflow_job_id "$run_id" "$check_run_id" || true)"
-		fi
-		if [ -n "$workflow_job_id" ]; then
-			printf -- '- Workflow job id: `%s`\n\n' "$workflow_job_id"
-		fi
-
 		job_json="$(mktemp)"
 		tmp_files+=("$job_json")
-		if [ -n "$workflow_job_id" ] && gh api -X GET "repos/${GH_REPOSITORY}/actions/jobs/${workflow_job_id}" >"$job_json" 2>/dev/null; then
+		if gh api -X GET "repos/${GH_REPOSITORY}/actions/jobs/${check_run_id}" >"$job_json" 2>/dev/null; then
 			failed_steps="$(
 				jq -r '
 					(.steps // [])
@@ -415,9 +390,9 @@ done <"$workflow_run_contexts"
 		log_raw="$(mktemp)"
 		log_clean="$(mktemp)"
 		tmp_files+=("$log_raw" "$log_clean")
-		if [ -n "$run_id" ] && [ -n "$workflow_job_id" ] && gh run view "$run_id" \
+		if [ -n "$run_id" ] && gh run view "$run_id" \
 			--repo "$GH_REPOSITORY" \
-			--job "$workflow_job_id" \
+			--job "$check_run_id" \
 			--log-failed >"$log_raw" 2>&1; then
 			strip_ansi <"$log_raw" >"$log_clean"
 			if [ -s "$log_clean" ]; then

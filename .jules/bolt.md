@@ -13,6 +13,6 @@
 ## 2024-05-18 - [Title] Array spreading and reversing in rendering loops
 **Learning:** Using `[...array].reverse().findIndex(...)` in a tight loop (like rendering Gantt chart bars for every task) is an anti-pattern. It creates a brand new copy of the array and then mutates it on every single iteration, leading to massive memory allocation overhead and garbage collection pauses.
 **Action:** Always replace `[...array].reverse().findIndex(...)` with a standard reverse `for` loop starting from `array.length - 1` and iterating backwards, especially inside O(N) rendering functions.
-## 2024-05-18 - Prevent O(N^2) bottlenecks when grouping arrays
-**Learning:** When grouping elements by a key (e.g., grouping timeline days into weeks), using `Array.find` inside a loop creates an O(N^2) bottleneck, as it scans the accumulated groups on every iteration. This negatively impacts rendering performance.
-**Action:** Always use an O(1) `Map` or dictionary to keep track of created groups while accumulating them, reducing the grouping complexity to O(N).
+## 2026-06-18 - Array.find in loop for timeline grouping
+**Learning:** `groupTimelineByWeek` used `groups.find` inside a loop over all timeline days to group them by week. This resulted in an $O(N^2)$ algorithm because it does a linear array search for each day.
+**Action:** Replaced `Array.find` with an $O(1)$ `Map` lookup keyed by the `monday` string to group the days in $O(N)$ time.

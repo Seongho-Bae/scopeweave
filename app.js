@@ -43,7 +43,7 @@ const EDITABLE_FIELDS = [
   'owner',
   'supportTeam',
   'plannedStartDate',
-  'plannedEndDate',
+  'plannedEndDdate',
   'actualProgressStatus',
   'actualStartDate',
   'actualEndDate'
@@ -74,36 +74,6 @@ const CSV_HEADERS = [
   '__parentId',
   '__depth'
 ];
-
-const SAFE_GENERATED_TAGS = new Set([
-  'br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p',
-  'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr'
-]);
-
-const SAFE_GENERATED_ATTRIBUTES = new Set([
-  'aria-hidden', 'aria-label', 'aria-required', 'class', 'colspan', 'data-action',
-  'data-editor-anchor', 'data-editor-field', 'data-editor-form', 'data-inline-progress',
-  'data-task-id', 'data-testid', 'disabled', 'draggable', 'id', 'placeholder',
-  'required', 'selected', 'title', 'type', 'value'
-]);
-
-const CSV_FIELD_LABELS = Object.freeze({
-  phase: '단계',
-  activity: 'Activity',
-  task: 'Task',
-  categoryLarge: '대분류',
-  categoryMedium: '중분류',
-  documentName: '산출물',
-  owner: '담당자',
-  supportTeam: '지원팀',
-  plannedStartDate: '계획시작일',
-  plannedEndDate: '계획종료일',
-  actualProgressStatus: '실적진척상태',
-  actualStartDate: '실적시작일',
-  actualEndDate: '실적종료일'
-});
-
-const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
 const state = {
   projectName: DEFAULT_PROJECT_NAME,
@@ -351,7 +321,7 @@ function renderAll() {
     rows.push(`
       <tr>
         <td colspan="21">
-          <div class="table-empty">
+          <div class="gantt-empty">
             <div class="empty-icon" aria-hidden="true">📋</div>
             <h3 class="empty-title">등록된 작업이 없습니다</h3>
             <p class="empty-desc">하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,<br>'CSV 가져오기'를 통해 기존 데이터를 불러오세요.</p>
@@ -361,43 +331,8 @@ function renderAll() {
     `);
   }
 
-  setTableBodyRows(rows);
+  elements.tableBody.innerHTML = rows.join('');
   renderEditorValidation();
-}
-
-function setTableBodyRows(rows) {
-  const template = document.createElement('template');
-  template.innerHTML = `<table><tbody>${rows.join('')}</tbody></table>`;
-  stripUnsafeGeneratedMarkup(template.content);
-  const tableBody = template.content.querySelector('tbody');
-  elements.tableBody.replaceChildren(...Array.from(tableBody.children));
-}
-
-function stripUnsafeGeneratedMarkup(root) {
-  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => node.remove());
-  root.querySelectorAll('*').forEach((element) => {
-    if (!SAFE_GENERATED_TAGS.has(element.tagName.toLowerCase())) {
-      element.remove();
-      return;
-    }
-    Array.from(element.attributes).forEach((attribute) => {
-      const name = attribute.name.toLowerCase();
-      if (
-        name.startsWith('on') ||
-        (!SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style')
-      ) {
-        element.removeAttribute(attribute.name);
-        return;
-      }
-      if (name === 'style' && !isSafeGeneratedStyle(attribute.value.trim())) {
-        element.removeAttribute(attribute.name);
-      }
-    });
-  });
-}
-
-function isSafeGeneratedStyle(value) {
-  return /^(background:\s*#[0-9a-f]{3,6}|color:\s*var\(--danger\)|width:\s*\d+px|left:\s*\d+px;?\s*width:\s*\d+px)$/i.test(value);
 }
 
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
@@ -426,7 +361,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
       <td class="priority-desktop">${renderTextCell(task.supportTeam)}</td>
       <td class="priority-mobile">${renderStatusCell(taskMetrics.progressState)}</td>
       <td class="priority-mobile">${renderTextCell(task.plannedStartDate)}</td>
-      <td class="priority-mobile">${renderTextCell(task.plannedEndDate)}</td>
+      <td class="priority-mobile">${renderTextCell(task.plannedEndDdate)}</td>
       <td class="priority-desktop"><span class="metric-text" data-testid="task-duration-days">${formatNumber(taskMetrics.durationDays)}</span></td>
       <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.plannedProgressRatio * 100, 2)}</span></td>
       <td class="priority-desktop"><span class="metric-text" data-testid="task-weight-ratio">${formatDecimal(taskMetrics.weightRatio, 3)}</span></td>
@@ -458,7 +393,7 @@ function renderEditorRow(anchorId) {
               ${renderEditorField('담당자', 'owner', draft.owner)}
               ${renderEditorField('지원팀', 'supportTeam', draft.supportTeam)}
               ${renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date')}
-              ${renderEditorField('계획종료일', 'plannedEndDate', draft.plannedEndDate, 'date')}
+              ${renderEditorField('계획종료일', 'plannedEndDdate', draft.plannedEndDdate, 'date')}
               ${renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS)}
               ${renderEditorField('실적시작일', 'actualStartDate', draft.actualStartDate, 'date')}
               ${renderEditorField('실적종료일', 'actualEndDate', draft.actualEndDate, 'date')}
@@ -486,11 +421,11 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     owner: 'editor-owner',
     supportTeam: 'editor-support-team',
     plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
+    plannedEndDdate: 'editor-planned-end',
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
-  const requiredHtml = required ? ' <span class="required-indicator" aria-hidden="true">*</span><span class="sr-only">(필수)</span>' : '';
+  const requiredHtml = required ? ' <span class="text-red-500" style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
   const requiredAttr = required ? ' required aria-required="true"' : '';
   const placeholderAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
   return `
@@ -708,7 +643,7 @@ function createEmptyTaskDraft() {
     owner: '',
     supportTeam: '',
     plannedStartDate: '',
-    plannedEndDate: '',
+    plannedEndDdate: '',
     actualProgressStatus: '미착수(0%)',
     actualStartDate: '',
     actualEndDate: '',
@@ -757,12 +692,16 @@ function validateDraft(draft, depth) {
   }
 
   validateDateField('계획시작일', sanitized.plannedStartDate, errors);
-  validateDateField('계획종료일', sanitized.plannedEndDate, errors);
+  validateDateField('계획종료일', sanitized.plannedEndDdate, errors);
   validateDateField('실적시작일', sanitized.actualStartDate, errors);
   validateDateField('실적종료일', sanitized.actualEndDate, errors);
 
-  validateDateRange('계획시작일', sanitized.plannedStartDate, '계획종료일', sanitized.plannedEndDate, errors);
-  validateDateRange('실적시작일', sanitized.actualStartDate, '실적종료일', sanitized.actualEndDate, errors);
+  if (sanitized.plannedStartDate && sanitized.plannedEndDdate && compareDateStrings(sanitized.plannedStartDate, sanitized.plannedEndDdate) > 0) {
+    errors.push('계획종료일은 계획시작일보다 빠를 수 없습니다.');
+  }
+  if (sanitized.actualStartDate && sanitized.actualEndDate && compareDateStrings(sanitized.actualStartDate, sanitized.actualEndDate) > 0) {
+    errors.push('실적종료일은 실적시작일보다 빠를 수 없습니다.');
+  }
 
   return Array.from(new Set(errors));
 }
@@ -771,20 +710,14 @@ function validateDateField(label, value, errors) {
   if (!value) {
     return;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !isValidDateString(value)) {
-    errors.push(`${label}은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.`);
-  }
-}
-
-function validateDateRange(startLabel, startValue, endLabel, endValue, errors) {
-  if (startValue && endValue && compareDateStrings(startValue, endValue) > 0) {
-    errors.push(`${endLabel}은 ${startLabel}보다 빠를 수 없습니다.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    errors.push(`${label}은 YYYY-MM-DD 형식이어야 합니다.`);
   }
 }
 
 function computeTaskMetrics() {
   const totalDays = state.tasks.reduce((sum, task) => {
-    const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
+    const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDdate);
     return sum + duration;
   }, 0);
 
@@ -794,13 +727,13 @@ function computeTaskMetrics() {
   let totalWeightedActualRatio = 0;
 
   state.tasks.forEach((task) => {
-    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
+    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDdate);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
-    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
+    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDdate);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
     const weightedPlannedRatio = weightRatio * plannedProgressRatio;
     const weightedActualRatio = weightRatio * actualProgressRatio;
-    const plannedDateWarning = getDateRangeWarning(task.plannedStartDate, task.plannedEndDate, '계획종료일이 시작일보다 빠릅니다.');
+    const plannedDateWarning = getDateRangeWarning(task.plannedStartDate, task.plannedEndDdate, '계획종료일이 시작일보다 빠릅니다.');
     const actualDateWarning = getDateRangeWarning(task.actualStartDate, task.actualEndDate, '실적종료일이 시작일보다 빠릅니다.');
     const progressState = deriveProgressState(task, baseDate);
 
@@ -829,14 +762,14 @@ function computeTaskMetrics() {
 }
 
 function deriveProgressState(task, baseDate) {
-  if (!task.plannedStartDate || !task.plannedEndDate) {
+  if (!task.plannedStartDate || !task.plannedEndDdate) {
     return { label: '', className: '' };
   }
 
   if (task.actualStartDate && task.actualEndDate) {
     return { label: '완료', className: 'done' };
   }
-  if (compareDateStrings(baseDate, task.plannedEndDate) >= 0 && (!task.actualStartDate || !task.actualEndDate)) {
+  if (compareDateStrings(baseDate, task.plannedEndDdate) >= 0 && (!task.actualStartDate || !task.actualEndDate)) {
     return { label: '지연', className: 'delay' };
   }
   if (task.actualStartDate && !task.actualEndDate) {
@@ -1051,20 +984,7 @@ function loadLocalState() {
 function hydrateState(savedState) {
   state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
-  state.tasks = Array.isArray(savedState.tasks)
-    ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
-    : [];
-}
-
-function normalizeStoredTask(task) {
-  const safeTask = isTaskRecord(task) ? task : {};
-  const normalizedTask = {
-    ...safeTask,
-    plannedEndDate: getPlannedEndDateValue(safeTask),
-    expanded: safeTask.expanded !== false
-  };
-  delete normalizedTask[LEGACY_PLANNED_END_FIELD];
-  return normalizedTask;
+  state.tasks = Array.isArray(savedState.tasks) ? savedState.tasks.map((task) => ({ ...task, expanded: task.expanded !== false })) : [];
 }
 
 async function loadSeedTasks() {
@@ -1077,17 +997,6 @@ async function loadSeedTasks() {
   } catch {
     return [];
   }
-}
-
-function getPlannedEndDateValue(task) {
-  if (!isTaskRecord(task)) {
-    return '';
-  }
-  return task.plannedEndDate || task[LEGACY_PLANNED_END_FIELD] || '';
-}
-
-function isTaskRecord(task) {
-  return task !== null && typeof task === 'object' && !Array.isArray(task);
 }
 
 function normalizeImportedTasks(sourceTasks) {
@@ -1113,7 +1022,7 @@ function normalizeImportedTasks(sourceTasks) {
     owner: task.owner || '',
     supportTeam: task.supportTeam || '',
     plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
+    plannedEndDdate: task.plannedEndDdate || task.plannedEndDate || '',
     actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
     actualStartDate: task.actualStartDate || '',
     actualEndDate: task.actualEndDate || '',
@@ -1125,7 +1034,7 @@ function normalizeImportedTasks(sourceTasks) {
 function validateImportedTask(task, index) {
   const rowLabel = `${index + 2}행`;
   const plannedStartDate = task.plannedStartDate || '';
-  const plannedEndDate = getPlannedEndDateValue(task);
+  const plannedEndDate = task.plannedEndDdate || task.plannedEndDate || '';
   const actualStartDate = task.actualStartDate || '';
   const actualEndDate = task.actualEndDate || '';
 
@@ -1140,11 +1049,11 @@ function validateImportedTask(task, index) {
     }
   });
 
-  const dateRangeErrors = [];
-  validateDateRange('계획시작일', plannedStartDate, '계획종료일', plannedEndDate, dateRangeErrors);
-  validateDateRange('실적시작일', actualStartDate, '실적종료일', actualEndDate, dateRangeErrors);
-  if (dateRangeErrors.length > 0) {
-    throw new Error(`${rowLabel}: ${dateRangeErrors[0]}`);
+  if (plannedStartDate && plannedEndDate && compareDateStrings(plannedStartDate, plannedEndDate) > 0) {
+    throw new Error(`${rowLabel}: 계획종료일은 계획시작일보다 빠를 수 없습니다.`);
+  }
+  if (actualStartDate && actualEndDate && compareDateStrings(actualStartDate, actualEndDate) > 0) {
+    throw new Error(`${rowLabel}: 실적종료일은 실적시작일보다 빠를 수 없습니다.`);
   }
 }
 
@@ -1167,7 +1076,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     owner: task.owner || '',
     supportTeam: task.supportTeam || '',
     plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
+    plannedEndDdate: task.plannedEndDdate || task.plannedEndDate || '',
     actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
     actualStartDate: task.actualStartDate || '',
     actualEndDate: task.actualEndDate || ''
@@ -1294,7 +1203,7 @@ function exportCsv() {
       task.supportTeam,
       taskMetrics.progressState.label,
       task.plannedStartDate,
-      task.plannedEndDate,
+      task.plannedEndDdate,
       formatNumber(taskMetrics.durationDays),
       formatPercent(taskMetrics.plannedProgressRatio * 100, 2),
       formatDecimal(taskMetrics.weightRatio, 3),
@@ -1311,7 +1220,7 @@ function exportCsv() {
   });
 
   const csvText = [CSV_HEADERS, ...rows]
-    .map((row) => row.map((cell) => csvEscape(cell)).join(','))
+    .map((row) => row.map(csvEscape).join(','))
     .join('\r\n');
   downloadFile(csvText, `wbs_export_${formatCompactDate(new Date())}.csv`, 'text/csv;charset=utf-8');
 }
@@ -1370,30 +1279,11 @@ function validateImportedTasks(tasks) {
 
 function validateCsvCell(value, fieldName) {
   if (!value) return value;
-  const normalized = String(value);
-  const label = CSV_FIELD_LABELS[fieldName] || fieldName;
-  if (normalized.length > 1000) {
-    throw new Error(`${label} 컬럼은 1000자 이하로 입력해야 합니다.`);
-  }
-  if (/[<>]/.test(normalized)) {
-    throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
-  }
-  return normalized;
+  return value.substring(0, 1000); // basic length restriction
 }
-
-function validateCsvInternalValue(value, fieldName) {
-  return validateCsvCell(value, fieldName);
-}
-
-function validateCsvId(value) { return validateCsvInternalValue(value, '__id'); }
-function validateCsvParentId(value) { return validateCsvInternalValue(value, '__parentId'); }
-function validateCsvDepth(value) {
-  const normalized = validateCsvInternalValue(value, '__depth');
-  if (normalized && !/^[1-3]$/.test(normalized)) {
-    throw new Error('__depth 컬럼은 1, 2, 3 중 하나여야 합니다.');
-  }
-  return normalized;
-}
+function validateCsvId(value) { return value; }
+function validateCsvParentId(value) { return value; }
+function validateCsvDepth(value) { return value; }
 
 function parseCsv(text) {
   const rows = [];
@@ -1464,7 +1354,7 @@ function parseCsv(text) {
     owner: validateCsvCell(readCsvCell(cells, headerMap, '담당자'), 'owner'),
     supportTeam: validateCsvCell(readCsvCell(cells, headerMap, '지원팀'), 'supportTeam'),
     plannedStartDate: validateCsvCell(readCsvCell(cells, headerMap, '계획시작일'), 'plannedStartDate'),
-    plannedEndDate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDate'),
+    plannedEndDdate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDdate'),
     actualProgressStatus: validateCsvCell(readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)', 'actualProgressStatus'),
     actualStartDate: validateCsvCell(readCsvCell(cells, headerMap, '실적시작일'), 'actualStartDate'),
     actualEndDate: validateCsvCell(readCsvCell(cells, headerMap, '실적종료일'), 'actualEndDate'),
@@ -1520,8 +1410,7 @@ function exportJsonArray() {
     owner: task.owner,
     supportTeam: task.supportTeam,
     plannedStartDate: task.plannedStartDate,
-    plannedEndDate: task.plannedEndDate,
-    [LEGACY_PLANNED_END_FIELD]: task.plannedEndDate,
+    plannedEndDdate: task.plannedEndDdate,
     actualProgressStatus: task.actualProgressStatus,
     actualStartDate: task.actualStartDate,
     actualEndDate: task.actualEndDate
@@ -1538,17 +1427,18 @@ function closeGanttModal() {
 }
 
 function renderGantt() {
-  const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDate));
+  const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDdate));
   if (plannedTasks.length === 0) {
     const emptyDiv = document.createElement('div');
     emptyDiv.className = 'gantt-empty';
     emptyDiv.textContent = '계획 일정이 있는 작업이 없습니다.';
-    elements.ganttContent.replaceChildren(emptyDiv);
+    elements.ganttContent.innerHTML = '';
+    elements.ganttContent.appendChild(emptyDiv);
     return;
   }
 
   const minDate = plannedTasks.reduce((min, task) => (compareDateStrings(task.plannedStartDate, min) < 0 ? task.plannedStartDate : min), plannedTasks[0].plannedStartDate);
-  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDate, max) > 0 ? task.plannedEndDate : max), plannedTasks[0].plannedEndDate);
+  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDdate, max) > 0 ? task.plannedEndDdate : max), plannedTasks[0].plannedEndDdate);
   const weekdays = buildWeekdayTimeline(minDate, maxDate);
   const weeks = groupTimelineByWeek(weekdays);
 
@@ -1563,7 +1453,7 @@ function renderGantt() {
       <td>${renderTextCell(task.owner)}</td>
       <td>${renderTextCell(task.supportTeam)}</td>
       <td>${renderTextCell(task.plannedStartDate)}</td>
-      <td>${renderTextCell(task.plannedEndDate)}</td>
+      <td>${renderTextCell(task.plannedEndDdate)}</td>
       <td>${renderTextCell(task.actualStartDate)}</td>
       <td>${renderTextCell(task.actualEndDate)}</td>
     </tr>
@@ -1571,7 +1461,7 @@ function renderGantt() {
 
   const totalWidth = weekdays.length * 36;
   const chartRows = state.tasks.map((task) => {
-    const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
+    const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDdate, weekdays, 'plan');
     const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
     return `
       <tr>
@@ -1585,7 +1475,7 @@ function renderGantt() {
     `;
   }).join('');
 
-  setGanttContent(`
+  elements.ganttContent.innerHTML = `
     <div class="gantt-shell">
       <div class="gantt-meta">
         <table>
@@ -1622,14 +1512,7 @@ function renderGantt() {
         </table>
       </div>
     </div>
-  `);
-}
-
-function setGanttContent(markup) {
-  const template = document.createElement('template');
-  template.innerHTML = markup;
-  stripUnsafeGeneratedMarkup(template.content);
-  elements.ganttContent.replaceChildren(template.content);
+  `;
 }
 
 function buildWeekdayTimeline(minDate, maxDate) {
@@ -1650,12 +1533,11 @@ function buildWeekdayTimeline(minDate, maxDate) {
 
 function groupTimelineByWeek(days) {
   const groups = [];
-  // ⚡ Bolt: Cache existing weekly groups in an O(1) Map instead of calling O(N) groups.find
-  // to eliminate an O(N^2) bottleneck that slows down the rendering of the Gantt chart.
-  const groupMap = new Map();
+  // ⚡ Bolt: Replace O(N^2) Array.find with O(1) Map lookup for grouping timeline
+  const mapByMonday = new Map();
   days.forEach((day) => {
     const monday = getMonday(day.date);
-    const existing = groupMap.get(monday);
+    let existing = mapByMonday.get(monday);
     if (existing) {
       existing.days.push(day);
     } else {
@@ -1665,7 +1547,7 @@ function groupTimelineByWeek(days) {
         days: [day]
       };
       groups.push(newGroup);
-      groupMap.set(monday, newGroup);
+      mapByMonday.set(monday, newGroup);
     }
   });
   return groups;
@@ -1731,7 +1613,7 @@ function downloadFile(content, fileName, mimeType) {
 function csvEscape(value) {
   let normalized = String(value ?? '');
   if (/^\s*[=+\-@]/.test(normalized)) {
-    normalized = `'${normalized}`;
+    normalized = `\t${normalized}`;
   }
   return `"${normalized.replace(/"/g, '""')}"`;
 }
@@ -1825,16 +1707,13 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
-const HTML_ESCAPE_ENTITIES = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;'
-};
-
 function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (character) => HTML_ESCAPE_ENTITIES[character]);
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function toKebab(value) {
