@@ -22,7 +22,9 @@ def test_strix_ci_dependencies_are_pinned_in_repo_manifest() -> None:
     requirements_source = (REPO_ROOT / "requirements-strix-ci.txt").read_text(encoding="utf-8")
 
     assert 'python3 -m pip install --no-cache-dir -r requirements-strix-ci.txt' in workflow_source
-    assert 'Gate model auth prerequisites' in workflow_source
+    assert 'Gate Strix secrets' in workflow_source
+    assert 'STRIX_FALLBACK_MODELS:' in workflow_source
+    assert 'STRIX_FAIL_ON_PROVIDER_SIGNAL: "1"' in workflow_source
     assert 'strix-agent==0.8.3' in requirements_source
     assert 'google-cloud-aiplatform==1.133.0' in requirements_source
 
