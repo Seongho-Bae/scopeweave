@@ -16,3 +16,6 @@
 ## 2024-05-18 - Prevent O(N^2) bottlenecks when grouping arrays
 **Learning:** When grouping elements by a key (e.g., grouping timeline days into weeks), using `Array.find` inside a loop creates an O(N^2) bottleneck, as it scans the accumulated groups on every iteration. This negatively impacts rendering performance.
 **Action:** Always use an O(1) `Map` or dictionary to keep track of created groups while accumulating them, reducing the grouping complexity to O(N).
+## 2026-06-19 - Expensive string and date parsing in tight render loops
+**Learning:** `isValidDateString` and `dateStringToUtcMs` are called hundreds or thousands of times during Gantt chart generation and task metrics computation. Since WBS date inputs have low cardinality (mostly unique dates in a small range), parsing dates with regex and `new Date()` allocation repeatedly creates extreme garbage collection pressure.
+**Action:** When validating or parsing low-cardinality values repeatedly inside rendering loops, use an LRU or bounded `Map` to cache the calculated results. To avoid global pollution, attach the cache `Map` directly to the function object and ensure a maximum cache size (e.g. `< 500`) to prevent unbound memory leakage.
