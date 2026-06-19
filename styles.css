@@ -419,6 +419,10 @@ button {
   letter-spacing: 0.05em;
 }
 
+.editor-field .required-indicator {
+  color: var(--danger);
+}
+
 .editor-field input:focus,
 .editor-field select:focus,
 select[data-inline-progress]:focus {
