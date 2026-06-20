@@ -14,11 +14,13 @@ spec:
       labels:
         app: scopeweave
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: scopeweave
         image: scopeweave:latest
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         resources:
           requests:
             cpu: "100m"
