@@ -150,6 +150,24 @@ test.describe('ScopeWeave Planner', () => {
     expect(dialogOpened).toBe(false);
   });
 
+  test('does not expose generated gantt rendering as a global XSS gadget', async ({ page }) => {
+    let dialogOpened = false;
+    page.on('dialog', async (dialog) => {
+      dialogOpened = true;
+      await dialog.dismiss();
+    });
+
+    await page.getByRole('button', { name: '간트차트보기' }).click();
+    await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
+
+    await expect.poll(async () => page.evaluate(() => typeof window.setGanttContent)).toBe('undefined');
+    await expect(page.locator('#gantt-content img, #gantt-content svg, #gantt-content script, #gantt-content iframe, #gantt-content object')).toHaveCount(0);
+    await expect(page.locator('#gantt-content [onclick], #gantt-content [onerror], #gantt-content [onload], #gantt-content [onmouseover]')).toHaveCount(0);
+    await expect(page.locator('#gantt-content [style*="javascript"]')).toHaveCount(0);
+    await page.waitForTimeout(100);
+    expect(dialogOpened).toBe(false);
+  });
+
   test('escapes quotes from manual text before rendering editor attributes', async ({ page }) => {
     const ownerPayload = '" onmouseover="alert(1)';
 
