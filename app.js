@@ -116,7 +116,11 @@ const state = {
     depth: 1,
     insertAfterId: null,
     draft: null,
-    errors: []
+    errors: [],
+    triggerElement: null
+  },
+  gantt: {
+    triggerElement: null
   },
   jsonSyncHandle: null,
   dragTaskId: null,
@@ -836,6 +840,7 @@ function handleRowAction(action, taskId) {
 }
 
 function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertAfterId = null, draft = null }) {
+  const triggerElement = document.activeElement;
   if (mode === 'edit') {
     const task = findTask(targetId);
     if (!task) {
@@ -848,7 +853,8 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
       depth: task.depth,
       insertAfterId: targetId,
       draft: { ...task },
-      errors: []
+      errors: [],
+      triggerElement
     };
   } else {
     state.editor = {
@@ -858,13 +864,19 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
       depth,
       insertAfterId,
       draft: draft ? { ...draft } : createEmptyTaskDraft(),
-      errors: []
+      errors: [],
+      triggerElement
     };
   }
   renderAll();
+  requestAnimationFrame(() => {
+    const firstInput = document.querySelector('.editor-panel input:not([type="hidden"])');
+    if (firstInput) firstInput.focus();
+  });
 }
 
 function closeEditor() {
+  const triggerElement = state.editor.triggerElement;
   state.editor = {
     mode: null,
     targetId: null,
@@ -872,12 +884,17 @@ function closeEditor() {
     depth: 1,
     insertAfterId: null,
     draft: null,
-    errors: []
+    errors: [],
+    triggerElement: null
   };
   renderAll();
+  if (triggerElement && document.body.contains(triggerElement)) {
+    triggerElement.focus();
+  }
 }
 
 function saveEditor() {
+  const triggerElement = state.editor.triggerElement;
   const errors = validateDraft(state.editor.draft, state.editor.depth);
   if (errors.length > 0) {
     state.editor.errors = errors;
@@ -914,6 +931,9 @@ function saveEditor() {
   persistState();
   renderAll();
   showToast('변경 내용을 저장했습니다.');
+  if (triggerElement && document.body.contains(triggerElement)) {
+    triggerElement.focus();
+  }
 }
 
 function createEmptyTaskDraft() {
@@ -1748,12 +1768,22 @@ function exportJsonArray() {
 }
 
 function openGanttModal() {
+  state.gantt.triggerElement = document.activeElement;
   elements.ganttModal.classList.remove('hidden');
   renderGantt();
+  requestAnimationFrame(() => {
+    if (elements.closeGanttButton) {
+      elements.closeGanttButton.focus();
+    }
+  });
 }
 
 function closeGanttModal() {
   elements.ganttModal.classList.add('hidden');
+  if (state.gantt.triggerElement && document.body.contains(state.gantt.triggerElement)) {
+    state.gantt.triggerElement.focus();
+  }
+  state.gantt.triggerElement = null;
 }
 
 function renderGantt() {
