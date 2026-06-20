@@ -23,3 +23,7 @@
 ## 2026-06-17 - Disable unavailable actions instead of hiding or erroring
 **Learning:** Users can be confused if actions like 'Export CSV' or 'Gantt Chart' are clickable but do nothing (or show an error) when there's no data. Disabling the buttons with a clear `title` tooltip improves the experience.
 **Action:** Proactively disable buttons that require a certain state (like having tasks or browser API support) and explain the reason via a `title` tooltip.
+
+## 2026-06-20 - Forms & Empty States
+**Learning:** For a complex app like a WBS planner with inline editing, dynamic DOM mutations must communicate intent properly to screen readers. Live regions should be used for dynamic form validation messages (`aria-live="polite"`).
+**Action:** When improving micro-UX in heavily dynamic apps, prefer adding appropriate ARIA attributes for existing dynamic UI. Make validation messages `aria-live="polite"`. Add explicit id-based labeling (`for="project-name"`, `id="..."`) to inputs, ensuring they are unique if dynamic. And empty states should contain actionable buttons instead of just text hints.

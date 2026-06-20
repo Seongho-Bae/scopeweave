@@ -395,7 +395,28 @@ function createEmptyStateRow() {
     "'CSV 가져오기'를 통해 기존 데이터를 불러오세요."
   );
 
-  emptyState.append(icon, title, description);
+  const actions = document.createElement('div');
+  actions.className = 'empty-actions editor-actions';
+
+  const addRootBtn = document.createElement('button');
+  addRootBtn.type = 'button';
+  addRootBtn.className = 'primary-button';
+  addRootBtn.textContent = '최상위 작업 추가';
+  addRootBtn.addEventListener('click', () => {
+    openEditor({ mode: 'create', parentId: null, depth: 1, insertAfterId: getLastRootTaskId() });
+  });
+
+  const importCsvBtn = document.createElement('button');
+  importCsvBtn.type = 'button';
+  importCsvBtn.className = 'secondary-button';
+  importCsvBtn.textContent = 'CSV 가져오기';
+  importCsvBtn.addEventListener('click', () => {
+    document.getElementById('csv-file-input').click();
+  });
+
+  actions.append(addRootBtn, importCsvBtn);
+
+  emptyState.append(icon, title, description, actions);
   cell.appendChild(emptyState);
   row.appendChild(cell);
   return row;
@@ -456,6 +477,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
     toggleButton.setAttribute('aria-label', toggleLabel);
+    toggleButton.setAttribute('aria-expanded', String(task.expanded));
     toggleButton.title = toggleLabel;
     toggleButton.textContent = task.expanded ? '▼' : '▶';
     actionStack.appendChild(toggleButton);
@@ -468,10 +490,20 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const isLeaf = task.depth >= 3;
   const addChildButton = createActionButton('하위 추가', '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
   addChildButton.disabled = isLeaf;
+
+  if (isLeaf) {
+    addChildButton.setAttribute('aria-disabled', 'true');
+  }
+
+  const editButton = createActionButton('편집', '✎', 'edit', '편집');
+  editButton.setAttribute('aria-haspopup', 'dialog');
+
+  const deleteButton = createActionButton('삭제', '🗑', 'delete', '삭제');
+
   actionStack.append(
     addChildButton,
-    createActionButton('편집', '✎', 'edit', '편집'),
-    createActionButton('삭제', '🗑', 'delete', '삭제')
+    editButton,
+    deleteButton
   );
   actionCell.appendChild(actionStack);
   row.appendChild(actionCell);
@@ -560,6 +592,8 @@ function renderEditorRow(anchorId) {
   const errors = document.createElement('div');
   errors.id = 'editor-errors';
   errors.className = 'validation-message';
+  errors.setAttribute('aria-live', 'polite');
+  errors.setAttribute('aria-atomic', 'true');
   editorActions.append(saveButton, cancelButton, errors);
 
   form.append(editorGrid, editorActions);
@@ -587,6 +621,8 @@ function renderEditorField(label, field, value, type = 'text', required = false,
 
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
+  const fieldId = `editor-input-${field}-${Date.now()}`;
+  labelElement.htmlFor = fieldId;
   const labelText = document.createElement('span');
   labelText.textContent = label;
   if (required) {
@@ -600,6 +636,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     labelText.append(' ', marker, srOnly);
   }
   const input = document.createElement('input');
+  input.id = fieldId;
   input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
@@ -618,9 +655,12 @@ function renderEditorField(label, field, value, type = 'text', required = false,
 function renderEditorSelectField(label, field, value, options) {
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
+  const fieldId = `editor-select-${field}-${Date.now()}`;
+  labelElement.htmlFor = fieldId;
   const labelText = document.createElement('span');
   labelText.textContent = label;
   const select = document.createElement('select');
+  select.id = fieldId;
   select.dataset.editorField = field;
   options.forEach((optionValue) => {
     const option = document.createElement('option');
@@ -707,10 +747,13 @@ function createMetricText(value, testId = '') {
 
 function createActualProgressCellContent(task, taskMetrics) {
   const label = document.createElement('label');
+  const fieldId = `actual-progress-${task.id}`;
+  label.htmlFor = fieldId;
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
   srOnly.textContent = '실적진척상태';
   const select = document.createElement('select');
+  select.id = fieldId;
   select.dataset.inlineProgress = task.id;
   ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
     const option = document.createElement('option');
