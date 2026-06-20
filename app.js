@@ -589,6 +589,8 @@ function renderEditorRow(anchorId) {
   cancelButton.className = 'secondary-button';
   cancelButton.dataset.action = 'cancel-editor';
   cancelButton.textContent = '취소';
+  // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
+  cancelButton.addEventListener('click', () => closeEditor());
   const errors = document.createElement('div');
   errors.id = 'editor-errors';
   errors.className = 'validation-message';
@@ -820,11 +822,6 @@ function renderEditorValidation() {
   const errorElement = document.getElementById('editor-errors');
   if (errorElement) {
     errorElement.textContent = errors.join(' ');
-  }
-
-  const cancelButton = elements.tableBody.querySelector('[data-action="cancel-editor"]');
-  if (cancelButton) {
-    cancelButton.addEventListener('click', () => closeEditor(), { once: true });
   }
 }
 
