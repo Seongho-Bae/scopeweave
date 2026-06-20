@@ -29,13 +29,15 @@ concurrency:
   group: pr-review-merge-scheduler
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   scan-pr-queue:
     runs-on: ubuntu-latest
     permissions:
-      actions: write
       checks: read
-      contents: write
+      contents: read
       pull-requests: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
