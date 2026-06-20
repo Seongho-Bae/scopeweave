@@ -1868,18 +1868,22 @@ function buildWeekdayTimeline(minDate, maxDate) {
 }
 
 function groupTimelineByWeek(days) {
+  // ⚡ Bolt: Use an O(1) Map instead of O(N) Array.find to avoid O(N^2) bottleneck when grouping timeline days
   const groups = [];
+  const groupMap = new Map();
   days.forEach((day) => {
     const monday = getMonday(day.date);
-    const existing = groups.find((group) => group.monday === monday);
+    const existing = groupMap.get(monday);
     if (existing) {
       existing.days.push(day);
     } else {
-      groups.push({
+      const newGroup = {
         monday,
         label: `${monday.slice(5, 7)}월 ${monday.slice(8, 10)}일 주간`,
         days: [day]
-      });
+      };
+      groups.push(newGroup);
+      groupMap.set(monday, newGroup);
     }
   });
   return groups;
