@@ -27,3 +27,7 @@
 ## 2026-06-20 - Forms & Empty States
 **Learning:** For a complex app like a WBS planner with inline editing, dynamic DOM mutations must communicate intent properly to screen readers. Live regions should be used for dynamic form validation messages (`aria-live="polite"`).
 **Action:** When improving micro-UX in heavily dynamic apps, prefer adding appropriate ARIA attributes for existing dynamic UI. Make validation messages `aria-live="polite"`. Add explicit id-based labeling (`for="project-name"`, `id="..."`) to inputs, ensuring they are unique if dynamic. And empty states should contain actionable buttons instead of just text hints.
+
+## 2026-06-20 - Focus Management in Dynamic JS Render Cycles
+**Learning:** In pure JavaScript render architectures that rebuild DOM aggressively (`renderAll()`), accessibility context like `document.activeElement` is lost when components (like inline editors or modals) are unmounted or remounted.
+**Action:** Always capture `document.activeElement` before a major destructive DOM update or modal opening, and explicitly restore `.focus()` on close. When mounting forms, explicitly focus the first input inside a `requestAnimationFrame` to maintain user flow.
