@@ -161,9 +161,7 @@ def review_author_login(review: dict[str, Any]) -> str:
 
 
 def is_opencode_review(review: dict[str, Any]) -> bool:
-    login = review_author_login(review)
-    body = review.get("body") or ""
-    return login.startswith("opencode-agent") or "opencode" in login or "OpenCode Agent" in body
+    return review_author_login(review) == "opencode-agent"
 
 
 def current_head_review_state(pr: dict[str, Any], state: str) -> bool:
@@ -315,6 +313,17 @@ def self_test() -> None:
     }
     assert has_current_head_approval(sample)
     assert not has_current_head_changes_requested(sample)
+    sample["reviews"]["nodes"].append(
+        {
+            "state": "APPROVED",
+            "author": {"login": "not-opencode-agent"},
+            "body": "OpenCode Agent approved this head.",
+            "commit": {"oid": "abc"},
+        }
+    )
+    assert has_current_head_approval(sample)
+    sample["reviews"]["nodes"] = [sample["reviews"]["nodes"][-1]]
+    assert not has_current_head_approval(sample)
     sample["reviews"]["nodes"].append(
         {
             "state": "CHANGES_REQUESTED",
