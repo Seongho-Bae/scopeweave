@@ -1702,6 +1702,8 @@ scan_target_workspace_prefix = sys.argv[4].strip()
 raw_location = unquote(sys.argv[5].strip())
 if not raw_location:
     raise SystemExit(1)
+if raw_location.startswith("file://"):
+    raw_location = raw_location[len("file://"):]
 
 scan_target_root = Path(scan_target_root_raw).resolve(strict=True) if scan_target_root_raw else None
 
@@ -3181,6 +3183,55 @@ raise SystemExit(0 if reference_only else 1)
 PY
 }
 
+vulnerability_file_has_github_actions_secret_context_false_positive() {
+	local vuln_file="$1"
+	if [ ! -f "$vuln_file" ] || [ -L "$vuln_file" ]; then
+		return 1
+	fi
+	python3 - "$vuln_file" "$REPO_ROOT/.github/workflows/opencode-review.yml" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+report = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+workflow_path = Path(sys.argv[2])
+if not workflow_path.is_file():
+    raise SystemExit(1)
+workflow = workflow_path.read_text(encoding="utf-8", errors="replace")
+
+mentions_workflow = ".github/workflows/opencode-review.yml" in report or "opencode-review.yml" in report
+mentions_actions_secret_context = re.search(
+    r"(GH_TOKEN|GITHUB_TOKEN|STRIX_GITHUB_MODELS_TOKEN|secrets\.|id-token:\s*write|ACTIONS_ID_TOKEN)",
+    report,
+)
+claims_secret_exposure = re.search(
+    r"(hardcoded secret|insecure secret handling|secret exposure|plain environment variables|excessive permissions|privilege escalation)",
+    report,
+    re.IGNORECASE,
+)
+literal_secret = re.search(
+    r"\b(?:sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b",
+    report,
+)
+
+uses_github_secret_context = "${{ secrets.GITHUB_TOKEN }}" in workflow and "${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}" in workflow
+uses_oidc_app_exchange = "ACTIONS_ID_TOKEN_REQUEST_TOKEN" in workflow and "ACTIONS_ID_TOKEN_REQUEST_URL" in workflow
+masks_exchanged_token = 'echo "::add-mask::$app_token"' in workflow
+
+if (
+    mentions_workflow
+    and mentions_actions_secret_context
+    and claims_secret_exposure
+    and not literal_secret
+    and uses_github_secret_context
+    and uses_oidc_app_exchange
+    and masks_exchanged_token
+):
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
 static_app_table_rendering_escapes_and_sanitizes() {
 	local resolved_scan_target=""
 	if ! resolved_scan_target="$(resolve_current_target_path "$TARGET_PATH" 2>/dev/null)"; then
@@ -3242,6 +3293,10 @@ vulnerability_file_is_retryable_model_inconsistency() {
 	fi
 	if vulnerability_file_has_env_secret_reference_only "$vuln_file"; then
 		echo "Detected Strix report treating an environment-variable reference as a hardcoded secret; treating as retryable model inconsistency." >&2
+		return 0
+	fi
+	if vulnerability_file_has_github_actions_secret_context_false_positive "$vuln_file"; then
+		echo "Detected Strix report treating GitHub Actions secret contexts as hardcoded secret exposure; treating as retryable model inconsistency." >&2
 		return 0
 	fi
 	if vulnerability_file_has_sanitized_table_xss_false_positive "$vuln_file"; then
