@@ -413,23 +413,47 @@ function createTableCell(className, content) {
 }
 
 function stripUnsafeGeneratedMarkup(root) {
-  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => node.remove());
+  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => {
+    try { Element.prototype.remove.call(node); } catch (e) {}
+  });
   root.querySelectorAll('*').forEach((element) => {
-    if (!SAFE_GENERATED_TAGS.has(element.tagName.toLowerCase())) {
-      element.remove();
+    let safeTagName;
+    try {
+      safeTagName = typeof element.nodeName === 'string' ? element.nodeName : Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
+    } catch (e) {
+      safeTagName = '';
+    }
+
+    if (!safeTagName || !SAFE_GENERATED_TAGS.has(safeTagName.toLowerCase())) {
+      try { Element.prototype.remove.call(element); } catch (e) {}
       return;
     }
-    Array.from(element.attributes).forEach((attribute) => {
+
+    let attributesToSanitize = [];
+    try {
+      if (element.attributes instanceof NamedNodeMap) {
+        attributesToSanitize = Array.from(element.attributes);
+      } else {
+        const attrNames = Element.prototype.getAttributeNames.call(element);
+        attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
+      }
+    } catch (e) {}
+
+    attributesToSanitize.forEach((attribute) => {
       const name = attribute.name.toLowerCase();
       if (
         name.startsWith('on') ||
         (!SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style')
       ) {
-        element.removeAttribute(attribute.name);
+        try {
+          Element.prototype.removeAttribute.call(element, attribute.name);
+        } catch (e) {}
         return;
       }
-      if (name === 'style' && !isSafeGeneratedStyle(attribute.value.trim())) {
-        element.removeAttribute(attribute.name);
+      if (name === 'style' && !isSafeGeneratedStyle(String(attribute.value).trim())) {
+        try {
+          Element.prototype.removeAttribute.call(element, attribute.name);
+        } catch (e) {}
       }
     });
   });
