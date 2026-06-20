@@ -120,7 +120,8 @@ const state = {
   },
   jsonSyncHandle: null,
   dragTaskId: null,
-  toastTimer: null
+  toastTimer: null,
+  previousFocus: null
 };
 
 const elements = {
@@ -879,6 +880,7 @@ function handleRowAction(action, taskId) {
 }
 
 function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertAfterId = null, draft = null }) {
+  state.previousFocus = document.activeElement;
   if (mode === 'edit') {
     const task = findTask(targetId);
     if (!task) {
@@ -905,6 +907,14 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
     };
   }
   renderAll();
+
+  // Focus the first input/select in the editor to keep keyboard users in flow
+  requestAnimationFrame(() => {
+    const firstInput = document.querySelector('.editor-row input:not([type="hidden"]), .editor-row select');
+    if (firstInput) {
+      firstInput.focus();
+    }
+  });
 }
 
 function closeEditor() {
@@ -918,6 +928,11 @@ function closeEditor() {
     errors: []
   };
   renderAll();
+
+  if (state.previousFocus) {
+    state.previousFocus.focus();
+    state.previousFocus = null;
+  }
 }
 
 function saveEditor() {
@@ -1791,12 +1806,19 @@ function exportJsonArray() {
 }
 
 function openGanttModal() {
+  state.previousFocus = document.activeElement;
   elements.ganttModal.classList.remove('hidden');
   renderGantt();
+  // Focus the modal to handle Escape key properly
+  elements.ganttModal.focus();
 }
 
 function closeGanttModal() {
   elements.ganttModal.classList.add('hidden');
+  if (state.previousFocus) {
+    state.previousFocus.focus();
+    state.previousFocus = null;
+  }
 }
 
 function renderGantt() {
