@@ -1958,16 +1958,38 @@ function createId(seed = Date.now()) {
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
+// ⚡ Bolt: Memoize date parsing and validation to reduce GC pressure and expensive Date allocations in tight render loops
+
 function isValidDateString(value) {
+  if (!isValidDateString.cache) isValidDateString.cache = new Map();
+  const validDateCache = isValidDateString.cache;
+
+  if (validDateCache.has(value)) {
+    return validDateCache.get(value);
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
   }
-  return formatDateInput(new Date(dateStringToUtcMs(value))) === value;
+  const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
+  if (validDateCache.size < 500) {
+    validDateCache.set(value, isValid);
+  }
+  return isValid;
 }
 
 function dateStringToUtcMs(value) {
+  if (!dateStringToUtcMs.cache) dateStringToUtcMs.cache = new Map();
+  const dateToUtcMsCache = dateStringToUtcMs.cache;
+
+  if (dateToUtcMsCache.has(value)) {
+    return dateToUtcMsCache.get(value);
+  }
   const [year, month, day] = value.split('-').map(Number);
-  return Date.UTC(year, month - 1, day);
+  const ms = Date.UTC(year, month - 1, day);
+  if (dateToUtcMsCache.size < 500) {
+    dateToUtcMsCache.set(value, ms);
+  }
+  return ms;
 }
 
 function compareDateStrings(left, right) {
