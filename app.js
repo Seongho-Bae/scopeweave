@@ -333,9 +333,9 @@ function renderAll() {
 
   const hasTasks = state.tasks.length > 0;
   elements.exportCsvButton.disabled = !hasTasks;
-  elements.exportCsvButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.exportCsvButton.title = hasTasks ? '' : '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.';
   elements.openGanttButton.disabled = !hasTasks;
-  elements.openGanttButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
   const hasChildrenSet = new Set();
