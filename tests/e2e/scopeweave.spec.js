@@ -80,9 +80,9 @@ test.describe('ScopeWeave Planner', () => {
 
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '등록된 작업이 없습니다');
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
     await expect(page.getByRole('button', { name: '간트차트보기' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '등록된 작업이 없습니다');
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.');
   });
 
   test('adds a top-level task and restores it after reload', async ({ page }) => {

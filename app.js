@@ -116,11 +116,7 @@ const state = {
     depth: 1,
     insertAfterId: null,
     draft: null,
-    errors: [],
-    triggerElement: null
-  },
-  gantt: {
-    triggerElement: null
+    errors: []
   },
   jsonSyncHandle: null,
   dragTaskId: null,
@@ -337,9 +333,9 @@ function renderAll() {
 
   const hasTasks = state.tasks.length > 0;
   elements.exportCsvButton.disabled = !hasTasks;
-  elements.exportCsvButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.exportCsvButton.title = hasTasks ? '' : '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.';
   elements.openGanttButton.disabled = !hasTasks;
-  elements.openGanttButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
   const hasChildrenSet = new Set();
@@ -905,11 +901,7 @@ function handleRowAction(action, taskId) {
 }
 
 function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertAfterId = null, draft = null }) {
-<<<<<<< HEAD
-  const triggerElement = document.activeElement;
-=======
   state.previousFocus = document.activeElement;
->>>>>>> origin/develop
   if (mode === 'edit') {
     const task = findTask(targetId);
     if (!task) {
@@ -922,8 +914,7 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
       depth: task.depth,
       insertAfterId: targetId,
       draft: { ...task },
-      errors: [],
-      triggerElement
+      errors: []
     };
   } else {
     state.editor = {
@@ -933,16 +924,10 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
       depth,
       insertAfterId,
       draft: draft ? { ...draft } : createEmptyTaskDraft(),
-      errors: [],
-      triggerElement
+      errors: []
     };
   }
   renderAll();
-<<<<<<< HEAD
-  requestAnimationFrame(() => {
-    const firstInput = document.querySelector('.editor-panel input:not([type="hidden"])');
-    if (firstInput) firstInput.focus();
-=======
 
   // Focus the first input/select in the editor to keep keyboard users in flow
   requestAnimationFrame(() => {
@@ -950,12 +935,10 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
     if (firstInput) {
       firstInput.focus();
     }
->>>>>>> origin/develop
   });
 }
 
 function closeEditor() {
-  const triggerElement = state.editor.triggerElement;
   state.editor = {
     mode: null,
     targetId: null,
@@ -963,24 +946,17 @@ function closeEditor() {
     depth: 1,
     insertAfterId: null,
     draft: null,
-    errors: [],
-    triggerElement: null
+    errors: []
   };
   renderAll();
-<<<<<<< HEAD
-  if (triggerElement && document.body.contains(triggerElement)) {
-    triggerElement.focus();
-=======
 
   if (state.previousFocus) {
     state.previousFocus.focus();
     state.previousFocus = null;
->>>>>>> origin/develop
   }
 }
 
 function saveEditor() {
-  const triggerElement = state.editor.triggerElement;
   const errors = validateDraft(state.editor.draft, state.editor.depth);
   if (errors.length > 0) {
     state.editor.errors = errors;
@@ -1017,9 +993,6 @@ function saveEditor() {
   persistState();
   renderAll();
   showToast('변경 내용을 저장했습니다.');
-  if (triggerElement && document.body.contains(triggerElement)) {
-    triggerElement.focus();
-  }
 }
 
 function createEmptyTaskDraft() {
@@ -1230,9 +1203,12 @@ function getVisibleTasks() {
     }
   });
 
+  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
+  const visited = new Set();
   return visible.filter((task) => {
     let parentId = task.parentId;
-    const visited = new Set([task.id]);
+    visited.clear();
+    visited.add(task.id);
     while (parentId) {
       if (visited.has(parentId)) {
         break;
@@ -1854,37 +1830,19 @@ function exportJsonArray() {
 }
 
 function openGanttModal() {
-<<<<<<< HEAD
-  state.gantt.triggerElement = document.activeElement;
-  elements.ganttModal.classList.remove('hidden');
-  renderGantt();
-  requestAnimationFrame(() => {
-    if (elements.closeGanttButton) {
-      elements.closeGanttButton.focus();
-    }
-  });
-=======
   state.previousFocus = document.activeElement;
   elements.ganttModal.classList.remove('hidden');
   renderGantt();
   // Focus the modal to handle Escape key properly
   elements.ganttModal.focus();
->>>>>>> origin/develop
 }
 
 function closeGanttModal() {
   elements.ganttModal.classList.add('hidden');
-<<<<<<< HEAD
-  if (state.gantt.triggerElement && document.body.contains(state.gantt.triggerElement)) {
-    state.gantt.triggerElement.focus();
-  }
-  state.gantt.triggerElement = null;
-=======
   if (state.previousFocus) {
     state.previousFocus.focus();
     state.previousFocus = null;
   }
->>>>>>> origin/develop
 }
 
 function renderGantt() {
