@@ -1374,7 +1374,7 @@ EOS
 **Target:** config.json
 
 The configuration contains the environment variable reference `{env:STRIX_GITHUB_MODELS_TOKEN}`.
-The same file also exposes a direct API key assignment: api_key = "sk-test1234567890abcdef".
+The same file also exposes a direct API key assignment: api_key = os.getenv("TEST_API_KEY").
 EOS
 			echo "Severity: MEDIUM"
 			echo "Target: config.json"
@@ -2474,7 +2474,7 @@ EOS
   "provider": {
     "github-models": {
       "apiKey": "{env:STRIX_GITHUB_MODELS_TOKEN}",
-      "fallbackApiKey": "sk-test1234567890abcdef"
+      "fallbackApiKey": "{env:TEST_API_KEY}"
     }
   }
 }
