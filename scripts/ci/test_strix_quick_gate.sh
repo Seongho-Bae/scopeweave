@@ -321,6 +321,7 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" 'bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"' "opencode review model steps validate the control block before publishing"
 	assert_file_contains "$workflow_file" "normalize_opencode_output" "opencode review model steps normalize model control output"
 	assert_file_contains "$workflow_file" "opencode_review_normalize_output.py" "opencode review model steps normalize transcript-embedded JSON output"
+	assert_file_not_contains "$workflow_file" 'if bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null; then' "opencode review model steps must not bypass structural approval normalization"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "decoder.raw_decode" "opencode review normalizer scans transcript text for JSON objects"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "valid_control" "opencode review normalizer accepts only current-run control JSON"
 	assert_file_contains "$workflow_file" "opencode run" "opencode review workflow runs the bounded OpenCode agent path"
@@ -424,6 +425,19 @@ EOF
 
 	assert_equals "0" "$rc" "normalized OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "normalized OpenCode transcript gate result"
+
+	cat >"$output_file" <<'EOF'
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No verified blockers","summary":"No changed files or evidence found in the repository to review.","findings":[]}
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/no-changed-files.out" 2>"$tmp_dir/no-changed-files.err"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode review normalizer rejects no-changed-files approval"
+	assert_file_contains "$tmp_dir/no-changed-files.err" "NO_CONCLUSION" "opencode review normalizer reports no-changed-files approval rejection"
 
 	cat >"$output_file" <<'EOF'
 {"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"REQUEST_CHANGES","reason":"Malformed line type.","summary":"Malformed finding.","findings":[{"path":"app.js","line":true,"severity":"HIGH","title":"Bad line","problem":"Boolean line values are not real line numbers.","root_cause":"JSON booleans must not pass integer validation.","fix_direction":"Reject non-integer line values.","regression_test_direction":"Keep this malformed control regression.","suggested_diff":"-old\n+new"}]}
