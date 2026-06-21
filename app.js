@@ -667,6 +667,9 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
+  if (type === 'text') {
+    input.maxLength = 1000;
+  }
   input.value = value || '';
   if (required) {
     input.required = true;
@@ -1029,7 +1032,7 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    sanitized[field] = String(draft?.[field] || '').trim();
+    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
@@ -1620,6 +1623,12 @@ function exportCsv() {
 async function handleCsvImport(event) {
   const [file] = event.target.files || [];
   if (!file) {
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('파일 크기는 5MB를 초과할 수 없습니다.');
+    event.target.value = '';
     return;
   }
 

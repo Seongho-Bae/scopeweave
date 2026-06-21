@@ -31,3 +31,8 @@
 **Vulnerability:** Lookup maps defined as literal objects (e.g., `CSV_FIELD_LABELS` and `HTML_ESCAPE_ENTITIES`) exposed prototype properties, leaving the application vulnerable to prototype injection if an untrusted key (like `__proto__`) is looked up.
 **Learning:** Even statically defined maps used for key lookups can be abused if user-controlled input determines the key.
 **Prevention:** Always initialize lookup maps with `Object.assign(Object.create(null), { ... })` to ensure the maps have no prototype chain.
+
+## 2026-06-21 - [MEDIUM] Add input length and file size limits to prevent DoS
+**Vulnerability:** Missing file size limits during CSV import and missing length limits on text fields.
+**Learning:** Browser memory can be exhausted resulting in Denial of Service (DoS) attacks if large files or strings are imported and parsed into memory.
+**Prevention:** Enforce client-side file size limits (e.g. 5MB) before processing imports, add `maxLength` attributes to text inputs, and strictly truncate fields on submission to prevent bypassing client-side constraints.
