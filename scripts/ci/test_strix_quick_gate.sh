@@ -401,7 +401,7 @@ assert_opencode_review_normalizer_accepts_transcript_json() {
 	cat >"$output_file" <<'EOF'
 OpenCode transcript text before the review control block.
 
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found in the current bounded evidence.","summary":"Reviewed current head evidence and no blocking review findings were identified.","findings":[]}
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after inspecting .github/workflows/opencode-review.yml.","summary":"Reviewed scripts/ci/opencode_review_normalize_output.py and current head evidence; no blocking review findings were identified.","findings":[]}
 EOF
 
 	set +e
