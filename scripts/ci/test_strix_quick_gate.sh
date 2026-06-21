@@ -311,6 +311,8 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" '"read": "allow"' "opencode review allows read-only file inspection"
 	assert_file_contains "$workflow_file" '"grep": "allow"' "opencode review allows focused literal searches"
 	assert_file_contains "$workflow_file" "Read bounded-review-evidence.md before concluding." "opencode review prompt keeps large PR evidence in workspace files instead of the model prompt"
+	assert_file_contains "$workflow_file" "Changed files from bounded-review-evidence.md are:" "opencode review prompt includes a compact changed-file list inline"
+	assert_file_contains "$workflow_file" "never conclude that there are no changed files when this list is non-empty" "opencode review prompt blocks no-changed-files conclusions when bounded evidence lists changes"
 	assert_file_contains "$workflow_file" 'cp "$OPENCODE_REVIEW_WORKDIR/bounded-review-evidence.md" "$review_source_dir/bounded-review-evidence.md"' "opencode review copies bounded evidence into the configured source workspace"
 	assert_file_contains "$workflow_file" 'cp "$OPENCODE_REVIEW_WORKDIR/failed-check-evidence.md" "$review_source_dir/failed-check-evidence.md"' "opencode review copies failed-check evidence into the configured source workspace"
 	assert_file_contains "$workflow_file" "If failed-check-evidence.md says no completed failed GitHub Checks were present, do not treat failed-check lookup as a blocker." "opencode review prompt treats successful failed-check lookup with no failures as non-blocking"
