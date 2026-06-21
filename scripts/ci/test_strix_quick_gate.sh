@@ -1012,7 +1012,7 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			;;
 		esac
 		;;
-	github-models-fallback-provider-signal-tries-next)
+	github-models-fallback-provider-signal-baseline-allows-pr)
 		case "${STRIX_LLM:-}" in
 		openai/gpt-5)
 			echo "LLM CONNECTION FAILED"
@@ -1040,7 +1040,7 @@ EOS
 			;;
 		esac
 		;;
-	github-models-fallback-provider-signal-then-zero-warning-success)
+	github-models-fallback-provider-signal-ratelimit-baseline-allows-pr)
 		case "${STRIX_LLM:-}" in
 		openai/gpt-5)
 			echo "LLM CONNECTION FAILED"
@@ -5694,14 +5694,14 @@ run_gate_case "github-models-primary-ratelimit-fallback-success" \
 	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
 	"1"
 
-run_gate_case "github-models-fallback-provider-signal-tries-next" \
+run_gate_case "github-models-fallback-provider-signal-baseline-allows-pr" \
 	"openai/gpt-5" \
 	"" \
 	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-v3-0324' in [0-9]+s\\." \
-	"3" \
-	"openai/gpt-5|deepseek/deepseek-r1-0528|deepseek/deepseek-v3-0324" \
-	"https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation." \
+	"2" \
+	"openai/gpt-5|deepseek/deepseek-r1-0528" \
+	"https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
 	"" \
@@ -5724,14 +5724,14 @@ run_gate_case "github-models-fallback-provider-signal-tries-next" \
 	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
 	"1"
 
-run_gate_case "github-models-fallback-provider-signal-then-zero-warning-success" \
+run_gate_case "github-models-fallback-provider-signal-ratelimit-baseline-allows-pr" \
 	"openai/gpt-5" \
 	"" \
 	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-v3-0324' in [0-9]+s\\." \
-	"3" \
-	"openai/gpt-5|deepseek/deepseek-r1-0528|deepseek/deepseek-v3-0324" \
-	"https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation." \
+	"2" \
+	"openai/gpt-5|deepseek/deepseek-r1-0528" \
+	"https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
 	"" \

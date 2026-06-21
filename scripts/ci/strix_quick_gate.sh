@@ -3403,6 +3403,11 @@ run_current_target_scan() {
 	fi
 
 	if evaluate_pull_request_findings; then
+		case "$PR_FINDINGS_DECISION" in
+		allow_baseline | allow_manifest_only)
+			return 0
+			;;
+		esac
 		if [ "$strict_primary_provider_fallback" -eq 0 ]; then
 			return 0
 		fi
@@ -3463,6 +3468,11 @@ run_current_target_scan() {
 		fi
 
 		if evaluate_pull_request_findings; then
+			case "$PR_FINDINGS_DECISION" in
+			allow_baseline | allow_manifest_only)
+				return 0
+				;;
+			esac
 			if [ "$strict_fallback_provider_signal" -eq 0 ]; then
 				return 0
 			fi
