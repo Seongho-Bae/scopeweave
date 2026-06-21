@@ -26,3 +26,7 @@
 **Vulnerability:** A test script contained a hardcoded API key (`sk-test...`). Even though it was for testing purposes, hardcoding secrets is a bad practice and can lead to exposure if the script is deployed or shared.
 **Learning:** Never hardcode secrets in source code, including test scripts. Always use environment variables or a secure configuration management system to manage sensitive data.
 **Prevention:** Replace hardcoded strings with environment variable references (e.g., `os.getenv("TEST_API_KEY")` or `{env:TEST_API_KEY}`) and manage secrets externally.
+## 2026-06-21 - [MEDIUM] Add input length and file size limits to prevent DoS
+**Vulnerability:** Missing file size limits during CSV import and missing length limits on text fields.
+**Learning:** Browser memory can be exhausted resulting in Denial of Service (DoS) attacks if large files or strings are imported and parsed into memory.
+**Prevention:** Enforce client-side file size limits (e.g. 5MB) before processing imports, add `maxLength` attributes to text inputs, and strictly truncate fields on submission to prevent bypassing client-side constraints.
