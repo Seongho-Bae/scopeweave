@@ -2,7 +2,7 @@ name: Strix Security Scan
 
 on:
   push:
-    branches: [master]
+    branches: [develop, master]
   pull_request_target:
   schedule:
     # Weekly scan on protected branches (Mondays at 03:00 UTC).
@@ -309,7 +309,7 @@ jobs:
           PNPM_CONFIG_IGNORE_SCRIPTS: "true"
           YARN_ENABLE_SCRIPTS: "false"
           BUN_CONFIG_IGNORE_SCRIPTS: "true"
-          STRIX_FAIL_ON_MIN_SEVERITY: MEDIUM
+          STRIX_FAIL_ON_MIN_SEVERITY: LOW
           STRIX_DISABLE_PR_SCOPING: ${{ (github.event_name == 'pull_request_target' || github.event.inputs.pr_number != '') && '0' || '1' }}
           GH_TOKEN: ${{ (github.event_name == 'pull_request_target' || github.event.inputs.pr_number != '') && github.token || '' }}
           PR_NUMBER: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || github.event.inputs.pr_number }}

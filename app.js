@@ -124,7 +124,8 @@ const state = {
   },
   jsonSyncHandle: null,
   dragTaskId: null,
-  toastTimer: null
+  toastTimer: null,
+  previousFocus: null
 };
 
 const elements = {
@@ -399,7 +400,28 @@ function createEmptyStateRow() {
     "'CSV 가져오기'를 통해 기존 데이터를 불러오세요."
   );
 
-  emptyState.append(icon, title, description);
+  const actions = document.createElement('div');
+  actions.className = 'empty-actions editor-actions';
+
+  const addRootBtn = document.createElement('button');
+  addRootBtn.type = 'button';
+  addRootBtn.className = 'primary-button';
+  addRootBtn.textContent = '최상위 작업 추가';
+  addRootBtn.addEventListener('click', () => {
+    openEditor({ mode: 'create', parentId: null, depth: 1, insertAfterId: getLastRootTaskId() });
+  });
+
+  const importCsvBtn = document.createElement('button');
+  importCsvBtn.type = 'button';
+  importCsvBtn.className = 'secondary-button';
+  importCsvBtn.textContent = 'CSV 가져오기';
+  importCsvBtn.addEventListener('click', () => {
+    document.getElementById('csv-file-input').click();
+  });
+
+  actions.append(addRootBtn, importCsvBtn);
+
+  emptyState.append(icon, title, description, actions);
   cell.appendChild(emptyState);
   row.appendChild(cell);
   return row;
@@ -417,23 +439,47 @@ function createTableCell(className, content) {
 }
 
 function stripUnsafeGeneratedMarkup(root) {
-  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => node.remove());
+  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => {
+    try { Element.prototype.remove.call(node); } catch (e) {}
+  });
   root.querySelectorAll('*').forEach((element) => {
-    if (!SAFE_GENERATED_TAGS.has(element.tagName.toLowerCase())) {
-      element.remove();
+    let safeTagName;
+    try {
+      safeTagName = typeof element.nodeName === 'string' ? element.nodeName : Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
+    } catch (e) {
+      safeTagName = '';
+    }
+
+    if (!safeTagName || !SAFE_GENERATED_TAGS.has(safeTagName.toLowerCase())) {
+      try { Element.prototype.remove.call(element); } catch (e) {}
       return;
     }
-    Array.from(element.attributes).forEach((attribute) => {
+
+    let attributesToSanitize = [];
+    try {
+      if (element.attributes instanceof NamedNodeMap) {
+        attributesToSanitize = Array.from(element.attributes);
+      } else {
+        const attrNames = Element.prototype.getAttributeNames.call(element);
+        attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
+      }
+    } catch (e) {}
+
+    attributesToSanitize.forEach((attribute) => {
       const name = attribute.name.toLowerCase();
       if (
         name.startsWith('on') ||
         (!SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style')
       ) {
-        element.removeAttribute(attribute.name);
+        try {
+          Element.prototype.removeAttribute.call(element, attribute.name);
+        } catch (e) {}
         return;
       }
-      if (name === 'style' && !isSafeGeneratedStyle(attribute.value.trim())) {
-        element.removeAttribute(attribute.name);
+      if (name === 'style' && !isSafeGeneratedStyle(String(attribute.value).trim())) {
+        try {
+          Element.prototype.removeAttribute.call(element, attribute.name);
+        } catch (e) {}
       }
     });
   });
@@ -460,6 +506,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
     toggleButton.setAttribute('aria-label', toggleLabel);
+    toggleButton.setAttribute('aria-expanded', String(task.expanded));
     toggleButton.title = toggleLabel;
     toggleButton.textContent = task.expanded ? '▼' : '▶';
     actionStack.appendChild(toggleButton);
@@ -472,10 +519,20 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const isLeaf = task.depth >= 3;
   const addChildButton = createActionButton('하위 추가', '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
   addChildButton.disabled = isLeaf;
+
+  if (isLeaf) {
+    addChildButton.setAttribute('aria-disabled', 'true');
+  }
+
+  const editButton = createActionButton('편집', '✎', 'edit', '편집');
+  editButton.setAttribute('aria-haspopup', 'dialog');
+
+  const deleteButton = createActionButton('삭제', '🗑', 'delete', '삭제');
+
   actionStack.append(
     addChildButton,
-    createActionButton('편집', '✎', 'edit', '편집'),
-    createActionButton('삭제', '🗑', 'delete', '삭제')
+    editButton,
+    deleteButton
   );
   actionCell.appendChild(actionStack);
   row.appendChild(actionCell);
@@ -561,9 +618,13 @@ function renderEditorRow(anchorId) {
   cancelButton.className = 'secondary-button';
   cancelButton.dataset.action = 'cancel-editor';
   cancelButton.textContent = '취소';
+  // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
+  cancelButton.addEventListener('click', () => closeEditor());
   const errors = document.createElement('div');
   errors.id = 'editor-errors';
   errors.className = 'validation-message';
+  errors.setAttribute('aria-live', 'polite');
+  errors.setAttribute('aria-atomic', 'true');
   editorActions.append(saveButton, cancelButton, errors);
 
   form.append(editorGrid, editorActions);
@@ -591,6 +652,8 @@ function renderEditorField(label, field, value, type = 'text', required = false,
 
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
+  const fieldId = `editor-input-${field}-${Date.now()}`;
+  labelElement.htmlFor = fieldId;
   const labelText = document.createElement('span');
   labelText.textContent = label;
   if (required) {
@@ -604,6 +667,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     labelText.append(' ', marker, srOnly);
   }
   const input = document.createElement('input');
+  input.id = fieldId;
   input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
@@ -622,9 +686,12 @@ function renderEditorField(label, field, value, type = 'text', required = false,
 function renderEditorSelectField(label, field, value, options) {
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
+  const fieldId = `editor-select-${field}-${Date.now()}`;
+  labelElement.htmlFor = fieldId;
   const labelText = document.createElement('span');
   labelText.textContent = label;
   const select = document.createElement('select');
+  select.id = fieldId;
   select.dataset.editorField = field;
   options.forEach((optionValue) => {
     const option = document.createElement('option');
@@ -711,10 +778,13 @@ function createMetricText(value, testId = '') {
 
 function createActualProgressCellContent(task, taskMetrics) {
   const label = document.createElement('label');
+  const fieldId = `actual-progress-${task.id}`;
+  label.htmlFor = fieldId;
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
   srOnly.textContent = '실적진척상태';
   const select = document.createElement('select');
+  select.id = fieldId;
   select.dataset.inlineProgress = task.id;
   ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
     const option = document.createElement('option');
@@ -782,11 +852,6 @@ function renderEditorValidation() {
   if (errorElement) {
     errorElement.textContent = errors.join(' ');
   }
-
-  const cancelButton = elements.tableBody.querySelector('[data-action="cancel-editor"]');
-  if (cancelButton) {
-    cancelButton.addEventListener('click', () => closeEditor(), { once: true });
-  }
 }
 
 function handleInlineProgressChange(event) {
@@ -840,7 +905,11 @@ function handleRowAction(action, taskId) {
 }
 
 function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertAfterId = null, draft = null }) {
+<<<<<<< HEAD
   const triggerElement = document.activeElement;
+=======
+  state.previousFocus = document.activeElement;
+>>>>>>> origin/develop
   if (mode === 'edit') {
     const task = findTask(targetId);
     if (!task) {
@@ -869,9 +938,19 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
     };
   }
   renderAll();
+<<<<<<< HEAD
   requestAnimationFrame(() => {
     const firstInput = document.querySelector('.editor-panel input:not([type="hidden"])');
     if (firstInput) firstInput.focus();
+=======
+
+  // Focus the first input/select in the editor to keep keyboard users in flow
+  requestAnimationFrame(() => {
+    const firstInput = document.querySelector('.editor-row input:not([type="hidden"]), .editor-row select');
+    if (firstInput) {
+      firstInput.focus();
+    }
+>>>>>>> origin/develop
   });
 }
 
@@ -888,8 +967,15 @@ function closeEditor() {
     triggerElement: null
   };
   renderAll();
+<<<<<<< HEAD
   if (triggerElement && document.body.contains(triggerElement)) {
     triggerElement.focus();
+=======
+
+  if (state.previousFocus) {
+    state.previousFocus.focus();
+    state.previousFocus = null;
+>>>>>>> origin/develop
   }
 }
 
@@ -1768,6 +1854,7 @@ function exportJsonArray() {
 }
 
 function openGanttModal() {
+<<<<<<< HEAD
   state.gantt.triggerElement = document.activeElement;
   elements.ganttModal.classList.remove('hidden');
   renderGantt();
@@ -1776,14 +1863,28 @@ function openGanttModal() {
       elements.closeGanttButton.focus();
     }
   });
+=======
+  state.previousFocus = document.activeElement;
+  elements.ganttModal.classList.remove('hidden');
+  renderGantt();
+  // Focus the modal to handle Escape key properly
+  elements.ganttModal.focus();
+>>>>>>> origin/develop
 }
 
 function closeGanttModal() {
   elements.ganttModal.classList.add('hidden');
+<<<<<<< HEAD
   if (state.gantt.triggerElement && document.body.contains(state.gantt.triggerElement)) {
     state.gantt.triggerElement.focus();
   }
   state.gantt.triggerElement = null;
+=======
+  if (state.previousFocus) {
+    state.previousFocus.focus();
+    state.previousFocus = null;
+  }
+>>>>>>> origin/develop
 }
 
 function renderGantt() {
@@ -1898,18 +1999,22 @@ function buildWeekdayTimeline(minDate, maxDate) {
 }
 
 function groupTimelineByWeek(days) {
+  // ⚡ Bolt: Use an O(1) Map instead of O(N) Array.find to avoid O(N^2) bottleneck when grouping timeline days
   const groups = [];
+  const groupMap = new Map();
   days.forEach((day) => {
     const monday = getMonday(day.date);
-    const existing = groups.find((group) => group.monday === monday);
+    const existing = groupMap.get(monday);
     if (existing) {
       existing.days.push(day);
     } else {
-      groups.push({
+      const newGroup = {
         monday,
         label: `${monday.slice(5, 7)}월 ${monday.slice(8, 10)}일 주간`,
         days: [day]
-      });
+      };
+      groups.push(newGroup);
+      groupMap.set(monday, newGroup);
     }
   });
   return groups;
@@ -1988,16 +2093,38 @@ function createId(seed = Date.now()) {
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
+// ⚡ Bolt: Memoize date parsing and validation to reduce GC pressure and expensive Date allocations in tight render loops
+
 function isValidDateString(value) {
+  if (!isValidDateString.cache) isValidDateString.cache = new Map();
+  const validDateCache = isValidDateString.cache;
+
+  if (validDateCache.has(value)) {
+    return validDateCache.get(value);
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
   }
-  return formatDateInput(new Date(dateStringToUtcMs(value))) === value;
+  const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
+  if (validDateCache.size < 500) {
+    validDateCache.set(value, isValid);
+  }
+  return isValid;
 }
 
 function dateStringToUtcMs(value) {
+  if (!dateStringToUtcMs.cache) dateStringToUtcMs.cache = new Map();
+  const dateToUtcMsCache = dateStringToUtcMs.cache;
+
+  if (dateToUtcMsCache.has(value)) {
+    return dateToUtcMsCache.get(value);
+  }
   const [year, month, day] = value.split('-').map(Number);
-  return Date.UTC(year, month - 1, day);
+  const ms = Date.UTC(year, month - 1, day);
+  if (dateToUtcMsCache.size < 500) {
+    dateToUtcMsCache.set(value, ms);
+  }
+  return ms;
 }
 
 function compareDateStrings(left, right) {

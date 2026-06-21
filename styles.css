@@ -241,6 +241,10 @@ button {
   transition: background var(--transition);
 }
 
+.task-row {
+  cursor: pointer;
+}
+
 .task-row.depth-1 td { background: #ffffff; }
 .task-row.depth-2 td { background: #f8fafc; }
 .task-row.depth-3 td { background: #f1f5f9; }
@@ -321,7 +325,9 @@ button {
 }
 
 .primary-button:focus-visible,
-.secondary-button:focus-visible {
+.secondary-button:focus-visible,
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.5);
   outline-offset: 2px;
 }
