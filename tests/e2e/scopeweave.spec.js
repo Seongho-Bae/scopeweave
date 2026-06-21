@@ -416,6 +416,7 @@ test.describe('ScopeWeave Planner', () => {
       plannedStartDate: '2026-05-18',
       plannedEndDate: '2026-05-20'
     });
+    await createActivitySubtree(page, 'CSV 활동', '@SUM(1,1)');
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'CSV 내보내기' }).click();
@@ -428,6 +429,7 @@ test.describe('ScopeWeave Planner', () => {
     }
     const csvText = fs.readFileSync(csvPath, 'utf8');
     expect(csvText).toContain(`"'=HYPERLINK(""http://evil.test"",""Click"")"`);
+    expect(csvText).toContain(`"'@SUM(1,1)"`);
   });
 
   test('can trigger CSV import file chooser', async ({ page }) => {

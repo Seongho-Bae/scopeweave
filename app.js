@@ -74,6 +74,7 @@ const CSV_HEADERS = [
   '__parentId',
   '__depth'
 ];
+const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
 
 const SAFE_GENERATED_TAGS = new Set([
   'br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p',
@@ -2072,11 +2073,13 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  let normalized = String(value ?? '');
-  if (/^\s*[=+\-@]/.test(normalized)) {
-    normalized = `'${normalized}`;
-  }
+  const normalized = sanitizeCsvFormulaValue(value);
   return `"${normalized.replace(/"/g, '""')}"`;
+}
+
+function sanitizeCsvFormulaValue(value) {
+  const normalized = String(value ?? '');
+  return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
 }
 
 function createId(seed = Date.now()) {

@@ -311,6 +311,8 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" '"read": "allow"' "opencode review allows read-only file inspection"
 	assert_file_contains "$workflow_file" '"grep": "allow"' "opencode review allows focused literal searches"
 	assert_file_contains "$workflow_file" "Read bounded-review-evidence.md before concluding." "opencode review prompt keeps large PR evidence in workspace files instead of the model prompt"
+	assert_file_contains "$workflow_file" "Changed files from bounded-review-evidence.md are:" "opencode review prompt includes a compact changed-file list inline"
+	assert_file_contains "$workflow_file" "never conclude that there are no changed files when this list is non-empty" "opencode review prompt blocks no-changed-files conclusions when bounded evidence lists changes"
 	assert_file_contains "$workflow_file" 'cp "$OPENCODE_REVIEW_WORKDIR/bounded-review-evidence.md" "$review_source_dir/bounded-review-evidence.md"' "opencode review copies bounded evidence into the configured source workspace"
 	assert_file_contains "$workflow_file" 'cp "$OPENCODE_REVIEW_WORKDIR/failed-check-evidence.md" "$review_source_dir/failed-check-evidence.md"' "opencode review copies failed-check evidence into the configured source workspace"
 	assert_file_contains "$workflow_file" "If failed-check-evidence.md says no completed failed GitHub Checks were present, do not treat failed-check lookup as a blocker." "opencode review prompt treats successful failed-check lookup with no failures as non-blocking"
@@ -321,6 +323,7 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" 'bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"' "opencode review model steps validate the control block before publishing"
 	assert_file_contains "$workflow_file" "normalize_opencode_output" "opencode review model steps normalize model control output"
 	assert_file_contains "$workflow_file" "opencode_review_normalize_output.py" "opencode review model steps normalize transcript-embedded JSON output"
+	assert_file_not_contains "$workflow_file" 'if bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null; then' "opencode review model steps must not bypass structural approval normalization"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "decoder.raw_decode" "opencode review normalizer scans transcript text for JSON objects"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "valid_control" "opencode review normalizer accepts only current-run control JSON"
 	assert_file_contains "$workflow_file" "opencode run" "opencode review workflow runs the bounded OpenCode agent path"
@@ -401,7 +404,7 @@ assert_opencode_review_normalizer_accepts_transcript_json() {
 	cat >"$output_file" <<'EOF'
 OpenCode transcript text before the review control block.
 
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found in the current bounded evidence.","summary":"Reviewed current head evidence and no blocking review findings were identified.","findings":[]}
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after inspecting .github/workflows/opencode-review.yml.","summary":"Reviewed scripts/ci/opencode_review_normalize_output.py and current head evidence; no blocking review findings were identified.","findings":[]}
 EOF
 
 	set +e
@@ -424,6 +427,19 @@ EOF
 
 	assert_equals "0" "$rc" "normalized OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "normalized OpenCode transcript gate result"
+
+	cat >"$output_file" <<'EOF'
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No verified blockers","summary":"No changed files or evidence found in the repository to review.","findings":[]}
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/no-changed-files.out" 2>"$tmp_dir/no-changed-files.err"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode review normalizer rejects no-changed-files approval"
+	assert_file_contains "$tmp_dir/no-changed-files.err" "NO_CONCLUSION" "opencode review normalizer reports no-changed-files approval rejection"
 
 	cat >"$output_file" <<'EOF'
 {"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"REQUEST_CHANGES","reason":"Malformed line type.","summary":"Malformed finding.","findings":[{"path":"app.js","line":true,"severity":"HIGH","title":"Bad line","problem":"Boolean line values are not real line numbers.","root_cause":"JSON booleans must not pass integer validation.","fix_direction":"Reject non-integer line values.","regression_test_direction":"Keep this malformed control regression.","suggested_diff":"-old\n+new"}]}
@@ -1012,7 +1028,7 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			;;
 		esac
 		;;
-	github-models-fallback-provider-signal-tries-next)
+	github-models-fallback-provider-signal-baseline-allows-pr)
 		case "${STRIX_LLM:-}" in
 		openai/gpt-5)
 			echo "LLM CONNECTION FAILED"
@@ -1040,7 +1056,7 @@ EOS
 			;;
 		esac
 		;;
-	github-models-fallback-provider-signal-then-zero-warning-success)
+	github-models-fallback-provider-signal-ratelimit-baseline-allows-pr)
 		case "${STRIX_LLM:-}" in
 		openai/gpt-5)
 			echo "LLM CONNECTION FAILED"
@@ -5694,14 +5710,14 @@ run_gate_case "github-models-primary-ratelimit-fallback-success" \
 	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
 	"1"
 
-run_gate_case "github-models-fallback-provider-signal-tries-next" \
+run_gate_case "github-models-fallback-provider-signal-baseline-allows-pr" \
 	"openai/gpt-5" \
 	"" \
 	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-v3-0324' in [0-9]+s\\." \
-	"3" \
-	"openai/gpt-5|deepseek/deepseek-r1-0528|deepseek/deepseek-v3-0324" \
-	"https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation." \
+	"2" \
+	"openai/gpt-5|deepseek/deepseek-r1-0528" \
+	"https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
 	"" \
@@ -5724,14 +5740,14 @@ run_gate_case "github-models-fallback-provider-signal-tries-next" \
 	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
 	"1"
 
-run_gate_case "github-models-fallback-provider-signal-then-zero-warning-success" \
+run_gate_case "github-models-fallback-provider-signal-ratelimit-baseline-allows-pr" \
 	"openai/gpt-5" \
 	"" \
 	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-v3-0324' in [0-9]+s\\." \
-	"3" \
-	"openai/gpt-5|deepseek/deepseek-r1-0528|deepseek/deepseek-v3-0324" \
-	"https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference" \
+	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation." \
+	"2" \
+	"openai/gpt-5|deepseek/deepseek-r1-0528" \
+	"https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
 	"" \
