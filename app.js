@@ -1203,9 +1203,12 @@ function getVisibleTasks() {
     }
   });
 
+  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
+  const visited = new Set();
   return visible.filter((task) => {
     let parentId = task.parentId;
-    const visited = new Set([task.id]);
+    visited.clear();
+    visited.add(task.id);
     while (parentId) {
       if (visited.has(parentId)) {
         break;
