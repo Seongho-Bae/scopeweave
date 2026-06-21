@@ -87,7 +87,7 @@ const SAFE_GENERATED_ATTRIBUTES = new Set([
   'required', 'selected', 'title', 'type', 'value'
 ]);
 
-const CSV_FIELD_LABELS = Object.freeze({
+const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
   activity: 'Activity',
   task: 'Task',
@@ -101,7 +101,7 @@ const CSV_FIELD_LABELS = Object.freeze({
   actualProgressStatus: '실적진척상태',
   actualStartDate: '실적시작일',
   actualEndDate: '실적종료일'
-});
+}));
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
@@ -2190,13 +2190,13 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
-const HTML_ESCAPE_ENTITIES = {
+const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
   '&': '&amp;',
   '<': '&lt;',
   '>': '&gt;',
   '"': '&quot;',
   "'": '&#39;'
-};
+});
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => HTML_ESCAPE_ENTITIES[character]);
