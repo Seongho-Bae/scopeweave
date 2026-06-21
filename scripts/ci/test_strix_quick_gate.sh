@@ -375,6 +375,21 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_not_contains "$opencode_config" "gpt-5-mini" "opencode config must not define unavailable GPT-5 mini fallback"
 }
 
+assert_opencode_review_posts_suggested_diffs_inline() {
+	local workflow_file="$REPO_ROOT/.github/workflows/opencode-review.yml"
+
+	assert_file_contains "$workflow_file" "create_pull_review_with_payload" "opencode review can post custom review payloads"
+	assert_file_contains "$workflow_file" "comments: [" "opencode review payload includes inline review comments"
+	assert_file_contains "$workflow_file" '#### Suggested diff\n```diff\n' "opencode review puts suggested diffs inside inline review comments"
+	assert_file_contains "$workflow_file" "GitHub did not accept the inline review comments" "opencode review explains anchor failures instead of copying diffs to the PR body"
+	assert_file_contains "$workflow_file" "publish_request_changes_from_control" "opencode review REQUEST_CHANGES path publishes findings from the control JSON"
+
+	if awk '/format_request_changes_body\(\)/,/build_request_changes_review_payload\(\)/ { print }' "$workflow_file" |
+		grep -Fq '```diff'; then
+		record_failure "opencode review PR-level REQUEST_CHANGES body must not contain fenced suggested diffs"
+	fi
+}
+
 assert_opencode_review_normalizer_accepts_transcript_json() {
 	local tmp_dir
 	local output_file
@@ -1359,7 +1374,7 @@ EOS
 **Target:** config.json
 
 The configuration contains the environment variable reference `{env:STRIX_GITHUB_MODELS_TOKEN}`.
-The same file also exposes a direct API key assignment: api_key = "sk-test1234567890abcdef".
+The same file also exposes a direct API key assignment: api_key = os.getenv("TEST_API_KEY").
 EOS
 			echo "Severity: MEDIUM"
 			echo "Target: config.json"
@@ -2459,7 +2474,7 @@ EOS
   "provider": {
     "github-models": {
       "apiKey": "{env:STRIX_GITHUB_MODELS_TOKEN}",
-      "fallbackApiKey": "sk-test1234567890abcdef"
+      "fallbackApiKey": "{env:TEST_API_KEY}"
     }
   }
 }
@@ -5213,6 +5228,8 @@ assert_strix_llm_file_read_is_literal_data
 assert_strix_child_target_uses_constant_argument
 
 assert_opencode_review_uses_codegraph_and_gpt5_fallback
+
+assert_opencode_review_posts_suggested_diffs_inline
 
 assert_opencode_review_normalizer_accepts_transcript_json
 

@@ -333,9 +333,9 @@ function renderAll() {
 
   const hasTasks = state.tasks.length > 0;
   elements.exportCsvButton.disabled = !hasTasks;
-  elements.exportCsvButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.exportCsvButton.title = hasTasks ? '' : '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.';
   elements.openGanttButton.disabled = !hasTasks;
-  elements.openGanttButton.title = hasTasks ? '' : '등록된 작업이 없습니다';
+  elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
   const hasChildrenSet = new Set();
@@ -1203,9 +1203,12 @@ function getVisibleTasks() {
     }
   });
 
+  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
+  const visited = new Set();
   return visible.filter((task) => {
     let parentId = task.parentId;
-    const visited = new Set([task.id]);
+    visited.clear();
+    visited.add(task.id);
     while (parentId) {
       if (visited.has(parentId)) {
         break;
@@ -1846,8 +1849,35 @@ function renderGantt() {
   const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDate));
   if (plannedTasks.length === 0) {
     const emptyDiv = document.createElement('div');
-    emptyDiv.className = 'gantt-empty';
-    emptyDiv.textContent = '계획 일정이 있는 작업이 없습니다.';
+    emptyDiv.className = 'gantt-empty table-empty';
+
+    const icon = document.createElement('div');
+    icon.className = 'empty-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '📊';
+
+    const title = document.createElement('h3');
+    title.className = 'empty-title';
+    title.textContent = '표시할 간트 차트가 없습니다';
+
+    const description = document.createElement('p');
+    description.className = 'empty-desc';
+
+    const strongStart = document.createElement('strong');
+    strongStart.textContent = '계획시작일';
+
+    const strongEnd = document.createElement('strong');
+    strongEnd.textContent = '계획종료일';
+
+    description.append(
+      '작업 목록에서 ',
+      strongStart,
+      '과 ',
+      strongEnd,
+      '을 입력하면 차트가 나타납니다.'
+    );
+
+    emptyDiv.append(icon, title, description);
     elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }

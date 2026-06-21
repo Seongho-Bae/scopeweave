@@ -31,3 +31,9 @@
 ## 2026-06-20 - Focus Management in Dynamic JS Render Cycles
 **Learning:** In pure JavaScript render architectures that rebuild DOM aggressively (`renderAll()`), accessibility context like `document.activeElement` is lost when components (like inline editors or modals) are unmounted or remounted.
 **Action:** Always capture `document.activeElement` before a major destructive DOM update or modal opening, and explicitly restore `.focus()` on close. When mounting forms, explicitly focus the first input inside a `requestAnimationFrame` to maintain user flow.
+## 2026-06-21 - Avoid indirect string replacements
+**Learning:** When trying to edit files, it is an anti-pattern to create temporary node scripts to do string replacements on source files. It is brittle and fails code reviews.
+**Action:** Always modify source files directly using standard editing tools (like `replace_with_git_merge_diff`) instead of writing separate scripts to mutate the codebase.
+## 2026-06-21 - Gantt Chart Actionable Empty State
+**Learning:** Generic "no data" messages in complex components (like a Gantt chart modal) create dead ends. Empty states represent an opportunity to guide users on exactly which fields (e.g., planned start/end dates) they need to fill in to see the data they expect. Reusing existing table-empty UI patterns inside modals also maintains visual consistency and reduces perceived friction.
+**Action:** Always prefer structured, actionable empty states with a helpful description over basic text strings, and reuse existing empty-state CSS patterns wherever possible to guide users out of the dead end.
