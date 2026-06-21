@@ -16,3 +16,7 @@
 **Vulnerability:** The HTML sanitization loop in `stripUnsafeGeneratedMarkup` used `element.tagName`, `element.attributes` and `element.remove()` which are vulnerable to DOM Clobbering (e.g. `<form><input name="remove"></form>`). This caused the sanitizer to crash and skip elements/attributes filtering entirely, leading to XSS vulnerabilities.
 **Learning:** In browser environments, attacker-controlled HTML elements like `<form>` can override their properties using named inputs. Using property getters (`element.tagName`) or methods (`element.remove()`) is not safe against DOM Clobbering during HTML sanitization.
 **Prevention:** Always extract element tag names and attributes safely using prototype methods like `Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element)` and `Element.prototype.getAttributeNames.call(element)`, and invoke methods like `Element.prototype.remove.call(element)`.\n
+## 2026-06-25 - Prevent Prototype Injection in Lookup Maps
+**Vulnerability:** Lookup maps defined as literal objects (e.g., `CSV_FIELD_LABELS` and `HTML_ESCAPE_ENTITIES`) exposed prototype properties, leaving the application vulnerable to prototype injection if an untrusted key (like `__proto__`) is looked up.
+**Learning:** Even statically defined maps used for key lookups can be abused if user-controlled input determines the key.
+**Prevention:** Always initialize lookup maps with `Object.assign(Object.create(null), { ... })` to ensure the maps have no prototype chain.
