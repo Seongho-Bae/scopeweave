@@ -52,6 +52,10 @@ emit_failure_signal_summary() {
 		/LLM CONNECTION FAILED/ ||
 		/RateLimitError/ ||
 		/Too many requests/ ||
+		/HTTPStatusError/ ||
+		/401 Unauthorized/ ||
+		/api\.deepseek\.com/ ||
+		/Authentication Fails/ ||
 		/budget limit/ ||
 		/Configured model and fallback models were unavailable/ ||
 		/provider infrastructure/ ||
@@ -96,6 +100,10 @@ emit_strix_vulnerability_evidence() {
 		/LLM CONNECTION FAILED/ ||
 		/RateLimitError/ ||
 		/Too many requests/ ||
+		/HTTPStatusError/ ||
+		/401 Unauthorized/ ||
+		/api\.deepseek\.com/ ||
+		/Authentication Fails/ ||
 		/budget limit/ ||
 		/Configured model and fallback models were unavailable/ ||
 		/Below-threshold findings detected/ ||
@@ -176,27 +184,37 @@ owner="${GH_REPOSITORY%%/*}"
 repo="${GH_REPOSITORY#*/}"
 failed_contexts="$(mktemp)"
 workflow_run_contexts="$(mktemp)"
-tmp_files=("$failed_contexts" "$workflow_run_contexts")
+active_failed_contexts="$(mktemp)"
+manual_success_contexts="$(mktemp)"
+superseded_failed_contexts="$(mktemp)"
+tmp_files=(
+	"$failed_contexts"
+	"$workflow_run_contexts"
+	"$active_failed_contexts"
+	"$manual_success_contexts"
+	"$superseded_failed_contexts"
+)
 cleanup() {
-	if [ "${#tmp_files[@]}" -gt 0 ]; then
-		rm -f "${tmp_files[@]}"
-	fi
+	rm -f "${tmp_files[@]}"
 }
 trap cleanup EXIT
 
-resolve_workflow_job_id() {
-	local workflow_run_id="$1"
-	local check_run_id="$2"
+manual_success_for_label() {
+	local label="$1"
+	local key
 
-	if [ -z "$workflow_run_id" ] || [ -z "$check_run_id" ]; then
-		return 1
-	fi
-
-	CHECK_RUN_ID="$check_run_id" gh api -X GET \
-		"repos/${GH_REPOSITORY}/actions/runs/${workflow_run_id}/jobs" \
-		--paginate \
-		--jq '.jobs[]? | select((.check_run_url // "") | endswith("/" + env.CHECK_RUN_ID)) | .id' |
-		sed -n '1p'
+	key="${label##*/}"
+	key="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')"
+	awk -F '\t' -v key="$key" '
+		tolower($1) == key {
+			print
+			found = 1
+			exit
+		}
+		END {
+			exit found ? 0 : 1
+		}
+	' "$manual_success_contexts"
 }
 
 # shellcheck disable=SC2016
@@ -271,7 +289,7 @@ gh api graphql \
 		| @tsv
 		' >"$failed_contexts"
 
-	HEAD_SHA="$HEAD_SHA" gh run list \
+	env HEAD_SHA="$HEAD_SHA" gh run list \
 		--repo "$GH_REPOSITORY" \
 		--commit "$HEAD_SHA" \
 		--limit 100 \
@@ -282,7 +300,8 @@ gh api graphql \
 			| select((.headSha // "") == env.HEAD_SHA)
 			| select((.workflowName // "") == "Strix Security Scan" or (.workflowName // "") == "Strix")
 			| select((.status // "") == "completed")
-			| select((.conclusion // "" | ascii_downcase) as $c | ["failure","timed_out","action_required","startup_failure"] | index($c))
+			| select((.conclusion // "" | ascii_downcase) as $c | ["failure","timed_out","action_required","cancelled","startup_failure"] | index($c))
+			| select(((.event // "") == "workflow_dispatch" and (.conclusion // "" | ascii_downcase) == "cancelled") | not)
 			| [
 			"workflow_run",
 			(if (.workflowName // "") != "" then .workflowName else "workflow run" end),
@@ -294,6 +313,32 @@ gh api graphql \
 		| @tsv
 	' >"$workflow_run_contexts"
 
+if ! gh api -X GET "repos/${GH_REPOSITORY}/commits/${HEAD_SHA}/status" \
+	--jq '
+		(.statuses // [])
+		| map(
+			select((.context // "") != "")
+			| . + {__context_key: (.context // "" | ascii_downcase)}
+		)
+		| sort_by(.__context_key, (.created_at // ""))
+		| group_by(.__context_key)
+		| map(last)
+		| map(
+			select((.state // "" | ascii_downcase) == "success")
+			| select((.description // "") | contains("Manual workflow_dispatch Strix evidence passed"))
+			| select((.target_url // "") | test("/actions/runs/[0-9]+"))
+			| [
+				(.__context_key // ""),
+				(.target_url // ""),
+				(.description // "")
+			]
+		)
+		| .[]
+		| @tsv
+	' >"$manual_success_contexts"; then
+	: >"$manual_success_contexts"
+fi
+
 while IFS=$'\t' read -r kind label conclusion details_url run_id check_run_id; do
 	if [ -z "$run_id" ]; then
 		continue
@@ -303,6 +348,24 @@ while IFS=$'\t' read -r kind label conclusion details_url run_id check_run_id; d
 	fi
 	printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$kind" "$label" "$conclusion" "$details_url" "$run_id" "$check_run_id" >>"$failed_contexts"
 done <"$workflow_run_contexts"
+
+while IFS=$'\t' read -r kind label conclusion details_url run_id check_run_id; do
+	if success_line="$(manual_success_for_label "$label")"; then
+		IFS=$'\t' read -r success_context success_url success_description <<<"$success_line"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+			"$kind" \
+			"$label" \
+			"$conclusion" \
+			"$details_url" \
+			"$run_id" \
+			"$check_run_id" \
+			"$success_context" \
+			"$success_url" \
+			"$success_description" >>"$superseded_failed_contexts"
+		continue
+	fi
+	printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$kind" "$label" "$conclusion" "$details_url" "$run_id" "$check_run_id" >>"$active_failed_contexts"
+done <"$failed_contexts"
 
 {
 	printf '# Failed GitHub Check Evidence\n\n'
@@ -317,8 +380,27 @@ done <"$workflow_run_contexts"
 	printf -- '- When Strix logs contain multiple `Vulnerability Report` or `Model ... Vulnerabilities ...` sections, include every model-reported vulnerability in the review evidence and findings, including model name, title, severity, endpoint, and Code Locations/path:line evidence when present.\n'
 	printf -- '- Create one OpenCode finding per Strix model vulnerability report; do not satisfy two model reports with one combined finding, even when titles or locations match.\n\n'
 
-	if [ ! -s "$failed_contexts" ]; then
-		printf 'No completed failed GitHub Checks were present when evidence was collected.\n'
+	if [ -s "$superseded_failed_contexts" ]; then
+		printf '## Superseded failed checks\n\n'
+		while IFS=$'\t' read -r kind label conclusion details_url run_id check_run_id success_context success_url success_description; do
+			printf -- '- `%s` `%s` was superseded by current-head manual workflow_dispatch status `%s`.' "$label" "$conclusion" "$success_context"
+			if [ -n "$success_url" ]; then
+				printf ' Evidence: %s.' "$success_url"
+			fi
+			if [ -n "$success_description" ]; then
+				printf ' Description: %s.' "$success_description"
+			fi
+			printf '\n'
+		done <"$superseded_failed_contexts"
+		printf '\n'
+	fi
+
+	if [ ! -s "$active_failed_contexts" ]; then
+		if [ -s "$superseded_failed_contexts" ]; then
+			printf 'No active failed GitHub Checks remained after superseded checks were classified.\n'
+		else
+			printf 'No completed failed GitHub Checks were present when evidence was collected.\n'
+		fi
 		exit 0
 	fi
 
@@ -337,28 +419,28 @@ done <"$workflow_run_contexts"
 		fi
 		printf '\n'
 
-		if [ "$kind" = "workflow_run" ] && [ -n "$run_id" ]; then
-			log_file="$(mktemp)"
-			stripped_log_file="$(mktemp)"
-			tmp_files+=("$log_file" "$stripped_log_file")
-			if gh run view "$run_id" --repo "$GH_REPOSITORY" --log-failed >"$log_file" 2>&1; then
-				strip_ansi <"$log_file" >"$stripped_log_file"
-				if [ -s "$stripped_log_file" ]; then
-					emit_failure_signal_summary "$stripped_log_file" || true
-					printf '### Failed workflow run log excerpt\n\n'
-					printf '```text\n'
-					emit_bounded_file "$stripped_log_file" "$FAILED_CHECK_LOG_LINES"
-					printf '\n```\n\n'
-					if [[ "$label" == *Strix* ]]; then
-						emit_strix_vulnerability_evidence "$stripped_log_file" || true
+			if [ "$kind" = "workflow_run" ] && [ -n "$run_id" ]; then
+				log_file="$(mktemp)"
+				stripped_log_file="$(mktemp)"
+				tmp_files+=("$log_file" "$stripped_log_file")
+				if gh run view "$run_id" --repo "$GH_REPOSITORY" --log-failed >"$log_file" 2>&1; then
+					strip_ansi <"$log_file" >"$stripped_log_file"
+					if [ -s "$stripped_log_file" ]; then
+						emit_failure_signal_summary "$stripped_log_file" || true
+						printf '### Failed workflow run log excerpt\n\n'
+						printf '```text\n'
+						emit_bounded_file "$stripped_log_file" "$FAILED_CHECK_LOG_LINES"
+						printf '\n```\n\n'
+						if [[ "$label" == *Strix* ]]; then
+							emit_strix_vulnerability_evidence "$stripped_log_file" || true
+						fi
+					else
+						printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
+						if [ "$conclusion" = "cancelled" ]; then
+							printf 'The workflow run completed as cancelled before GitHub emitted a failed job log. Treat this as missing current-head security evidence, not as a source-code vulnerability report.\n\n'
+						fi
 					fi
 				else
-					printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
-					if [ "$conclusion" = "cancelled" ]; then
-						printf 'The workflow run completed as cancelled before GitHub emitted a failed job log. Treat this as missing current-head security evidence, not as a source-code vulnerability report.\n\n'
-					fi
-				fi
-			else
 				strip_ansi <"$log_file" >"$stripped_log_file"
 				printf 'No GitHub Actions job log is available for this failed workflow run.\n\n'
 				printf '```text\n'
@@ -373,17 +455,9 @@ done <"$workflow_run_contexts"
 			continue
 		fi
 
-		workflow_job_id=""
-		if [ -n "$run_id" ]; then
-			workflow_job_id="$(resolve_workflow_job_id "$run_id" "$check_run_id" || true)"
-		fi
-		if [ -n "$workflow_job_id" ]; then
-			printf -- '- Workflow job id: `%s`\n\n' "$workflow_job_id"
-		fi
-
 		job_json="$(mktemp)"
 		tmp_files+=("$job_json")
-		if [ -n "$workflow_job_id" ] && gh api -X GET "repos/${GH_REPOSITORY}/actions/jobs/${workflow_job_id}" >"$job_json" 2>/dev/null; then
+		if gh api -X GET "repos/${GH_REPOSITORY}/actions/jobs/${check_run_id}" >"$job_json" 2>/dev/null; then
 			failed_steps="$(
 				jq -r '
 					(.steps // [])
@@ -415,9 +489,9 @@ done <"$workflow_run_contexts"
 		log_raw="$(mktemp)"
 		log_clean="$(mktemp)"
 		tmp_files+=("$log_raw" "$log_clean")
-		if [ -n "$run_id" ] && [ -n "$workflow_job_id" ] && gh run view "$run_id" \
+		if [ -n "$run_id" ] && gh run view "$run_id" \
 			--repo "$GH_REPOSITORY" \
-			--job "$workflow_job_id" \
+			--job "$check_run_id" \
 			--log-failed >"$log_raw" 2>&1; then
 			strip_ansi <"$log_raw" >"$log_clean"
 			if [ -s "$log_clean" ]; then
@@ -439,5 +513,5 @@ done <"$workflow_run_contexts"
 				printf '\n```\n\n'
 			fi
 		fi
-	done <"$failed_contexts"
+	done <"$active_failed_contexts"
 } >"$OUTPUT_FILE"
