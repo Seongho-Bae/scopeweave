@@ -442,7 +442,7 @@ function stripUnsafeGeneratedMarkup(root) {
   root.querySelectorAll('*').forEach((element) => {
     let safeTagName;
     try {
-      safeTagName = typeof element.nodeName === 'string' ? element.nodeName : Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
+      safeTagName = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
     } catch (e) {
       safeTagName = '';
     }
@@ -454,12 +454,8 @@ function stripUnsafeGeneratedMarkup(root) {
 
     let attributesToSanitize = [];
     try {
-      if (element.attributes instanceof NamedNodeMap) {
-        attributesToSanitize = Array.from(element.attributes);
-      } else {
-        const attrNames = Element.prototype.getAttributeNames.call(element);
-        attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
-      }
+      const attrNames = Element.prototype.getAttributeNames.call(element);
+      attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
     } catch (e) {}
 
     attributesToSanitize.forEach((attribute) => {
