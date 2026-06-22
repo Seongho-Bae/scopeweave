@@ -1887,7 +1887,18 @@ function renderGantt() {
       '을 입력하면 차트가 나타납니다.'
     );
 
-    emptyDiv.append(icon, title, description);
+    const actions = document.createElement('div');
+    actions.className = 'empty-actions editor-actions';
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'primary-button';
+    backBtn.textContent = '작업 목록으로 돌아가기';
+    backBtn.addEventListener('click', closeGanttModal);
+
+    actions.appendChild(backBtn);
+
+    emptyDiv.append(icon, title, description, actions);
     elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }
