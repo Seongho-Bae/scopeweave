@@ -36,3 +36,8 @@
 **Vulnerability:** Missing file size limits during CSV import and missing length limits on text fields.
 **Learning:** Browser memory can be exhausted resulting in Denial of Service (DoS) attacks if large files or strings are imported and parsed into memory.
 **Prevention:** Enforce client-side file size limits (e.g. 5MB) before processing imports, add `maxLength` attributes to text inputs, and strictly truncate fields on submission to prevent bypassing client-side constraints.
+
+## 2026-06-22 - Fix weak random number generation fallback
+**Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.randomUUID()` was unavailable.
+**Learning:** `Math.random()` is not cryptographically secure and can generate predictable sequences, leading to potential ID collisions or predictable IDs that could be abused in certain contexts. While this is primarily an issue in non-secure contexts (HTTP), using `crypto.getRandomValues()` as a fallback provides a cryptographically secure random number generator when `randomUUID()` is missing but `getRandomValues()` is supported.
+**Prevention:** Always use cryptographically secure methods like `crypto.getRandomValues()` to generate random strings when `crypto.randomUUID()` is not an option. Avoid relying on `Math.random()` for any form of unique identifier or security-related token generation.
