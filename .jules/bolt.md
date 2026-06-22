@@ -23,3 +23,8 @@
 ## 2026-06-21 - Eliminate O(N) Set Allocations in Render Loops
 **Learning:** Instantiating new Sets inside a .filter() callback during hot paths (like renderAll which fires on every keystroke) causes massive memory allocations and garbage collection pauses.
 **Action:** Move the Set instantiation outside the iteration loop and reuse it via clear() inside the loop to ensure O(1) allocation overhead per render pass.
+
+
+## 2026-06-22 - calculateDurationDays 연산의 O(N) 캐싱
+**Learning:** computeTaskMetrics 함수 내부에서 각 task마다 calculateDurationDays를 두 번씩 호출하고 있었습니다 (totalDays를 구하기 위한 reduce에서 한 번, map 반복문에서 또 한 번). 이는 불필요한 중복 연산을 발생시켰습니다.
+**Action:** 첫 번째 순회(reduce) 단계에서 각 task의 기간을 계산한 후 Map에 캐싱하여, 두 번째 순회(forEach) 단계에서 캐싱된 값을 가져오도록 수정함으로써 중복 연산을 완전히 제거했습니다.
