@@ -1242,16 +1242,29 @@ function insertTaskAfter(task, afterId) {
 }
 
 function deleteTaskAndDescendants(taskId) {
+  // ⚡ Bolt: Replace O(N * Depth) cascading loop with O(N) map-based BFS to prevent UI freeze during deletion
+  const childrenMap = new Map();
+  state.tasks.forEach(task => {
+    if (task.parentId) {
+      const children = childrenMap.get(task.parentId) || [];
+      children.push(task.id);
+      childrenMap.set(task.parentId, children);
+    }
+  });
+
   const idsToDelete = new Set([taskId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    state.tasks.forEach((task) => {
-      if (idsToDelete.has(task.parentId) && !idsToDelete.has(task.id)) {
-        idsToDelete.add(task.id);
-        changed = true;
-      }
-    });
+  const queue = [taskId];
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const children = childrenMap.get(currentId);
+    if (children) {
+      children.forEach(childId => {
+        if (!idsToDelete.has(childId)) {
+          idsToDelete.add(childId);
+          queue.push(childId);
+        }
+      });
+    }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
 }
