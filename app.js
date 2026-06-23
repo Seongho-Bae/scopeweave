@@ -442,7 +442,7 @@ function stripUnsafeGeneratedMarkup(root) {
   root.querySelectorAll('*').forEach((element) => {
     let safeTagName;
     try {
-      safeTagName = typeof element.nodeName === 'string' ? element.nodeName : Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
+      safeTagName = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
     } catch (e) {
       safeTagName = '';
     }
@@ -454,12 +454,8 @@ function stripUnsafeGeneratedMarkup(root) {
 
     let attributesToSanitize = [];
     try {
-      if (element.attributes instanceof NamedNodeMap) {
-        attributesToSanitize = Array.from(element.attributes);
-      } else {
-        const attrNames = Element.prototype.getAttributeNames.call(element);
-        attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
-      }
+      const attrNames = Element.prototype.getAttributeNames.call(element);
+      attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
     } catch (e) {}
 
     attributesToSanitize.forEach((attribute) => {
@@ -505,7 +501,10 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     toggleButton.setAttribute('aria-label', toggleLabel);
     toggleButton.setAttribute('aria-expanded', String(task.expanded));
     toggleButton.title = toggleLabel;
-    toggleButton.textContent = task.expanded ? '▼' : '▶';
+    const toggleIcon = document.createElement('span');
+    toggleIcon.setAttribute('aria-hidden', 'true');
+    toggleIcon.textContent = task.expanded ? '▼' : '▶';
+    toggleButton.appendChild(toggleIcon);
     actionStack.appendChild(toggleButton);
   } else {
     const placeholder = document.createElement('span');
@@ -567,7 +566,10 @@ function createActionButton(label, text, action, title) {
   button.dataset.action = action;
   button.setAttribute('aria-label', label);
   button.title = title;
-  button.textContent = text;
+  const iconSpan = document.createElement('span');
+  iconSpan.setAttribute('aria-hidden', 'true');
+  iconSpan.textContent = text;
+  button.appendChild(iconSpan);
   return button;
 }
 
@@ -1242,15 +1244,13 @@ function insertTaskAfter(task, afterId) {
 }
 
 function deleteTaskAndDescendants(taskId) {
-  // ⚡ Bolt Optimization: Use O(N) BFS instead of O(N*Depth) while(changed) loops
-  // Build parent-to-children map in O(N)
+  // ⚡ Bolt: Replace O(N * Depth) cascading loop with O(N) map-based BFS to prevent UI freeze during deletion
   const childrenMap = new Map();
   state.tasks.forEach(task => {
     if (task.parentId) {
-      if (!childrenMap.has(task.parentId)) {
-        childrenMap.set(task.parentId, []);
-      }
-      childrenMap.get(task.parentId).push(task.id);
+      const children = childrenMap.get(task.parentId) || [];
+      children.push(task.id);
+      childrenMap.set(task.parentId, children);
     }
   });
 
@@ -1258,18 +1258,18 @@ function deleteTaskAndDescendants(taskId) {
   const queue = [taskId];
   let queueIndex = 0;
 
-  // BFS traversal in true O(N) by tracking index instead of using O(K) shift()
   while (queueIndex < queue.length) {
     const currentId = queue[queueIndex++];
-    const children = childrenMap.get(currentId) || [];
-    children.forEach(childId => {
-      if (!idsToDelete.has(childId)) {
-        idsToDelete.add(childId);
-        queue.push(childId);
-      }
-    });
+    const children = childrenMap.get(currentId);
+    if (children) {
+      children.forEach(childId => {
+        if (!idsToDelete.has(childId)) {
+          idsToDelete.add(childId);
+          queue.push(childId);
+        }
+      });
+    }
   }
-
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
 }
 
@@ -1904,7 +1904,18 @@ function renderGantt() {
       '을 입력하면 차트가 나타납니다.'
     );
 
-    emptyDiv.append(icon, title, description);
+    const actions = document.createElement('div');
+    actions.className = 'empty-actions editor-actions';
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'primary-button';
+    backBtn.textContent = '작업 목록으로 돌아가기';
+    backBtn.addEventListener('click', closeGanttModal);
+
+    actions.appendChild(backBtn);
+
+    emptyDiv.append(icon, title, description, actions);
     elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }
@@ -2101,8 +2112,16 @@ function sanitizeCsvFormulaValue(value) {
 
 function createId(seed = Date.now()) {
   // Security enhancement: Prefer crypto.randomUUID for stronger randomness
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return `task-${crypto.randomUUID()}`;
+  if (typeof crypto !== 'undefined') {
+    if (crypto.randomUUID) {
+      return `task-${crypto.randomUUID()}`;
+    }
+    // Fallback: use crypto.getRandomValues if randomUUID is unavailable
+    if (crypto.getRandomValues) {
+      const arr = new Uint32Array(2);
+      crypto.getRandomValues(arr);
+      return `task-${arr[0].toString(16)}-${arr[1].toString(16)}`;
+    }
   }
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
