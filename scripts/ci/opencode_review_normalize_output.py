@@ -88,6 +88,12 @@ CHANGED_FILE_EVIDENCE_PATTERN = re.compile(
     r"|(?<![A-Za-z0-9_])(?:Dockerfile|Makefile|README|LICENSE|AGENTS\.md)(?![A-Za-z0-9_])"
 )
 EVIDENCE_PHRASE_PATTERN = re.compile(r"(Inspected changed file evidence:\s*)([^\s`\"'<>)]+)")
+INSPECTED_CHANGES_PHRASE_PATTERN = re.compile(
+    r"(?P<prefix>^|\n|(?<=[.!?]\s))"
+    r"(?P<phrase>Inspected changes (?:in|to)\s+"
+    r"(?P<path>[^\s`\"'<>)]+)"
+    r"(?:\s*\([^)]{0,120}\))?[.;]?\s*)"
+)
 MAX_EVIDENCE_PATH_LENGTH = 260
 MAX_MODEL_PROSE_SCAN_CHARS = 100_000
 
@@ -222,6 +228,23 @@ def repair_changed_file_evidence_phrase(
     return EVIDENCE_PHRASE_PATTERN.sub(replace_match, text[:MAX_MODEL_PROSE_SCAN_CHARS])
 
 
+def remove_unsupported_inspected_change_phrases(text: str, changed_files: list[str]) -> str:
+    """Drop model prose that claims inspection of a non-current changed file."""
+    changed_file_set = set(changed_files)
+
+    def replace_match(match: re.Match[str]) -> str:
+        evidence = safe_relative_evidence_path(match.group("path"))
+        if evidence is None or evidence not in changed_file_set:
+            return match.group("prefix")
+        return match.group(0)
+
+    cleaned = INSPECTED_CHANGES_PHRASE_PATTERN.sub(
+        replace_match,
+        text[:MAX_MODEL_PROSE_SCAN_CHARS],
+    )
+    return re.sub(r" {2,}", " ", cleaned).strip()
+
+
 def check_structural_approval(control_file: Path) -> int:
     """Validate an already-normalized control block before publishing approval."""
     try:
@@ -296,6 +319,7 @@ def valid_control(
         changed_files = changed_files_from_evidence(evidence_text)
         if changed_files:
             summary = repair_changed_file_evidence_phrase(summary, changed_files, changed_files[0])
+            summary = remove_unsupported_inspected_change_phrases(summary, changed_files)
             evidence = first_actual_changed_file_evidence(f"{reason}\n{summary}", changed_files)
             if evidence is None:
                 evidence = first_actual_changed_file_evidence(source_text, changed_files)
