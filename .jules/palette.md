@@ -37,3 +37,6 @@
 ## 2026-06-21 - Gantt Chart Actionable Empty State
 **Learning:** Generic "no data" messages in complex components (like a Gantt chart modal) create dead ends. Empty states represent an opportunity to guide users on exactly which fields (e.g., planned start/end dates) they need to fill in to see the data they expect. Reusing existing table-empty UI patterns inside modals also maintains visual consistency and reduces perceived friction.
 **Action:** Always prefer structured, actionable empty states with a helpful description over basic text strings, and reuse existing empty-state CSS patterns wherever possible to guide users out of the dead end.
+## 2026-06-22 - Hide Unicode Icons from Screen Readers
+**Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
+**Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
