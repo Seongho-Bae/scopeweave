@@ -92,7 +92,7 @@ IGNORED_EVIDENCE_PARTS = {
 
 def safe_relative_evidence_path(path: str) -> str | None:
     """Return a safe relative changed-file-looking path, or None."""
-    normalized = path.strip().replace("\\", "/")
+    normalized = path.strip().replace("\\", "/").rstrip(".,;:")
     if (
         not normalized
         or normalized.startswith("/")
@@ -131,8 +131,9 @@ def first_changed_file_evidence(text: str) -> str | None:
     return None
 
 
-def first_changed_file_from_evidence(evidence_text: str) -> str | None:
-    """Return the first path from the bounded evidence changed-files section."""
+def changed_files_from_evidence(evidence_text: str) -> list[str]:
+    """Return safe paths from the bounded evidence changed-files section."""
+    changed_files: list[str] = []
     in_changed_files = False
     for raw_line in evidence_text.splitlines():
         line = raw_line.strip()
@@ -148,7 +149,7 @@ def first_changed_file_from_evidence(evidence_text: str) -> str | None:
         if len(tab_parts) >= 2 and re.fullmatch(r"[A-Z][0-9]*", tab_parts[0]):
             evidence = safe_relative_evidence_path(tab_parts[-1])
             if evidence is not None:
-                return evidence
+                changed_files.append(evidence)
             continue
 
         match = re.match(r"^[A-Z][0-9]*\s+(.+)$", line)
@@ -158,9 +159,52 @@ def first_changed_file_from_evidence(evidence_text: str) -> str | None:
                 path = path.rsplit(" -> ", 1)[-1]
             evidence = safe_relative_evidence_path(path)
             if evidence is not None:
-                return evidence
+                changed_files.append(evidence)
 
+    return changed_files
+
+
+def first_changed_file_from_evidence(evidence_text: str) -> str | None:
+    """Return the first path from the bounded evidence changed-files section."""
+    changed_files = changed_files_from_evidence(evidence_text)
+    return changed_files[0] if changed_files else None
+
+
+def first_actual_changed_file_evidence(text: str, changed_files: list[str]) -> str | None:
+    """Return the first mentioned path that is in the bounded changed-file list."""
+    changed_file_set = set(changed_files)
+    for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text):
+        if match.start() > 0 and text[match.start() - 1] == "/":
+            continue
+        evidence = safe_relative_evidence_path(match.group(0))
+        if evidence in changed_file_set:
+            return evidence
     return None
+
+
+def repair_changed_file_evidence_phrase(
+    text: str,
+    changed_files: list[str],
+    replacement: str,
+) -> str:
+    """Replace non-current changed-file evidence phrases with a real changed path."""
+    changed_file_set = set(changed_files)
+    phrase_pattern = re.compile(
+        r"(Inspected changed file evidence:\s*)("
+        + CHANGED_FILE_EVIDENCE_PATTERN.pattern
+        + r")"
+    )
+
+    def replace_match(match: re.Match[str]) -> str:
+        raw_evidence = match.group(2)
+        stripped_evidence = raw_evidence.rstrip(".,;:")
+        punctuation = raw_evidence[len(stripped_evidence) :]
+        evidence = safe_relative_evidence_path(raw_evidence)
+        if evidence is not None and evidence not in changed_file_set:
+            return f"{match.group(1)}{replacement}{punctuation}"
+        return match.group(0)
+
+    return phrase_pattern.sub(replace_match, text)
 
 
 def check_structural_approval(control_file: Path) -> int:
@@ -233,13 +277,23 @@ def valid_control(
         return None
     if result == "APPROVE" and admits_missing_structural_review(reason, summary):
         return None
-    if result == "APPROVE" and not mentions_changed_file_evidence(reason, summary):
-        evidence = first_changed_file_evidence(source_text)
-        if evidence is None:
-            evidence = first_changed_file_from_evidence(evidence_text)
-        if evidence is None:
-            return None
-        summary = f"{summary} Inspected changed file evidence: {evidence}."
+    if result == "APPROVE":
+        changed_files = changed_files_from_evidence(evidence_text)
+        if changed_files:
+            summary = repair_changed_file_evidence_phrase(summary, changed_files, changed_files[0])
+            evidence = first_actual_changed_file_evidence(f"{reason}\n{summary}", changed_files)
+            if evidence is None:
+                evidence = first_actual_changed_file_evidence(source_text, changed_files)
+            if evidence is None:
+                evidence = changed_files[0]
+                summary = f"{summary} Inspected changed file evidence: {evidence}."
+        elif not mentions_changed_file_evidence(reason, summary):
+            evidence = first_changed_file_evidence(source_text)
+            if evidence is None:
+                evidence = first_changed_file_from_evidence(evidence_text)
+            if evidence is None:
+                return None
+            summary = f"{summary} Inspected changed file evidence: {evidence}."
 
     required_finding_fields = (
         "path",
