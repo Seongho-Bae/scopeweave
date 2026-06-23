@@ -6,6 +6,12 @@ if [ $# -ne 4 ] && [ $# -ne 5 ]; then
   exit 64
 fi
 
+SCRIPT_DIR="$(
+  CDPATH=''
+  cd -P -- "$(dirname -- "$0")"
+  pwd -P
+)"
+NORMALIZER="$SCRIPT_DIR/opencode_review_normalize_output.py"
 EXPECTED_HEAD_SHA="$1"
 EXPECTED_RUN_ID="$2"
 EXPECTED_RUN_ATTEMPT="$3"
@@ -125,6 +131,11 @@ if ! jq -e '
   exit 4
 fi
 
+if ! python3 "$NORMALIZER" --check-structural-approval "$TMP_JSON" >/dev/null; then
+  echo "NO_CONCLUSION"
+  exit 4
+fi
+
 SOURCE_ROOT="${GITHUB_WORKSPACE:-$PWD}"
 if ! python3 - "$SOURCE_ROOT" "$TMP_JSON" <<'PY'
 from __future__ import annotations
@@ -181,6 +192,7 @@ def finding_is_source_backed(finding: dict[str, object]) -> bool:
     }
     suggested_diff = str(finding.get("suggested_diff", ""))
     removed_lines = []
+    added_lines = []
     for raw_line in suggested_diff.splitlines():
         if raw_line.startswith("--- ") or raw_line.startswith("+++ "):
             continue
@@ -188,8 +200,12 @@ def finding_is_source_backed(finding: dict[str, object]) -> bool:
             stripped = normalized_line(raw_line[1:])
             if stripped:
                 removed_lines.append(stripped)
+        elif raw_line.startswith("+"):
+            stripped = normalized_line(raw_line[1:])
+            if stripped:
+                added_lines.append(stripped)
 
-    if not removed_lines:
+    if not removed_lines and not added_lines:
         return False
     for removed_line in removed_lines:
         if removed_line not in source_line_set:

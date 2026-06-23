@@ -74,6 +74,7 @@ const CSV_HEADERS = [
   '__parentId',
   '__depth'
 ];
+const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
 
 const SAFE_GENERATED_TAGS = new Set([
   'br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p',
@@ -87,7 +88,7 @@ const SAFE_GENERATED_ATTRIBUTES = new Set([
   'required', 'selected', 'title', 'type', 'value'
 ]);
 
-const CSV_FIELD_LABELS = Object.freeze({
+const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
   activity: 'Activity',
   task: 'Task',
@@ -101,7 +102,7 @@ const CSV_FIELD_LABELS = Object.freeze({
   actualProgressStatus: '실적진척상태',
   actualStartDate: '실적시작일',
   actualEndDate: '실적종료일'
-});
+}));
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
@@ -441,7 +442,7 @@ function stripUnsafeGeneratedMarkup(root) {
   root.querySelectorAll('*').forEach((element) => {
     let safeTagName;
     try {
-      safeTagName = typeof element.nodeName === 'string' ? element.nodeName : Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
+      safeTagName = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
     } catch (e) {
       safeTagName = '';
     }
@@ -453,12 +454,8 @@ function stripUnsafeGeneratedMarkup(root) {
 
     let attributesToSanitize = [];
     try {
-      if (element.attributes instanceof NamedNodeMap) {
-        attributesToSanitize = Array.from(element.attributes);
-      } else {
-        const attrNames = Element.prototype.getAttributeNames.call(element);
-        attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
-      }
+      const attrNames = Element.prototype.getAttributeNames.call(element);
+      attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
     } catch (e) {}
 
     attributesToSanitize.forEach((attribute) => {
@@ -504,7 +501,10 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     toggleButton.setAttribute('aria-label', toggleLabel);
     toggleButton.setAttribute('aria-expanded', String(task.expanded));
     toggleButton.title = toggleLabel;
-    toggleButton.textContent = task.expanded ? '▼' : '▶';
+    const toggleIcon = document.createElement('span');
+    toggleIcon.setAttribute('aria-hidden', 'true');
+    toggleIcon.textContent = task.expanded ? '▼' : '▶';
+    toggleButton.appendChild(toggleIcon);
     actionStack.appendChild(toggleButton);
   } else {
     const placeholder = document.createElement('span');
@@ -566,7 +566,10 @@ function createActionButton(label, text, action, title) {
   button.dataset.action = action;
   button.setAttribute('aria-label', label);
   button.title = title;
-  button.textContent = text;
+  const iconSpan = document.createElement('span');
+  iconSpan.setAttribute('aria-hidden', 'true');
+  iconSpan.textContent = text;
+  button.appendChild(iconSpan);
   return button;
 }
 
@@ -667,6 +670,9 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
+  if (type === 'text') {
+    input.maxLength = 1000;
+  }
   input.value = value || '';
   if (required) {
     input.required = true;
@@ -1029,7 +1035,7 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    sanitized[field] = String(draft?.[field] || '').trim();
+    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
@@ -1241,16 +1247,29 @@ function insertTaskAfter(task, afterId) {
 }
 
 function deleteTaskAndDescendants(taskId) {
+  // ⚡ Bolt: Replace O(N * Depth) cascading loop with O(N) map-based BFS to prevent UI freeze during deletion
+  const childrenMap = new Map();
+  state.tasks.forEach(task => {
+    if (task.parentId) {
+      const children = childrenMap.get(task.parentId) || [];
+      children.push(task.id);
+      childrenMap.set(task.parentId, children);
+    }
+  });
+
   const idsToDelete = new Set([taskId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    state.tasks.forEach((task) => {
-      if (idsToDelete.has(task.parentId) && !idsToDelete.has(task.id)) {
-        idsToDelete.add(task.id);
-        changed = true;
-      }
-    });
+  const queue = [taskId];
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const children = childrenMap.get(currentId);
+    if (children) {
+      children.forEach(childId => {
+        if (!idsToDelete.has(childId)) {
+          idsToDelete.add(childId);
+          queue.push(childId);
+        }
+      });
+    }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
 }
@@ -1626,6 +1645,12 @@ async function handleCsvImport(event) {
     return;
   }
 
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('파일 크기는 5MB를 초과할 수 없습니다.');
+    event.target.value = '';
+    return;
+  }
+
   try {
     const text = await file.text();
     const imported = parseCsv(text);
@@ -1852,8 +1877,46 @@ function renderGantt() {
   const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDate));
   if (plannedTasks.length === 0) {
     const emptyDiv = document.createElement('div');
-    emptyDiv.className = 'gantt-empty';
-    emptyDiv.textContent = '계획 일정이 있는 작업이 없습니다.';
+    emptyDiv.className = 'gantt-empty table-empty';
+
+    const icon = document.createElement('div');
+    icon.className = 'empty-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '📊';
+
+    const title = document.createElement('h3');
+    title.className = 'empty-title';
+    title.textContent = '표시할 간트 차트가 없습니다';
+
+    const description = document.createElement('p');
+    description.className = 'empty-desc';
+
+    const strongStart = document.createElement('strong');
+    strongStart.textContent = '계획시작일';
+
+    const strongEnd = document.createElement('strong');
+    strongEnd.textContent = '계획종료일';
+
+    description.append(
+      '작업 목록에서 ',
+      strongStart,
+      '과 ',
+      strongEnd,
+      '을 입력하면 차트가 나타납니다.'
+    );
+
+    const actions = document.createElement('div');
+    actions.className = 'empty-actions editor-actions';
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'primary-button';
+    backBtn.textContent = '작업 목록으로 돌아가기';
+    backBtn.addEventListener('click', closeGanttModal);
+
+    actions.appendChild(backBtn);
+
+    emptyDiv.append(icon, title, description, actions);
     elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }
@@ -2039,17 +2102,27 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  let normalized = String(value ?? '');
-  if (/^\s*[=+\-@]/.test(normalized)) {
-    normalized = `'${normalized}`;
-  }
+  const normalized = sanitizeCsvFormulaValue(value);
   return `"${normalized.replace(/"/g, '""')}"`;
+}
+
+function sanitizeCsvFormulaValue(value) {
+  const normalized = String(value ?? '');
+  return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
 }
 
 function createId(seed = Date.now()) {
   // Security enhancement: Prefer crypto.randomUUID for stronger randomness
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return `task-${crypto.randomUUID()}`;
+  if (typeof crypto !== 'undefined') {
+    if (crypto.randomUUID) {
+      return `task-${crypto.randomUUID()}`;
+    }
+    // Fallback: use crypto.getRandomValues if randomUUID is unavailable
+    if (crypto.getRandomValues) {
+      const arr = new Uint32Array(2);
+      crypto.getRandomValues(arr);
+      return `task-${arr[0].toString(16)}-${arr[1].toString(16)}`;
+    }
   }
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -2157,13 +2230,13 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
-const HTML_ESCAPE_ENTITIES = {
+const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
   '&': '&amp;',
   '<': '&lt;',
   '>': '&gt;',
   '"': '&quot;',
   "'": '&#39;'
-};
+});
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => HTML_ESCAPE_ENTITIES[character]);
