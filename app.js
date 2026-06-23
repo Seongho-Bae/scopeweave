@@ -76,18 +76,6 @@ const CSV_HEADERS = [
 ];
 const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
 
-const SAFE_GENERATED_TAGS = new Set([
-  'br', 'button', 'div', 'form', 'h3', 'input', 'label', 'option', 'p',
-  'select', 'span', 'table', 'tbody', 'td', 'th', 'thead', 'tr'
-]);
-
-const SAFE_GENERATED_ATTRIBUTES = new Set([
-  'aria-hidden', 'aria-label', 'aria-required', 'class', 'colspan', 'data-action',
-  'data-editor-anchor', 'data-editor-field', 'data-editor-form', 'data-inline-progress',
-  'data-task-id', 'data-testid', 'disabled', 'draggable', 'id', 'placeholder',
-  'required', 'selected', 'title', 'type', 'value'
-]);
-
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
   activity: 'Activity',
@@ -435,53 +423,6 @@ function createTableCell(className, content) {
   return cell;
 }
 
-function stripUnsafeGeneratedMarkup(root) {
-  root.querySelectorAll('script, iframe, object, embed, link, meta, style, svg, math').forEach((node) => {
-    try { Element.prototype.remove.call(node); } catch (e) {}
-  });
-  root.querySelectorAll('*').forEach((element) => {
-    let safeTagName;
-    try {
-      safeTagName = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
-    } catch (e) {
-      safeTagName = '';
-    }
-
-    if (!safeTagName || !SAFE_GENERATED_TAGS.has(safeTagName.toLowerCase())) {
-      try { Element.prototype.remove.call(element); } catch (e) {}
-      return;
-    }
-
-    let attributesToSanitize = [];
-    try {
-      const attrNames = Element.prototype.getAttributeNames.call(element);
-      attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
-    } catch (e) {}
-
-    attributesToSanitize.forEach((attribute) => {
-      const name = attribute.name.toLowerCase();
-      if (
-        name.startsWith('on') ||
-        (!SAFE_GENERATED_ATTRIBUTES.has(name) && name !== 'style')
-      ) {
-        try {
-          Element.prototype.removeAttribute.call(element, attribute.name);
-        } catch (e) {}
-        return;
-      }
-      if (name === 'style' && !isSafeGeneratedStyle(String(attribute.value).trim())) {
-        try {
-          Element.prototype.removeAttribute.call(element, attribute.name);
-        } catch (e) {}
-      }
-    });
-  });
-}
-
-function isSafeGeneratedStyle(value) {
-  return /^(background:\s*#[0-9a-f]{3,6}|color:\s*var\(--danger\)|width:\s*\d+px|left:\s*\d+px;?\s*width:\s*\d+px)$/i.test(value);
-}
-
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const row = document.createElement('tr');
   row.className = `task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}`;
@@ -805,46 +746,6 @@ function createActualProgressCellContent(task, taskMetrics) {
     label.appendChild(validation);
   }
   return label;
-}
-
-function renderTreeCell(value, depth) {
-  return `<div class="tree-value indent-${depth}">${value ? escapeHtml(value) : '<span class="empty-cell">-</span>'}</div>`;
-}
-
-function renderTextCell(value, warning = '') {
-  if (!value) {
-    return warning ? `<span class="warning-badge">${escapeHtml(warning)}</span>` : '<span class="empty-cell">-</span>';
-  }
-  return warning ? `<div>${escapeHtml(value)}<div class="validation-message">${escapeHtml(warning)}</div></div>` : escapeHtml(value);
-}
-
-function renderOwnerCell(owner, ownerColorMap) {
-  if (!owner) {
-    return '<span class="empty-cell">-</span>';
-  }
-  return `<span class="owner-badge" style="background:${ownerColorMap.get(owner)}">${escapeHtml(owner)}</span>`;
-}
-
-function renderStatusCell(progressState) {
-  if (!progressState.label) {
-    return '<span class="empty-cell">-</span>';
-  }
-  return `<span class="status-badge ${progressState.className}">${escapeHtml(progressState.label)}</span>`;
-}
-
-function renderActualProgressCell(task, taskMetrics) {
-  const options = ACTUAL_PROGRESS_OPTIONS.map((option) => `
-    <option value="${escapeHtml(option)}" ${task.actualProgressStatus === option ? 'selected' : ''}>${escapeHtml(option)}</option>
-  `).join('');
-  return `
-    <label>
-      <span class="sr-only">실적진척상태</span>
-      <select data-inline-progress="${escapeHtml(task.id)}">
-        ${options}
-      </select>
-      ${taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning ? `<div class="validation-message">${escapeHtml(taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning)}</div>` : ''}
-    </label>
-  `;
 }
 
 function renderEditorValidation() {
@@ -1259,8 +1160,10 @@ function deleteTaskAndDescendants(taskId) {
 
   const idsToDelete = new Set([taskId]);
   const queue = [taskId];
-  while (queue.length > 0) {
-    const currentId = queue.shift();
+  let queueIndex = 0;
+
+  while (queueIndex < queue.length) {
+    const currentId = queue[queueIndex++];
     const children = childrenMap.get(currentId);
     if (children) {
       children.forEach(childId => {
@@ -1926,84 +1829,118 @@ function renderGantt() {
   const weekdays = buildWeekdayTimeline(minDate, maxDate);
   const weeks = groupTimelineByWeek(weekdays);
 
-  const metaRows = state.tasks.map((task) => `
-    <tr>
-      <td>${renderTreeCell(task.phase || task.activity || task.task || '-', task.depth)}</td>
-      <td>${renderTextCell(task.activity)}</td>
-      <td>${renderTextCell(task.task)}</td>
-      <td>${renderTextCell(task.categoryLarge)}</td>
-      <td>${renderTextCell(task.categoryMedium)}</td>
-      <td>${renderTextCell(task.documentName)}</td>
-      <td>${renderTextCell(task.owner)}</td>
-      <td>${renderTextCell(task.supportTeam)}</td>
-      <td>${renderTextCell(task.plannedStartDate)}</td>
-      <td>${renderTextCell(task.plannedEndDate)}</td>
-      <td>${renderTextCell(task.actualStartDate)}</td>
-      <td>${renderTextCell(task.actualEndDate)}</td>
-    </tr>
-  `).join('');
-
   const totalWidth = weekdays.length * 36;
-  const chartRows = state.tasks.map((task) => {
-    const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
-    const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
-    return `
-      <tr>
-        <td colspan="${weekdays.length}">
-          <div class="gantt-day-track" style="width:${totalWidth}px">
-            ${planBar}
-            ${actualBar}
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
 
-  setGanttContent(`
-    <div class="gantt-shell">
-      <div class="gantt-meta">
-        <table>
-          <thead>
-            <tr>
-              <th>단계</th>
-              <th>Activity</th>
-              <th>Task</th>
-              <th>대분류</th>
-              <th>중분류</th>
-              <th>산출물</th>
-              <th>담당자</th>
-              <th>지원팀</th>
-              <th>계획시작일</th>
-              <th>계획종료일</th>
-              <th>실적시작일</th>
-              <th>실적종료일</th>
-            </tr>
-          </thead>
-          <tbody>${metaRows}</tbody>
-        </table>
-      </div>
-      <div class="gantt-chart">
-        <table>
-          <thead>
-            <tr>
-              ${weeks.map((week) => `<th class="gantt-week-header" colspan="${week.days.length}">${escapeHtml(week.label)}</th>`).join('')}
-            </tr>
-            <tr>
-              ${weekdays.map((day) => `<th class="gantt-day-cell">${escapeHtml(day.dayLabel)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>${chartRows}</tbody>
-        </table>
-      </div>
-    </div>
-  `);
+  const shell = document.createElement('div');
+  shell.className = 'gantt-shell';
+
+  const meta = document.createElement('div');
+  meta.className = 'gantt-meta';
+  meta.appendChild(createGanttMetaTable());
+
+  const chart = document.createElement('div');
+  chart.className = 'gantt-chart';
+  chart.appendChild(createGanttChartTable(weeks, weekdays, totalWidth));
+
+  shell.append(meta, chart);
+  elements.ganttContent.replaceChildren(shell);
 }
 
-function setGanttContent(markup) {
-  const template = document.createElement('template');
-  template.innerHTML = markup;
-  stripUnsafeGeneratedMarkup(template.content);
-  elements.ganttContent.replaceChildren(template.content);
+function createGanttMetaTable() {
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  [
+    '단계',
+    'Activity',
+    'Task',
+    '대분류',
+    '중분류',
+    '산출물',
+    '담당자',
+    '지원팀',
+    '계획시작일',
+    '계획종료일',
+    '실적시작일',
+    '실적종료일'
+  ].forEach((label) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  const tbody = document.createElement('tbody');
+  state.tasks.forEach((task) => {
+    const row = document.createElement('tr');
+    row.append(
+      createTableCell('', createTreeCellContent(task.phase || task.activity || task.task || '-', task.depth)),
+      createTableCell('', createTextCellContent(task.activity)),
+      createTableCell('', createTextCellContent(task.task)),
+      createTableCell('', createTextCellContent(task.categoryLarge)),
+      createTableCell('', createTextCellContent(task.categoryMedium)),
+      createTableCell('', createTextCellContent(task.documentName)),
+      createTableCell('', createTextCellContent(task.owner)),
+      createTableCell('', createTextCellContent(task.supportTeam)),
+      createTableCell('', createTextCellContent(task.plannedStartDate)),
+      createTableCell('', createTextCellContent(task.plannedEndDate)),
+      createTableCell('', createTextCellContent(task.actualStartDate)),
+      createTableCell('', createTextCellContent(task.actualEndDate))
+    );
+    tbody.appendChild(row);
+  });
+
+  table.append(thead, tbody);
+  return table;
+}
+
+function createGanttChartTable(weeks, weekdays, totalWidth) {
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const weekRow = document.createElement('tr');
+  weeks.forEach((week) => {
+    const th = document.createElement('th');
+    th.className = 'gantt-week-header';
+    th.colSpan = week.days.length;
+    th.textContent = week.label;
+    weekRow.appendChild(th);
+  });
+
+  const dayRow = document.createElement('tr');
+  weekdays.forEach((day) => {
+    const th = document.createElement('th');
+    th.className = 'gantt-day-cell';
+    th.textContent = day.dayLabel;
+    dayRow.appendChild(th);
+  });
+  thead.append(weekRow, dayRow);
+
+  const tbody = document.createElement('tbody');
+  state.tasks.forEach((task) => {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = weekdays.length;
+
+    const track = document.createElement('div');
+    track.className = 'gantt-day-track';
+    track.style.width = `${totalWidth}px`;
+
+    const planBar = createGanttBarElement(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
+    const actualBar = createGanttBarElement(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
+    if (planBar) {
+      track.appendChild(planBar);
+    }
+    if (actualBar) {
+      track.appendChild(actualBar);
+    }
+
+    cell.appendChild(track);
+    row.appendChild(cell);
+    tbody.appendChild(row);
+  });
+
+  table.append(thead, tbody);
+  return table;
 }
 
 function buildWeekdayTimeline(minDate, maxDate) {
@@ -2044,9 +1981,9 @@ function groupTimelineByWeek(days) {
   return groups;
 }
 
-function createGanttBar(startDate, endDate, weekdays, type) {
+function createGanttBarElement(startDate, endDate, weekdays, type) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
-    return '';
+    return null;
   }
   const startIndex = weekdays.findIndex((day) => compareDateStrings(day.date, startDate) >= 0);
   // ⚡ Bolt: Replace O(N) array clone+reverse with reverse loop to avoid O(T*D) memory allocations in Gantt render
@@ -2059,12 +1996,16 @@ function createGanttBar(startDate, endDate, weekdays, type) {
   }
 
   if (startIndex === -1 || normalizedEndIndex === -1) {
-    return '';
+    return null;
   }
   if (normalizedEndIndex < startIndex) {
-    return '';
+    return null;
   }
-  return `<div class="gantt-bar ${type}" style="left:${startIndex * 36}px;width:${(normalizedEndIndex - startIndex + 1) * 36}px"></div>`;
+  const bar = document.createElement('div');
+  bar.className = `gantt-bar ${type}`;
+  bar.style.left = `${startIndex * 36}px`;
+  bar.style.width = `${(normalizedEndIndex - startIndex + 1) * 36}px`;
+  return bar;
 }
 
 function showToast(message) {
