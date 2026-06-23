@@ -2168,7 +2168,9 @@ function formatDecimal(value, digits) {
 }
 
 function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
+  // ⚡ Bolt: Cache Intl.NumberFormat instance to prevent O(N) slow toLocaleString allocations during render
+  if (!formatNumber.formatter) formatNumber.formatter = new Intl.NumberFormat('ko-KR');
+  return formatNumber.formatter.format(Number(value || 0));
 }
 
 const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {

@@ -31,3 +31,6 @@
 ## 2026-06-22 - O(N*Depth) cascade deletion UI freeze
 **Learning:** Cascading deletions in hierarchical tree structures (like the tasks array) that re-traverse the entire array per depth level using a `while(changed)` condition cause O(N*Depth) operations. In deep or large trees, this causes a severe UI freeze when removing elements.
 **Action:** Always pre-compute a parent-to-children mapping using a single O(1) Map, then use BFS with an index cursor to traverse descendant IDs in O(N) operations without queue shifting.
+## 2026-06-23 - Prevent O(N) slow toLocaleString allocations during render
+**Learning:** Using `toLocaleString` (e.g., `Number(value).toLocaleString('ko-KR')`) inside a tight render loop (like `renderTaskRow`) causes significant performance degradation because it instantiates a new `Intl.NumberFormat` instance internally on every call.
+**Action:** Always cache the `Intl.NumberFormat` instance (e.g., by attaching it to the formatting function itself `formatNumber.formatter = new Intl.NumberFormat(...)`) to reuse it across calls, which is orders of magnitude faster.
