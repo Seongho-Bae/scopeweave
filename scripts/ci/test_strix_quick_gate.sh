@@ -438,6 +438,7 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "decoder.raw_decode" "opencode review normalizer scans transcript text for JSON objects"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "valid_control" "opencode review normalizer accepts only current-run control JSON"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "first_changed_file_from_evidence" "opencode review normalizer can recover approval evidence from bounded changed-file evidence"
+	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "first_actual_changed_file_evidence" "opencode review normalizer verifies approval evidence against bounded changed-file paths"
 	assert_file_contains "$workflow_file" "opencode run" "opencode review workflow runs the bounded OpenCode agent path"
 	assert_file_contains "$workflow_file" 'opencode run "$(cat "$prompt_file")"' "opencode review passes the prompt as the positional message before file attachments"
 	assert_file_contains "$workflow_file" "--agent ci-review" "opencode review workflow forces the compact CI review agent"
@@ -785,6 +786,33 @@ EOF
 
 	assert_equals "0" "$rc" "bounded-evidence-salvaged OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "bounded-evidence-salvaged OpenCode transcript gate result"
+
+	cat >"$output_file" <<'EOF'
+OpenCode transcript text before the review control block.
+
+<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
+<!-- opencode-review-control-v1
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found","summary":"Approved after reviewing 1 changed file. Inspected changed file evidence: path/to/file1.ext.","findings":[]}
+-->
+EOF
+	cat >"$evidence_file" <<'EOF'
+## Changed files
+
+M	index.html
+M	tests/e2e/scopeweave.spec.js
+
+## Focused changed hunks
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" "$evidence_file" >"$tmp_dir/normalize-placeholder.out" 2>"$tmp_dir/normalize-placeholder.err"
+	rc=$?
+	set -e
+
+	assert_equals "0" "$rc" "opencode review normalizer repairs placeholder changed-file evidence with bounded evidence"
+	assert_file_contains "$output_file" "Inspected changed file evidence: index.html." "opencode review normalizer annotates actual changed-file evidence after placeholder prose"
+	assert_file_not_contains "$output_file" "path/to/file1.ext" "opencode review normalizer removes placeholder changed-file evidence"
 
 	rm -rf "$tmp_dir"
 }
