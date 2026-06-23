@@ -13,6 +13,21 @@ fi
 OUTPUT_FILE="$1"
 FAILED_CHECK_LOG_LINES="${FAILED_CHECK_LOG_LINES:-180}"
 
+validate_input() {
+	local name="$1"
+	local value="$2"
+	local pattern="$3"
+
+	if [[ ! "$value" =~ $pattern ]]; then
+		printf 'invalid %s\n' "$name" >&2
+		exit 2
+	fi
+}
+
+validate_input GH_REPOSITORY "$GH_REPOSITORY" '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+validate_input PR_NUMBER "$PR_NUMBER" '^[0-9]+$'
+validate_input HEAD_SHA "$HEAD_SHA" '^[0-9a-fA-F]{40}$'
+
 strip_ansi() {
 	perl -pe 's/\x1b\[[0-9;?]*[A-Za-z]//g'
 }
@@ -262,6 +277,8 @@ gh api graphql \
 		| map(
 			if .__typename == "CheckRun" then
 				select((.status // "") == "COMPLETED")
+				| select((.name // "") != "opencode-review")
+				| select((.checkSuite.workflowRun.workflow.name // "") != "OpenCode Review")
 				| select((.conclusion // "" | ascii_upcase) as $c | ["FAILURE","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STARTUP_FAILURE"] | index($c))
 				| [
 					"check_run",
@@ -272,7 +289,8 @@ gh api graphql \
 					((.databaseId // "") | tostring)
 				]
 			elif .__typename == "StatusContext" then
-				select((.state // "" | ascii_upcase) as $s | ["FAILURE","ERROR"] | index($s))
+				select((.context // "") != "opencode-review")
+				| select((.state // "" | ascii_upcase) as $s | ["FAILURE","ERROR"] | index($s))
 				| [
 					"status_context",
 					(.context // "status"),
