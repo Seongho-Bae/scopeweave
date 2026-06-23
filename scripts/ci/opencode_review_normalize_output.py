@@ -25,6 +25,10 @@ STRUCTURAL_FAILURE_PHRASES = (
     "structural exploration is unnecessary",
     "structural analysis is unnecessary",
     "structural review is unnecessary",
+    "mcp sources unavailable for structural analysis",
+    "mcp sources unavailable for structural review",
+    "codegraph unavailable for structural analysis",
+    "codegraph unavailable for structural review",
     "changed files could not be inspected",
     "source files could not be inspected",
     "required files could not be inspected",
@@ -62,6 +66,12 @@ STRUCTURAL_FAILURE_PATTERNS = (
         r"\b(?:structural\s+(?:exploration|analysis|review))\s+"
         r"(?:was\s+)?(?:unavailable|incomplete|blocked|not possible)\b"
     ),
+    re.compile(
+        r"\b(?:mcp|codegraph)\s+(?:sources?\s+)?"
+        r"(?:was\s+|were\s+)?unavailable\s+for\s+"
+        r"structural\s+(?:exploration|analysis|review)\b"
+    ),
+    re.compile(r"\bunavailable\s+for\s+structural\s+(?:exploration|analysis|review)\b"),
     re.compile(
         r"\bno\s+(?:files?\s+or\s+)?changes?\s+"
         r"(?:were\s+)?(?:detected|found|present)\b"

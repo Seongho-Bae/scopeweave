@@ -913,6 +913,21 @@ EOF
 	cat >"$output_file" <<'EOF'
 OpenCode transcript text before the review control block.
 
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"Accessibility improvements with no blockers","summary":"Verified changes in index.html and tests/e2e/scopeweave.spec.js. MCP sources unavailable for structural analysis.","findings":[]}
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-mcp-unavailable.out" 2>"$tmp_dir/normalize-mcp-unavailable.err"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode normalizer rejects approvals that admit MCP structural evidence is unavailable"
+	assert_file_contains "$tmp_dir/normalize-mcp-unavailable.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for MCP structural unavailability"
+
+	cat >"$output_file" <<'EOF'
+OpenCode transcript text before the review control block.
+
 {"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after structural exploration of changed files.","summary":"CodeGraph evidence was insufficient for one generated artifact, but local inspection covered the changed workflow, scripts, and tests.","findings":[]}
 EOF
 
