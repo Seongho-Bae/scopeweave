@@ -90,6 +90,23 @@ IGNORED_EVIDENCE_PARTS = {
 }
 
 
+def safe_relative_evidence_path(path: str) -> str | None:
+    """Return a safe relative changed-file-looking path, or None."""
+    normalized = path.strip().replace("\\", "/")
+    if (
+        not normalized
+        or normalized.startswith("/")
+        or normalized.startswith("../")
+        or "/../" in normalized
+        or normalized in {".", ".."}
+        or any(part in IGNORED_EVIDENCE_PARTS for part in normalized.split("/"))
+    ):
+        return None
+    if not CHANGED_FILE_EVIDENCE_PATTERN.fullmatch(normalized):
+        return None
+    return normalized
+
+
 def admits_missing_structural_review(reason: str, summary: str) -> bool:
     """Return whether an approval admits it did not inspect required structure."""
     combined = f"{reason}\n{summary}".casefold()
@@ -106,12 +123,43 @@ def mentions_changed_file_evidence(reason: str, summary: str) -> bool:
 def first_changed_file_evidence(text: str) -> str | None:
     """Return the first relative changed-file-looking path in model prose."""
     for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text):
-        evidence = match.group(0)
         if match.start() > 0 and text[match.start() - 1] == "/":
             continue
-        if any(part in IGNORED_EVIDENCE_PARTS for part in evidence.split("/")):
+        evidence = safe_relative_evidence_path(match.group(0))
+        if evidence is not None:
+            return evidence
+    return None
+
+
+def first_changed_file_from_evidence(evidence_text: str) -> str | None:
+    """Return the first path from the bounded evidence changed-files section."""
+    in_changed_files = False
+    for raw_line in evidence_text.splitlines():
+        line = raw_line.strip()
+        if line == "## Changed files":
+            in_changed_files = True
             continue
-        return evidence
+        if in_changed_files and line.startswith("## "):
+            break
+        if not in_changed_files or not line:
+            continue
+
+        tab_parts = [part.strip() for part in line.split("\t") if part.strip()]
+        if len(tab_parts) >= 2 and re.fullmatch(r"[A-Z][0-9]*", tab_parts[0]):
+            evidence = safe_relative_evidence_path(tab_parts[-1])
+            if evidence is not None:
+                return evidence
+            continue
+
+        match = re.match(r"^[A-Z][0-9]*\s+(.+)$", line)
+        if match:
+            path = match.group(1)
+            if " -> " in path:
+                path = path.rsplit(" -> ", 1)[-1]
+            evidence = safe_relative_evidence_path(path)
+            if evidence is not None:
+                return evidence
+
     return None
 
 
@@ -150,6 +198,7 @@ def valid_control(
     expected_run_id: str,
     expected_run_attempt: str,
     source_text: str = "",
+    evidence_text: str = "",
 ) -> dict[str, Any] | None:
     """Return a normalized control block when it matches the current run."""
     if not isinstance(value, dict):
@@ -186,6 +235,8 @@ def valid_control(
         return None
     if result == "APPROVE" and not mentions_changed_file_evidence(reason, summary):
         evidence = first_changed_file_evidence(source_text)
+        if evidence is None:
+            evidence = first_changed_file_from_evidence(evidence_text)
         if evidence is None:
             return None
         summary = f"{summary} Inspected changed file evidence: {evidence}."
@@ -249,22 +300,30 @@ def main(argv: list[str]) -> int:
     if len(argv) == 3 and argv[1] == "--check-structural-approval":
         return check_structural_approval(Path(argv[2]))
 
-    if len(argv) != 5:
+    if len(argv) not in {5, 6}:
         print(
             "usage: opencode_review_normalize_output.py "
-            "<expected_head_sha> <expected_run_id> <expected_run_attempt> <output_file>\n"
+            "<expected_head_sha> <expected_run_id> <expected_run_attempt> <output_file> [evidence_file]\n"
             "   or: opencode_review_normalize_output.py --check-structural-approval <control_json_file>",
             file=sys.stderr,
         )
         return 64
 
-    expected_head_sha, expected_run_id, expected_run_attempt, output_file_arg = argv[1:]
+    expected_head_sha, expected_run_id, expected_run_attempt, output_file_arg = argv[1:5]
     output_file = Path(output_file_arg)
     try:
         output_text = output_file.read_text(encoding="utf-8")
     except OSError as exc:
         print(f"cannot read OpenCode output file: {exc}", file=sys.stderr)
         return 65
+
+    evidence_text = ""
+    if len(argv) == 6:
+        try:
+            evidence_text = Path(argv[5]).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"cannot read OpenCode evidence file: {exc}", file=sys.stderr)
+            return 65
 
     for value in iter_json_objects(output_text):
         control = valid_control(
@@ -273,6 +332,7 @@ def main(argv: list[str]) -> int:
             expected_run_id=expected_run_id,
             expected_run_attempt=expected_run_attempt,
             source_text=output_text,
+            evidence_text=evidence_text,
         )
         if control is None:
             continue

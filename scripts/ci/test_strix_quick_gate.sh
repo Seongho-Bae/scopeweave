@@ -355,9 +355,10 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" 'cd "$OPENCODE_REVIEW_WORKDIR"' "opencode review runs from the isolated OpenCode workspace"
 	assert_file_contains "$workflow_file" "failed-check-evidence.md" "opencode review copies full failed-check evidence into the isolated workspace"
 	assert_file_contains "$workflow_file" "Checkout trusted review workflow" "opencode review executes trusted workflow scripts from the base checkout"
-	assert_file_contains "$workflow_file" "Checkout trusted review workflow for manual PR review" "opencode review checks out explicit base SHA for manual PR review reruns"
-	assert_file_contains "$workflow_file" 'ref: ${{ github.event.inputs.pr_base_sha }}' "opencode manual review checks out the trusted base workflow instead of the PR head"
+	assert_file_contains "$workflow_file" "Checkout trusted review workflow for manual PR review" "opencode review checks out the workflow dispatch ref for manual PR review reruns"
 	assert_file_contains "$workflow_file" "Materialize pull request head for OpenCode review data" "opencode review materializes PR-head source as read-only review data"
+	assert_file_contains "$workflow_file" 'ref: ${{ github.ref }}' "manual opencode review dispatch checks out the same ref as the workflow file"
+	assert_file_not_contains "$workflow_file" 'ref: ${{ github.event.inputs.pr_base_sha }}' "manual opencode review dispatch must not mix PR-local workflow YAML with base-branch scripts"
 	assert_file_contains "$workflow_file" 'git worktree add --detach "$OPENCODE_SOURCE_WORKDIR" "$PR_HEAD_SHA"' "opencode review materializes the PR head without actions/checkout credentials"
 	assert_file_contains "$workflow_file" 'cd "$OPENCODE_SOURCE_WORKDIR"' "opencode CodeGraph indexing runs against the PR-head source worktree"
 	assert_file_contains "$workflow_file" 'PR_MERGE_BASE="$(git -C "$OPENCODE_SOURCE_WORKDIR" merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA")"' "opencode review evidence diffs use the PR-head worktree merge base"
@@ -406,9 +407,11 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "Do not spend the session listing every changed path before reviewing" "opencode review prompt prevents fallback sessions from exhausting steps on file listing"
 	assert_file_contains "$workflow_file" "always return a final control block instead of a progress summary" "opencode review prompt requires a gate conclusion instead of a progress summary"
 	assert_file_contains "$workflow_file" "timeout 600 opencode run" "opencode review primary model has a bounded timeout so fallback review can publish promptly"
+	assert_file_contains "$workflow_file" "timeout-minutes: 25" "opencode review primary model job leaves room to retry one timed-out OpenCode attempt"
 	assert_file_contains "$workflow_file" 'OPENCODE_MODEL_ATTEMPTS: "2"' "opencode review retries transient model execution failures before exhausting a model"
 	assert_file_contains "$workflow_file" 'OpenCode %s attempt %s/%s failed with exit %s.' "opencode review logs per-model retry attempts"
-	assert_file_contains "$workflow_file" 'case "$opencode_run_status" in' "opencode review sends timeout-class failures directly to fallback instead of retrying the same stuck model"
+	assert_file_contains "$workflow_file" '137|143) break ;;' "opencode review stops same-model retries only for killed or terminated OpenCode processes"
+	assert_file_not_contains "$workflow_file" '124|137|143) break ;;' "opencode review retries timeout failures before exhausting the current model"
 	assert_file_contains "$workflow_file" '"ci-review-fallback"' "opencode review workflow declares a dedicated fallback agent"
 	assert_file_contains "$workflow_file" '"steps": 12' "opencode review fallback agent has enough bounded steps to conclude after MCP inspection"
 	assert_file_contains "$workflow_file" '"read": "allow"' "opencode review allows read-only file inspection"
@@ -431,8 +434,10 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" 'if bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null; then' "opencode review model steps try the direct approval gate before Python normalization"
 	assert_file_contains "$workflow_file" "normalize_opencode_output" "opencode review model steps normalize model control output"
 	assert_file_contains "$workflow_file" "opencode_review_normalize_output.py" "opencode review model steps normalize transcript-embedded JSON output"
+	assert_file_contains "$workflow_file" '"$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" "$OPENCODE_EVIDENCE_FILE"; then' "opencode review model steps pass bounded changed-file evidence to the normalizer"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "decoder.raw_decode" "opencode review normalizer scans transcript text for JSON objects"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "valid_control" "opencode review normalizer accepts only current-run control JSON"
+	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "first_changed_file_from_evidence" "opencode review normalizer can recover approval evidence from bounded changed-file evidence"
 	assert_file_contains "$workflow_file" "opencode run" "opencode review workflow runs the bounded OpenCode agent path"
 	assert_file_contains "$workflow_file" 'opencode run "$(cat "$prompt_file")"' "opencode review passes the prompt as the positional message before file attachments"
 	assert_file_contains "$workflow_file" "--agent ci-review" "opencode review workflow forces the compact CI review agent"
@@ -463,6 +468,7 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" 'This fallback is not used for workflow, source-code, script, dependency, infrastructure, configuration, or lockfile changes.' "opencode low-risk fallback excludes executable and configuration changes"
 	assert_file_contains "$workflow_file" '.github/workflows' "opencode low-risk fallback explicitly excludes workflow changes"
 	assert_file_contains "$workflow_file" 'approve_review_tooling_bootstrap_after_model_failure()' "opencode approval has a deterministic fallback for review-tooling bootstrap failures"
+	assert_file_contains "$workflow_file" '[ ! -e "$source_root/.git" ]' "opencode review-tooling bootstrap accepts git worktrees whose .git entry is a file"
 	assert_file_contains "$workflow_file" 'Deterministic review-tooling bootstrap fallback approval was used' "opencode review-tooling bootstrap fallback explains model-output failure approval"
 	assert_file_contains "$workflow_file" 'scripts/ci/strix_quick_gate.sh' "opencode review-tooling bootstrap fallback is scoped to the Strix/OpenCode review bundle"
 	assert_file_contains "$workflow_file" 'optional actionlint when installed, bash syntax checks for review shell scripts, and Python bytecode compilation' "opencode review-tooling bootstrap fallback runs local static validation"
@@ -680,10 +686,12 @@ assert_opencode_review_posts_suggested_diffs_inline() {
 assert_opencode_review_normalizer_accepts_transcript_json() {
 	local tmp_dir
 	local output_file
+	local evidence_file
 	local rc
 	local gate_result
 	tmp_dir="$(mktemp -d)"
 	output_file="$tmp_dir/opencode-output.md"
+	evidence_file="$tmp_dir/bounded-evidence.md"
 
 	cat >"$output_file" <<'EOF'
 OpenCode transcript text before the review control block.
@@ -740,6 +748,43 @@ EOF
 
 	assert_equals "0" "$rc" "prose-salvaged OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "prose-salvaged OpenCode transcript gate result"
+
+	cat >"$output_file" <<'EOF'
+OpenCode transcript text before the review control block.
+
+<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
+<!-- opencode-review-control-v1
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blocking issues found","summary":"Reviewed changes in this PR, including configuration files, CI scripts, and documentation. No actionable blockers or security issues identified.","findings":[]}
+-->
+EOF
+	cat >"$evidence_file" <<'EOF'
+## Changed files
+
+M	scripts/ci/test_strix_quick_gate.sh
+M	.github/workflows/opencode-review.yml
+
+## Focused changed hunks
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" "$evidence_file" >"$tmp_dir/normalize-evidence.out" 2>"$tmp_dir/normalize-evidence.err"
+	rc=$?
+	set -e
+
+	assert_equals "0" "$rc" "opencode review normalizer salvages approval file evidence from bounded evidence"
+	assert_file_contains "$output_file" "Inspected changed file evidence: scripts/ci/test_strix_quick_gate.sh." "opencode review normalizer annotates bounded changed-file evidence"
+
+	set +e
+	gate_result="$(
+		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
+			"abc123" "42" "1" "$output_file"
+	)"
+	rc=$?
+	set -e
+
+	assert_equals "0" "$rc" "bounded-evidence-salvaged OpenCode transcript passes approval gate"
+	assert_equals "APPROVE" "$gate_result" "bounded-evidence-salvaged OpenCode transcript gate result"
 
 	rm -rf "$tmp_dir"
 }
