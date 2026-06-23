@@ -706,6 +706,35 @@ EOF
 	assert_equals "0" "$rc" "normalized OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "normalized OpenCode transcript gate result"
 
+	cat >"$output_file" <<'EOF'
+OpenCode transcript text before the review control block.
+The changed implementation evidence inspected includes app.js and styles.css.
+
+<!-- opencode-review-control-v1
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after inspecting the implementation behavior.","summary":"The duration calculation changes are consistent with the current UI behavior.","findings":[]}
+-->
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-prose.out" 2>"$tmp_dir/normalize-prose.err"
+	rc=$?
+	set -e
+
+	assert_equals "0" "$rc" "opencode review normalizer salvages approval file evidence from model prose"
+	assert_file_contains "$output_file" "Inspected changed file evidence: app.js." "opencode review normalizer annotates salvaged changed-file evidence"
+
+	set +e
+	gate_result="$(
+		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
+			"abc123" "42" "1" "$output_file"
+	)"
+	rc=$?
+	set -e
+
+	assert_equals "0" "$rc" "prose-salvaged OpenCode transcript passes approval gate"
+	assert_equals "APPROVE" "$gate_result" "prose-salvaged OpenCode transcript gate result"
+
 	rm -rf "$tmp_dir"
 }
 

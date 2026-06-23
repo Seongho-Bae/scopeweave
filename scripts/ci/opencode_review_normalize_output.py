@@ -79,6 +79,17 @@ CHANGED_FILE_EVIDENCE_PATTERN = re.compile(
 )
 
 
+IGNORED_EVIDENCE_PARTS = {
+    "home",
+    "runner",
+    "_temp",
+    "opencode-pr-head",
+    "opencode-review-project",
+    "bounded-review-evidence.md",
+    "opencode-review-evidence.md",
+}
+
+
 def admits_missing_structural_review(reason: str, summary: str) -> bool:
     """Return whether an approval admits it did not inspect required structure."""
     combined = f"{reason}\n{summary}".casefold()
@@ -90,6 +101,18 @@ def admits_missing_structural_review(reason: str, summary: str) -> bool:
 def mentions_changed_file_evidence(reason: str, summary: str) -> bool:
     """Return whether an approval names at least one concrete changed file/path."""
     return bool(CHANGED_FILE_EVIDENCE_PATTERN.search(f"{reason}\n{summary}"))
+
+
+def first_changed_file_evidence(text: str) -> str | None:
+    """Return the first relative changed-file-looking path in model prose."""
+    for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text):
+        evidence = match.group(0)
+        if match.start() > 0 and text[match.start() - 1] == "/":
+            continue
+        if any(part in IGNORED_EVIDENCE_PARTS for part in evidence.split("/")):
+            continue
+        return evidence
+    return None
 
 
 def check_structural_approval(control_file: Path) -> int:
@@ -126,6 +149,7 @@ def valid_control(
     expected_head_sha: str,
     expected_run_id: str,
     expected_run_attempt: str,
+    source_text: str = "",
 ) -> dict[str, Any] | None:
     """Return a normalized control block when it matches the current run."""
     if not isinstance(value, dict):
@@ -161,7 +185,10 @@ def valid_control(
     if result == "APPROVE" and admits_missing_structural_review(reason, summary):
         return None
     if result == "APPROVE" and not mentions_changed_file_evidence(reason, summary):
-        return None
+        evidence = first_changed_file_evidence(source_text)
+        if evidence is None:
+            return None
+        summary = f"{summary} Inspected changed file evidence: {evidence}."
 
     required_finding_fields = (
         "path",
@@ -245,6 +272,7 @@ def main(argv: list[str]) -> int:
             expected_head_sha=expected_head_sha,
             expected_run_id=expected_run_id,
             expected_run_attempt=expected_run_attempt,
+            source_text=output_text,
         )
         if control is None:
             continue
