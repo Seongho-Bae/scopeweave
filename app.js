@@ -1256,10 +1256,11 @@ function deleteTaskAndDescendants(taskId) {
 
   const idsToDelete = new Set([taskId]);
   const queue = [taskId];
+  let queueIndex = 0;
 
-  // BFS traversal in O(N)
-  while (queue.length > 0) {
-    const currentId = queue.shift();
+  // BFS traversal in true O(N) by tracking index instead of using O(K) shift()
+  while (queueIndex < queue.length) {
+    const currentId = queue[queueIndex++];
     const children = childrenMap.get(currentId) || [];
     children.forEach(childId => {
       if (!idsToDelete.has(childId)) {
