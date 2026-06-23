@@ -792,7 +792,7 @@ OpenCode transcript text before the review control block.
 
 <!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
 <!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found","summary":"Approved after reviewing 1 changed file. Inspected changed file evidence: path/to/file1.ext.","findings":[]}
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found","summary":"Approved after reviewing 1 changed file. Inspected changes in src/app.py (via bounded evidence and direct read). Inspected changed file evidence: path/to/file1.ext.","findings":[]}
 -->
 EOF
 	cat >"$evidence_file" <<'EOF'
@@ -813,6 +813,7 @@ EOF
 	assert_equals "0" "$rc" "opencode review normalizer repairs placeholder changed-file evidence with bounded evidence"
 	assert_file_contains "$output_file" "Inspected changed file evidence: index.html." "opencode review normalizer annotates actual changed-file evidence after placeholder prose"
 	assert_file_not_contains "$output_file" "path/to/file1.ext" "opencode review normalizer removes placeholder changed-file evidence"
+	assert_file_not_contains "$output_file" "src/app.py" "opencode review normalizer removes non-current inspected-file prose"
 
 	rm -rf "$tmp_dir"
 }
@@ -909,6 +910,21 @@ EOF
 
 	assert_equals "4" "$rc" "opencode approval gate rejects approvals that admit missing structural exploration"
 	assert_equals "NO_CONCLUSION" "$gate_result" "missing structural exploration rejection gate result"
+
+	cat >"$output_file" <<'EOF'
+OpenCode transcript text before the review control block.
+
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"Accessibility improvements with no blockers","summary":"Verified changes in index.html and tests/e2e/scopeweave.spec.js. MCP sources unavailable for structural analysis.","findings":[]}
+EOF
+
+	set +e
+	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
+		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-mcp-unavailable.out" 2>"$tmp_dir/normalize-mcp-unavailable.err"
+	rc=$?
+	set -e
+
+	assert_equals "4" "$rc" "opencode normalizer rejects approvals that admit MCP structural evidence is unavailable"
+	assert_file_contains "$tmp_dir/normalize-mcp-unavailable.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for MCP structural unavailability"
 
 	cat >"$output_file" <<'EOF'
 OpenCode transcript text before the review control block.
