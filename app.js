@@ -442,7 +442,7 @@ function stripUnsafeGeneratedMarkup(root) {
   root.querySelectorAll('*').forEach((element) => {
     let safeTagName;
     try {
-      safeTagName = typeof element.nodeName === 'string' ? element.nodeName : Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
+      safeTagName = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName').get.call(element);
     } catch (e) {
       safeTagName = '';
     }
@@ -454,12 +454,8 @@ function stripUnsafeGeneratedMarkup(root) {
 
     let attributesToSanitize = [];
     try {
-      if (element.attributes instanceof NamedNodeMap) {
-        attributesToSanitize = Array.from(element.attributes);
-      } else {
-        const attrNames = Element.prototype.getAttributeNames.call(element);
-        attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
-      }
+      const attrNames = Element.prototype.getAttributeNames.call(element);
+      attributesToSanitize = attrNames.map(name => ({ name, value: Element.prototype.getAttribute.call(element, name) }));
     } catch (e) {}
 
     attributesToSanitize.forEach((attribute) => {
@@ -570,12 +566,10 @@ function createActionButton(label, text, action, title) {
   button.dataset.action = action;
   button.setAttribute('aria-label', label);
   button.title = title;
-
   const iconSpan = document.createElement('span');
   iconSpan.setAttribute('aria-hidden', 'true');
   iconSpan.textContent = text;
   button.appendChild(iconSpan);
-
   return button;
 }
 
@@ -1250,16 +1244,29 @@ function insertTaskAfter(task, afterId) {
 }
 
 function deleteTaskAndDescendants(taskId) {
+  // ⚡ Bolt: Replace O(N * Depth) cascading loop with O(N) map-based BFS to prevent UI freeze during deletion
+  const childrenMap = new Map();
+  state.tasks.forEach(task => {
+    if (task.parentId) {
+      const children = childrenMap.get(task.parentId) || [];
+      children.push(task.id);
+      childrenMap.set(task.parentId, children);
+    }
+  });
+
   const idsToDelete = new Set([taskId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    state.tasks.forEach((task) => {
-      if (idsToDelete.has(task.parentId) && !idsToDelete.has(task.id)) {
-        idsToDelete.add(task.id);
-        changed = true;
-      }
-    });
+  const queue = [taskId];
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const children = childrenMap.get(currentId);
+    if (children) {
+      children.forEach(childId => {
+        if (!idsToDelete.has(childId)) {
+          idsToDelete.add(childId);
+          queue.push(childId);
+        }
+      });
+    }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
 }
@@ -1895,7 +1902,18 @@ function renderGantt() {
       '을 입력하면 차트가 나타납니다.'
     );
 
-    emptyDiv.append(icon, title, description);
+    const actions = document.createElement('div');
+    actions.className = 'empty-actions editor-actions';
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'primary-button';
+    backBtn.textContent = '작업 목록으로 돌아가기';
+    backBtn.addEventListener('click', closeGanttModal);
+
+    actions.appendChild(backBtn);
+
+    emptyDiv.append(icon, title, description, actions);
     elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }
@@ -2092,8 +2110,16 @@ function sanitizeCsvFormulaValue(value) {
 
 function createId(seed = Date.now()) {
   // Security enhancement: Prefer crypto.randomUUID for stronger randomness
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return `task-${crypto.randomUUID()}`;
+  if (typeof crypto !== 'undefined') {
+    if (crypto.randomUUID) {
+      return `task-${crypto.randomUUID()}`;
+    }
+    // Fallback: use crypto.getRandomValues if randomUUID is unavailable
+    if (crypto.getRandomValues) {
+      const arr = new Uint32Array(2);
+      crypto.getRandomValues(arr);
+      return `task-${arr[0].toString(16)}-${arr[1].toString(16)}`;
+    }
   }
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }

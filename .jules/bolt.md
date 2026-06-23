@@ -23,3 +23,6 @@
 ## 2026-06-21 - Eliminate O(N) Set Allocations in Render Loops
 **Learning:** Instantiating new Sets inside a .filter() callback during hot paths (like renderAll which fires on every keystroke) causes massive memory allocations and garbage collection pauses.
 **Action:** Move the Set instantiation outside the iteration loop and reuse it via clear() inside the loop to ensure O(1) allocation overhead per render pass.
+## 2026-06-22 - O(N*Depth) cascade deletion UI freeze
+**Learning:** Cascading deletions in hierarchical tree structures (like the tasks array) that re-traverse the entire array per depth level using a `while(changed)` condition cause O(N*Depth) operations. In deep or large trees, this causes a severe UI freeze when removing elements.
+**Action:** Always pre-compute a parent-to-children mapping using a single O(1) Map, and then use BFS (a queue) to traverse and collect descendant IDs in exactly O(N) operations.
