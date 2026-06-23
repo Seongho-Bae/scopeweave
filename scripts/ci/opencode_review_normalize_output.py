@@ -87,6 +87,9 @@ CHANGED_FILE_EVIDENCE_PATTERN = re.compile(
     r"(?![A-Za-z0-9_])"
     r"|(?<![A-Za-z0-9_])(?:Dockerfile|Makefile|README|LICENSE|AGENTS\.md)(?![A-Za-z0-9_])"
 )
+EVIDENCE_PHRASE_PATTERN = re.compile(r"(Inspected changed file evidence:\s*)([^\s`\"'<>)]+)")
+MAX_EVIDENCE_PATH_LENGTH = 260
+MAX_MODEL_PROSE_SCAN_CHARS = 100_000
 
 
 IGNORED_EVIDENCE_PARTS = {
@@ -103,13 +106,20 @@ IGNORED_EVIDENCE_PARTS = {
 def safe_relative_evidence_path(path: str) -> str | None:
     """Return a safe relative changed-file-looking path, or None."""
     normalized = path.strip().replace("\\", "/").rstrip(".,;:")
+    path_parts = normalized.split("/")
     if (
         not normalized
+        or len(normalized) > MAX_EVIDENCE_PATH_LENGTH
+        or "\x00" in normalized
         or normalized.startswith("/")
         or normalized.startswith("../")
+        or normalized.startswith("./")
         or "/../" in normalized
+        or "/./" in normalized
+        or "//" in normalized
         or normalized in {".", ".."}
-        or any(part in IGNORED_EVIDENCE_PARTS for part in normalized.split("/"))
+        or any(part in {"", ".", ".."} for part in path_parts)
+        or any(part in IGNORED_EVIDENCE_PARTS for part in path_parts)
     ):
         return None
     if not CHANGED_FILE_EVIDENCE_PATTERN.fullmatch(normalized):
@@ -132,7 +142,7 @@ def mentions_changed_file_evidence(reason: str, summary: str) -> bool:
 
 def first_changed_file_evidence(text: str) -> str | None:
     """Return the first relative changed-file-looking path in model prose."""
-    for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text):
+    for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text[:MAX_MODEL_PROSE_SCAN_CHARS]):
         if match.start() > 0 and text[match.start() - 1] == "/":
             continue
         evidence = safe_relative_evidence_path(match.group(0))
@@ -183,7 +193,7 @@ def first_changed_file_from_evidence(evidence_text: str) -> str | None:
 def first_actual_changed_file_evidence(text: str, changed_files: list[str]) -> str | None:
     """Return the first mentioned path that is in the bounded changed-file list."""
     changed_file_set = set(changed_files)
-    for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text):
+    for match in CHANGED_FILE_EVIDENCE_PATTERN.finditer(text[:MAX_MODEL_PROSE_SCAN_CHARS]):
         if match.start() > 0 and text[match.start() - 1] == "/":
             continue
         evidence = safe_relative_evidence_path(match.group(0))
@@ -199,11 +209,6 @@ def repair_changed_file_evidence_phrase(
 ) -> str:
     """Replace non-current changed-file evidence phrases with a real changed path."""
     changed_file_set = set(changed_files)
-    phrase_pattern = re.compile(
-        r"(Inspected changed file evidence:\s*)("
-        + CHANGED_FILE_EVIDENCE_PATTERN.pattern
-        + r")"
-    )
 
     def replace_match(match: re.Match[str]) -> str:
         raw_evidence = match.group(2)
@@ -214,7 +219,7 @@ def repair_changed_file_evidence_phrase(
             return f"{match.group(1)}{replacement}{punctuation}"
         return match.group(0)
 
-    return phrase_pattern.sub(replace_match, text)
+    return EVIDENCE_PHRASE_PATTERN.sub(replace_match, text[:MAX_MODEL_PROSE_SCAN_CHARS])
 
 
 def check_structural_approval(control_file: Path) -> int:
