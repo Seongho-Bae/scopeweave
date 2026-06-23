@@ -155,7 +155,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.inputs.pr_base_sha }}
+          ref: ${{ github.ref }}
 
       - name: Materialize pull request head for OpenCode review data
         env:
@@ -723,7 +723,7 @@ jobs:
 
       - name: Run OpenCode PR Review (GPT-5)
         id: opencode_review_primary
-        timeout-minutes: 20
+        timeout-minutes: 25
         env:
           STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -794,7 +794,7 @@ jobs:
             fi
             printf 'OpenCode %s attempt %s/%s failed with exit %s.\n' "$MODEL" "$opencode_attempt" "$opencode_attempts" "$opencode_run_status"
             case "$opencode_run_status" in
-              124|137|143) break ;;
+              137|143) break ;;
             esac
             if [ "$opencode_attempt" -lt "$opencode_attempts" ]; then
               sleep 10
@@ -832,7 +832,7 @@ jobs:
             fi
 
             if python3 "$GITHUB_WORKSPACE/scripts/ci/opencode_review_normalize_output.py" \
-              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"; then
+              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" "$OPENCODE_EVIDENCE_FILE"; then
               bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null
               return $?
             fi
@@ -920,7 +920,7 @@ jobs:
             fi
             printf 'OpenCode %s attempt %s/%s failed with exit %s.\n' "$MODEL" "$opencode_attempt" "$opencode_attempts" "$opencode_run_status"
             case "$opencode_run_status" in
-              124|137|143) break ;;
+              137|143) break ;;
             esac
             if [ "$opencode_attempt" -lt "$opencode_attempts" ]; then
               sleep 10
@@ -958,7 +958,7 @@ jobs:
             fi
 
             if python3 "$GITHUB_WORKSPACE/scripts/ci/opencode_review_normalize_output.py" \
-              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"; then
+              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" "$OPENCODE_EVIDENCE_FILE"; then
               bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null
               return $?
             fi
@@ -1046,7 +1046,7 @@ jobs:
             fi
             printf 'OpenCode %s attempt %s/%s failed with exit %s.\n' "$MODEL" "$opencode_attempt" "$opencode_attempts" "$opencode_run_status"
             case "$opencode_run_status" in
-              124|137|143) break ;;
+              137|143) break ;;
             esac
             if [ "$opencode_attempt" -lt "$opencode_attempts" ]; then
               sleep 10
@@ -1084,7 +1084,7 @@ jobs:
             fi
 
             if python3 "$GITHUB_WORKSPACE/scripts/ci/opencode_review_normalize_output.py" \
-              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"; then
+              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" "$OPENCODE_EVIDENCE_FILE"; then
               bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null
               return $?
             fi
@@ -1183,6 +1183,7 @@ jobs:
           OPENCODE_PRIMARY_OUTCOME: ${{ steps.opencode_review_primary.outputs.review_status }}
           OPENCODE_FALLBACK_OUTCOME: ${{ steps.opencode_review_fallback.outputs.review_status }}
           OPENCODE_SECOND_FALLBACK_OUTCOME: ${{ steps.opencode_review_second_fallback.outputs.review_status }}
+          OPENCODE_EVIDENCE_FILE: ${{ runner.temp }}/opencode-review-evidence.md
           OPENCODE_PRIMARY_OUTPUT_FILE: ${{ runner.temp }}/opencode-review-primary.md
           OPENCODE_FALLBACK_OUTPUT_FILE: ${{ runner.temp }}/opencode-review-fallback.md
           OPENCODE_SECOND_FALLBACK_OUTPUT_FILE: ${{ runner.temp }}/opencode-review-second-fallback.md
@@ -1246,7 +1247,7 @@ jobs:
 
           perl -pe 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$review_output_file" >"$clean_output"
           if ! python3 scripts/ci/opencode_review_normalize_output.py \
-            "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$clean_output"; then
+            "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$clean_output" "$OPENCODE_EVIDENCE_FILE"; then
             echo "Selected successful OpenCode output did not include a valid control conclusion."
             cat "$clean_output"
             exit 4
@@ -2064,7 +2065,7 @@ jobs:
             local output_file="$1"
 
             if python3 "$GITHUB_WORKSPACE/scripts/ci/opencode_review_normalize_output.py" \
-              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"; then
+              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" "$OPENCODE_EVIDENCE_FILE"; then
               bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null
               return $?
             fi
@@ -2325,10 +2326,13 @@ jobs:
                 | map(
                     if .__typename == "CheckRun" then
                       select((.status // "") == "COMPLETED")
+                      | select((.name // "") != "opencode-review")
+                      | select((.checkSuite.workflowRun.workflow.name // "") != "OpenCode Review")
                       | select((.conclusion // "" | ascii_upcase) as $c | ["FAILURE","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STARTUP_FAILURE"] | index($c))
                       | "- " + ((.checkSuite.workflowRun.workflow.name // "") + "/" + (.name // "check") | gsub("^/"; "")) + ": " + (.conclusion // "unknown") + (if (.detailsUrl // "") != "" then " (" + .detailsUrl + ")" else "" end)
                     elif .__typename == "StatusContext" then
-                      select((.state // "" | ascii_upcase) as $s | ["FAILURE","ERROR"] | index($s))
+                      select((.context // "") != "opencode-review")
+                      | select((.state // "" | ascii_upcase) as $s | ["FAILURE","ERROR"] | index($s))
                       | "- " + (.context // "status") + ": " + (.state // "unknown") + (if (.targetUrl // "") != "" then " (" + .targetUrl + ")" else "" end)
                     else
                       empty
@@ -2608,7 +2612,7 @@ jobs:
             local validation_status=0
             local source_root="${OPENCODE_SOURCE_WORKDIR:-}"
 
-            if [ -z "$source_root" ] || [ ! -d "$source_root/.git" ]; then
+            if [ -z "$source_root" ] || [ ! -e "$source_root/.git" ]; then
               return 1
             fi
 
@@ -2842,7 +2846,7 @@ jobs:
               return 1
             fi
             if ! python3 scripts/ci/opencode_review_normalize_output.py \
-              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$normalized_source"; then
+              "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$normalized_source" "$OPENCODE_EVIDENCE_FILE"; then
               rm -f "$normalized_source"
               return 1
             fi
