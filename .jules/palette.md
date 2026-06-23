@@ -40,3 +40,6 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
+## 2026-06-23 - Contextual ARIA labels and Input-Error Linking
+**Learning:** Repetitive UI elements like "Edit" or "Delete" buttons in a data table need contextual `aria-label`s (e.g., "Requirement Analysis Edit") to be meaningful for screen readers. Additionally, when dynamic validation messages appear alongside an input element, setting `aria-invalid="true"` and `aria-describedby="[error-id]"` is critical so screen readers explicitly announce the validation text upon focusing the invalid field.
+**Action:** When working on data table actions, inject the row's primary contextual name (like Task Name) into button `aria-label`s. When dynamically rendering validation warnings near form elements, assign a unique `id` to the warning and use `aria-invalid` and `aria-describedby` on the input to link them.

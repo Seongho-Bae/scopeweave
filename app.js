@@ -433,9 +433,11 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const actionStack = document.createElement('div');
   actionStack.className = 'action-stack';
 
+  const taskName = task.task || task.activity || task.phase || '작업';
+
   if (hasChildren) {
     const toggleButton = document.createElement('button');
-    const toggleLabel = task.expanded ? '접기' : '펼치기';
+    const toggleLabel = `${taskName} ${task.expanded ? '접기' : '펼치기'}`;
     toggleButton.type = 'button';
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
@@ -454,17 +456,17 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   }
 
   const isLeaf = task.depth >= 3;
-  const addChildButton = createActionButton('하위 추가', '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
+  const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
   addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
   }
 
-  const editButton = createActionButton('편집', '✎', 'edit', '편집');
+  const editButton = createActionButton(`${taskName} 편집`, '✎', 'edit', `${taskName} 편집`);
   editButton.setAttribute('aria-haspopup', 'dialog');
 
-  const deleteButton = createActionButton('삭제', '🗑', 'delete', '삭제');
+  const deleteButton = createActionButton(`${taskName} 삭제`, '🗑', 'delete', `${taskName} 삭제`);
 
   actionStack.append(
     addChildButton,
@@ -725,7 +727,8 @@ function createActualProgressCellContent(task, taskMetrics) {
   label.htmlFor = fieldId;
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
-  srOnly.textContent = '실적진척상태';
+  const taskName = task.task || task.activity || task.phase || '작업';
+  srOnly.textContent = `${taskName} 실적진척상태`;
   const select = document.createElement('select');
   select.id = fieldId;
   select.dataset.inlineProgress = task.id;
@@ -741,9 +744,12 @@ function createActualProgressCellContent(task, taskMetrics) {
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
   if (warning) {
     const validation = document.createElement('div');
+    validation.id = `actual-progress-error-${task.id}`;
     validation.className = 'validation-message';
     validation.textContent = warning;
     label.appendChild(validation);
+    select.setAttribute('aria-invalid', 'true');
+    select.setAttribute('aria-describedby', validation.id);
   }
   return label;
 }
