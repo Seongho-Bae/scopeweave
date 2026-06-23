@@ -438,4 +438,24 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+  test('wraps text icons in aria-hidden span for screen reader accessibility', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('A11y Test');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // Check Gantt Close Button
+    const closeBtnSpan = page.locator('#close-gantt span');
+    await expect(closeBtnSpan).toHaveAttribute('aria-hidden', 'true');
+    await expect(closeBtnSpan).toHaveText('✕');
+
+    // Check Row Action Buttons
+    const row = page.locator('tr.task-row').first();
+    const toggleBtnSpan = row.locator('button[data-action="toggle"] span');
+    await expect(toggleBtnSpan).toHaveAttribute('aria-hidden', 'true');
+    await expect(toggleBtnSpan).toHaveText('▼');
+
+    const addChildBtnSpan = row.locator('button[data-action="add-child"] span');
+    await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
+    await expect(addChildBtnSpan).toHaveText('＋');
+  });
 });

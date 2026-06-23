@@ -505,7 +505,10 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     toggleButton.setAttribute('aria-label', toggleLabel);
     toggleButton.setAttribute('aria-expanded', String(task.expanded));
     toggleButton.title = toggleLabel;
-    toggleButton.textContent = task.expanded ? '▼' : '▶';
+    const toggleIcon = document.createElement('span');
+    toggleIcon.setAttribute('aria-hidden', 'true');
+    toggleIcon.textContent = task.expanded ? '▼' : '▶';
+    toggleButton.appendChild(toggleIcon);
     actionStack.appendChild(toggleButton);
   } else {
     const placeholder = document.createElement('span');
@@ -567,7 +570,12 @@ function createActionButton(label, text, action, title) {
   button.dataset.action = action;
   button.setAttribute('aria-label', label);
   button.title = title;
-  button.textContent = text;
+
+  const iconSpan = document.createElement('span');
+  iconSpan.setAttribute('aria-hidden', 'true');
+  iconSpan.textContent = text;
+  button.appendChild(iconSpan);
+
   return button;
 }
 
