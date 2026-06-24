@@ -1269,13 +1269,11 @@ function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-
     // 🛡️ Sentinel: Prevent prototype pollution when parsing JSON
-    const parsed = JSON.parse(raw, (key, value) => {
+    return JSON.parse(raw, (key, value) => {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
       return value;
     });
-    return parsed;
   } catch {
     return null;
   }
