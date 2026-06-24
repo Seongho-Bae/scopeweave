@@ -1603,6 +1603,9 @@ function validateImportedTasks(tasks) {
 }
 
 function validateCsvCell(value, fieldName) {
+  if (typeof value === 'string' && /^\s*[=+\-@]/.test(value)) {
+    throw new Error(`${CSV_FIELD_LABELS[fieldName] || fieldName} 컬럼에 허용되지 않는 수식 패턴이 포함되어 있습니다.`);
+  }
   if (!value) return value;
   const normalized = String(value);
   const label = CSV_FIELD_LABELS[fieldName] || fieldName;

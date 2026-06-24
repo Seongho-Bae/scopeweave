@@ -41,3 +41,8 @@
 **Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.randomUUID()` was unavailable.
 **Learning:** `Math.random()` is not cryptographically secure and can generate predictable sequences, leading to potential ID collisions or predictable IDs that could be abused in certain contexts. While this is primarily an issue in non-secure contexts (HTTP), using `crypto.getRandomValues()` as a fallback provides a cryptographically secure random number generator when `randomUUID()` is missing but `getRandomValues()` is supported.
 **Prevention:** Always use cryptographically secure methods like `crypto.getRandomValues()` to generate random strings when `crypto.randomUUID()` is not an option. Avoid relying on `Math.random()` for any form of unique identifier or security-related token generation.
+
+## 2026-06-24 - Fix CSV Formula Injection during import
+**Vulnerability:** A CSV formula injection vulnerability was found during CSV import parsing.
+**Learning:** Data exported from the planner, or payloads imported, might contain formulas that execute when the CSV is opened in Excel.
+**Prevention:** Add input validation against formula starting characters during CSV import parsing to block malicious files.
