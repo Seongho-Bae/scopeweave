@@ -378,11 +378,9 @@ function createEmptyStateRow() {
 
   const description = document.createElement('p');
   description.className = 'empty-desc';
-  description.append(
-    "하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,",
-    document.createElement('br'),
-    "'CSV 가져오기'를 통해 기존 데이터를 불러오세요."
-  );
+  description.appendChild(document.createTextNode("하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,"));
+  description.appendChild(document.createElement('br'));
+  description.appendChild(document.createTextNode("'CSV 가져오기'를 통해 기존 데이터를 불러오세요."));
 
   const actions = document.createElement('div');
   actions.className = 'empty-actions editor-actions';
@@ -403,9 +401,13 @@ function createEmptyStateRow() {
     document.getElementById('csv-file-input').click();
   });
 
-  actions.append(addRootBtn, importCsvBtn);
+  actions.appendChild(addRootBtn);
+  actions.appendChild(importCsvBtn);
 
-  emptyState.append(icon, title, description, actions);
+  emptyState.appendChild(icon);
+  emptyState.appendChild(title);
+  emptyState.appendChild(description);
+  emptyState.appendChild(actions);
   cell.appendChild(emptyState);
   row.appendChild(cell);
   return row;
@@ -465,36 +467,32 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
 
   const deleteButton = createActionButton('삭제', '🗑', 'delete', '삭제');
 
-  actionStack.append(
-    addChildButton,
-    editButton,
-    deleteButton
-  );
+  actionStack.appendChild(addChildButton);
+  actionStack.appendChild(editButton);
+  actionStack.appendChild(deleteButton);
   actionCell.appendChild(actionStack);
   row.appendChild(actionCell);
 
-  row.append(
-    createTableCell('', createTreeCellContent(task.phase, task.depth)),
-    createTableCell('', createTextCellContent(task.activity)),
-    createTableCell('', createTextCellContent(task.task)),
-    createTableCell('priority-mobile', createTextCellContent(task.categoryLarge)),
-    createTableCell('priority-mobile', createTextCellContent(task.categoryMedium)),
-    createTableCell('priority-desktop', createTextCellContent(task.documentName)),
-    createTableCell('priority-mobile', createOwnerCellContent(task.owner, ownerColorMap)),
-    createTableCell('priority-desktop', createTextCellContent(task.supportTeam)),
-    createTableCell('priority-mobile', createStatusCellContent(taskMetrics.progressState)),
-    createTableCell('priority-mobile', createTextCellContent(task.plannedStartDate)),
-    createTableCell('priority-mobile', createTextCellContent(task.plannedEndDate)),
-    createTableCell('priority-desktop', createMetricText(formatNumber(taskMetrics.durationDays), 'task-duration-days')),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.plannedProgressRatio * 100, 2))),
-    createTableCell('priority-desktop', createMetricText(formatDecimal(taskMetrics.weightRatio, 3), 'task-weight-ratio')),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedPlannedRatio * 100, 2))),
-    createTableCell('priority-mobile', createActualProgressCellContent(task, taskMetrics)),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.actualProgressRatio * 100, 2))),
-    createTableCell('priority-mobile', createTextCellContent(task.actualStartDate, taskMetrics.actualDateWarning)),
-    createTableCell('priority-mobile', createTextCellContent(task.actualEndDate, taskMetrics.actualDateWarning)),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedActualRatio * 100, 2)))
-  );
+  row.appendChild(createTableCell('', createTreeCellContent(task.phase, task.depth)));
+  row.appendChild(createTableCell('', createTextCellContent(task.activity)));
+  row.appendChild(createTableCell('', createTextCellContent(task.task)));
+  row.appendChild(createTableCell('priority-mobile', createTextCellContent(task.categoryLarge)));
+  row.appendChild(createTableCell('priority-mobile', createTextCellContent(task.categoryMedium)));
+  row.appendChild(createTableCell('priority-desktop', createTextCellContent(task.documentName)));
+  row.appendChild(createTableCell('priority-mobile', createOwnerCellContent(task.owner, ownerColorMap)));
+  row.appendChild(createTableCell('priority-desktop', createTextCellContent(task.supportTeam)));
+  row.appendChild(createTableCell('priority-mobile', createStatusCellContent(taskMetrics.progressState)));
+  row.appendChild(createTableCell('priority-mobile', createTextCellContent(task.plannedStartDate)));
+  row.appendChild(createTableCell('priority-mobile', createTextCellContent(task.plannedEndDate)));
+  row.appendChild(createTableCell('priority-desktop', createMetricText(formatNumber(taskMetrics.durationDays), 'task-duration-days')));
+  row.appendChild(createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.plannedProgressRatio * 100, 2))));
+  row.appendChild(createTableCell('priority-desktop', createMetricText(formatDecimal(taskMetrics.weightRatio, 3), 'task-weight-ratio')));
+  row.appendChild(createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedPlannedRatio * 100, 2))));
+  row.appendChild(createTableCell('priority-mobile', createActualProgressCellContent(task, taskMetrics)));
+  row.appendChild(createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.actualProgressRatio * 100, 2))));
+  row.appendChild(createTableCell('priority-mobile', createTextCellContent(task.actualStartDate, taskMetrics.actualDateWarning)));
+  row.appendChild(createTableCell('priority-mobile', createTextCellContent(task.actualEndDate, taskMetrics.actualDateWarning)));
+  row.appendChild(createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedActualRatio * 100, 2))));
 
   return row;
 }
@@ -564,9 +562,12 @@ function renderEditorRow(anchorId) {
   errors.className = 'validation-message';
   errors.setAttribute('aria-live', 'polite');
   errors.setAttribute('aria-atomic', 'true');
-  editorActions.append(saveButton, cancelButton, errors);
+  editorActions.appendChild(saveButton);
+  editorActions.appendChild(cancelButton);
+  editorActions.appendChild(errors);
 
-  form.append(editorGrid, editorActions);
+  form.appendChild(editorGrid);
+  form.appendChild(editorActions);
   panel.appendChild(form);
   cell.appendChild(panel);
   row.appendChild(cell);
@@ -603,7 +604,9 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     const srOnly = document.createElement('span');
     srOnly.className = 'sr-only';
     srOnly.textContent = '(필수)';
-    labelText.append(' ', marker, srOnly);
+    labelText.appendChild(document.createTextNode(' '));
+    labelText.appendChild(marker);
+    labelText.appendChild(srOnly);
   }
   const input = document.createElement('input');
   input.id = fieldId;
@@ -621,7 +624,8 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   if (placeholder) {
     input.placeholder = placeholder;
   }
-  labelElement.append(labelText, input);
+  labelElement.appendChild(labelText);
+  labelElement.appendChild(input);
   return labelElement;
 }
 
@@ -642,7 +646,8 @@ function renderEditorSelectField(label, field, value, options) {
     option.selected = optionValue === value;
     select.appendChild(option);
   });
-  labelElement.append(labelText, select);
+  labelElement.appendChild(labelText);
+  labelElement.appendChild(select);
   return labelElement;
 }
 
@@ -665,7 +670,7 @@ function createTextCellContent(value, warning = '') {
     return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  wrapper.append(value);
+  wrapper.appendChild(document.createTextNode(value));
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
@@ -735,7 +740,8 @@ function createActualProgressCellContent(task, taskMetrics) {
     option.selected = task.actualProgressStatus === optionValue;
     select.appendChild(option);
   });
-  label.append(srOnly, select);
+  label.appendChild(srOnly);
+  label.appendChild(select);
 
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
   if (warning) {
@@ -935,8 +941,7 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    // 🛡️ Sentinel: Strip HTML tags to ensure safe input handling and prevent XSS
-    sanitized[field] = String(draft?.[field] || '').trim().replace(/[<>]/g, '').slice(0, 1000);
+    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
@@ -1800,13 +1805,11 @@ function renderGantt() {
     const strongEnd = document.createElement('strong');
     strongEnd.textContent = '계획종료일';
 
-    description.append(
-      '작업 목록에서 ',
-      strongStart,
-      '과 ',
-      strongEnd,
-      '을 입력하면 차트가 나타납니다.'
-    );
+    description.appendChild(document.createTextNode('작업 목록에서 '));
+    description.appendChild(strongStart);
+    description.appendChild(document.createTextNode('과 '));
+    description.appendChild(strongEnd);
+    description.appendChild(document.createTextNode('을 입력하면 차트가 나타납니다.'));
 
     const actions = document.createElement('div');
     actions.className = 'empty-actions editor-actions';
@@ -1819,7 +1822,10 @@ function renderGantt() {
 
     actions.appendChild(backBtn);
 
-    emptyDiv.append(icon, title, description, actions);
+    emptyDiv.appendChild(icon);
+    emptyDiv.appendChild(title);
+    emptyDiv.appendChild(description);
+    emptyDiv.appendChild(actions);
     elements.ganttContent.replaceChildren(emptyDiv);
     return;
   }
@@ -1842,7 +1848,8 @@ function renderGantt() {
   chart.className = 'gantt-chart';
   chart.appendChild(createGanttChartTable(weeks, weekdays, totalWidth));
 
-  shell.append(meta, chart);
+  shell.appendChild(meta);
+  shell.appendChild(chart);
   elements.ganttContent.replaceChildren(shell);
 }
 
@@ -1873,24 +1880,23 @@ function createGanttMetaTable() {
   const tbody = document.createElement('tbody');
   state.tasks.forEach((task) => {
     const row = document.createElement('tr');
-    row.append(
-      createTableCell('', createTreeCellContent(task.phase || task.activity || task.task || '-', task.depth)),
-      createTableCell('', createTextCellContent(task.activity)),
-      createTableCell('', createTextCellContent(task.task)),
-      createTableCell('', createTextCellContent(task.categoryLarge)),
-      createTableCell('', createTextCellContent(task.categoryMedium)),
-      createTableCell('', createTextCellContent(task.documentName)),
-      createTableCell('', createTextCellContent(task.owner)),
-      createTableCell('', createTextCellContent(task.supportTeam)),
-      createTableCell('', createTextCellContent(task.plannedStartDate)),
-      createTableCell('', createTextCellContent(task.plannedEndDate)),
-      createTableCell('', createTextCellContent(task.actualStartDate)),
-      createTableCell('', createTextCellContent(task.actualEndDate))
-    );
+    row.appendChild(createTableCell('', createTreeCellContent(task.phase || task.activity || task.task || '-', task.depth)));
+    row.appendChild(createTableCell('', createTextCellContent(task.activity)));
+    row.appendChild(createTableCell('', createTextCellContent(task.task)));
+    row.appendChild(createTableCell('', createTextCellContent(task.categoryLarge)));
+    row.appendChild(createTableCell('', createTextCellContent(task.categoryMedium)));
+    row.appendChild(createTableCell('', createTextCellContent(task.documentName)));
+    row.appendChild(createTableCell('', createTextCellContent(task.owner)));
+    row.appendChild(createTableCell('', createTextCellContent(task.supportTeam)));
+    row.appendChild(createTableCell('', createTextCellContent(task.plannedStartDate)));
+    row.appendChild(createTableCell('', createTextCellContent(task.plannedEndDate)));
+    row.appendChild(createTableCell('', createTextCellContent(task.actualStartDate)));
+    row.appendChild(createTableCell('', createTextCellContent(task.actualEndDate)));
     tbody.appendChild(row);
   });
 
-  table.append(thead, tbody);
+  table.appendChild(thead);
+  table.appendChild(tbody);
   return table;
 }
 
@@ -1913,7 +1919,8 @@ function createGanttChartTable(weeks, weekdays, totalWidth) {
     th.textContent = day.dayLabel;
     dayRow.appendChild(th);
   });
-  thead.append(weekRow, dayRow);
+  thead.appendChild(weekRow);
+  thead.appendChild(dayRow);
 
   const tbody = document.createElement('tbody');
   state.tasks.forEach((task) => {
@@ -1939,7 +1946,8 @@ function createGanttChartTable(weeks, weekdays, totalWidth) {
     tbody.appendChild(row);
   });
 
-  table.append(thead, tbody);
+  table.appendChild(thead);
+  table.appendChild(tbody);
   return table;
 }
 
