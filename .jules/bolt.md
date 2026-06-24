@@ -31,3 +31,7 @@
 ## 2026-06-22 - O(N*Depth) cascade deletion UI freeze
 **Learning:** Cascading deletions in hierarchical tree structures (like the tasks array) that re-traverse the entire array per depth level using a `while(changed)` condition cause O(N*Depth) operations. In deep or large trees, this causes a severe UI freeze when removing elements.
 **Action:** Always pre-compute a parent-to-children mapping using a single O(1) Map, then use BFS with an index cursor to traverse descendant IDs in O(N) operations without queue shifting.
+
+## 2026-06-25 - [Optimize date parsing and prevent cache thrashing]
+**Learning:** Using `split('-').map(Number)` in a tight date-parsing loop (`dateStringToUtcMs`) allocates new arrays and throws them away, causing massive garbage collection pressure. Additionally, recalculating the same date ranges in loops (like inside `calculatePlannedProgressRatio`) wastes CPU, and small caches (size < 500) cause cache thrashing for larger datasets.
+**Action:** Always use zero-allocation parsing like `substring` for tight loop strings. Reuse already computed durations inside iteration loops instead of recalculating them from dates. Size your caches appropriately (e.g. 10000) when expecting a large volume of parsing.
