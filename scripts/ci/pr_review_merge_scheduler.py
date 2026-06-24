@@ -205,7 +205,7 @@ def review_author_login(review: dict[str, Any]) -> str:
 
 def is_opencode_review(review: dict[str, Any]) -> bool:
     """Return whether a review was authored by the OpenCode agent."""
-    return review_author_login(review) == "opencode-agent"
+    return review_author_login(review) in {"opencode-agent", "opencode-agent[bot]"}
 
 
 def current_head_review_state(pr: dict[str, Any], state: str) -> bool:
@@ -219,20 +219,6 @@ def current_head_review_state(pr: dict[str, Any], state: str) -> bool:
             continue
         return (review.get("state") or "").upper() == state
     return False
-
-
-def latest_opencode_review(pr: dict[str, Any]) -> dict[str, Any] | None:
-    """Return the newest OpenCode review from the PR review list."""
-    for review in reversed((pr.get("reviews") or {}).get("nodes") or []):
-        if is_opencode_review(review):
-            return review
-    return None
-
-
-def latest_opencode_approved(pr: dict[str, Any]) -> bool:
-    """Return whether the newest OpenCode review is an approval."""
-    review = latest_opencode_review(pr)
-    return bool(review and (review.get("state") or "").upper() == "APPROVED")
 
 
 def has_current_head_approval(pr: dict[str, Any]) -> bool:
@@ -418,7 +404,7 @@ def inspect_pr(
         return Decision(
             number,
             "review_dispatch",
-            "current head has completed Strix evidence; same-head Strix and OpenCode dispatched",
+            "current head has completed Strix evidence; same-head OpenCode dispatched",
         )
 
     return Decision(number, "block", "current head has no OpenCode approval")
@@ -485,6 +471,9 @@ def self_test() -> None:
     }
     assert has_current_head_approval(sample)
     assert not has_current_head_changes_requested(sample)
+    sample["reviews"]["nodes"][0]["author"]["login"] = "opencode-agent[bot]"
+    assert has_current_head_approval(sample)
+    sample["reviews"]["nodes"][0]["author"]["login"] = "opencode-agent"
     decision = inspect_pr(
         "owner/repo",
         sample,
