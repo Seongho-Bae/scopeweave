@@ -951,6 +951,14 @@ function validateDraft(draft, depth) {
     return errors;
   }
   const sanitized = sanitizeDraft(draft);
+
+  EDITABLE_FIELDS.forEach((field) => {
+    if (/[<>]/.test(sanitized[field])) {
+      const label = CSV_FIELD_LABELS[field] || field;
+      errors.push(`${label} 항목에는 HTML 태그 문자를 사용할 수 없습니다.`);
+    }
+  });
+
   if (!sanitized.phase && depth === 1) {
     errors.push('최상위 작업은 단계 값을 입력해야 합니다.');
   }
