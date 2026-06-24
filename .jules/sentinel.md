@@ -49,3 +49,7 @@
 **Vulnerability:** The application loaded the `projectName` directly from `localStorage` in `hydrateState` and rendered it without sanitization. An attacker could manipulate this `localStorage` value (e.g., `<img src=x onerror=alert(1)>`) leading to Stored Cross-Site Scripting (XSS).
 **Learning:** All data loaded from `localStorage` should be treated as untrusted and must be sanitized or validated before being assigned to application state that determines DOM output.
 **Prevention:** Strictly enforce type coercion, trimming, and length limitation when reading user-controlled values like strings from `localStorage`. E.g., `String(value).trim().slice(0, 1000)`.
+## 2026-06-24 - Prevent Prototype Pollution in JSON.parse
+**Vulnerability:** The application parsed JSON data from `localStorage` without a reviver function. An attacker could store a malicious JSON payload with `__proto__`, `constructor`, or `prototype` keys, leading to prototype pollution when parsed.
+**Learning:** `JSON.parse` is vulnerable to prototype pollution if the resulting object is merged into or interacts with global state and objects in an unsafe manner.
+**Prevention:** Always use a reviver function in `JSON.parse` to filter out dangerous keys like `__proto__`, `constructor`, and `prototype`.
