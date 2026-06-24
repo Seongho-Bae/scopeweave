@@ -40,3 +40,6 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
+## 2026-06-24 - Improve contrast and add keyboard shortcut hints
+**Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit greatly from explicit tooltip hints for shortcuts.
+**Action:** Always check contrast ratios for muted/warning text and include `title` attributes for buttons with keyboard shortcuts.

@@ -10,7 +10,7 @@
   --text-muted: #64748b;
   --blue-soft: #f0fdfa;
   --blue-hover: #e0f2fe;
-  --danger: #ef4444;
+  --danger: #dc2626;
   --status-before: #475569;
   --status-active: #059669;
   --status-done: #0f172a;
@@ -390,7 +390,7 @@ select:focus-visible {
 }
 
 .empty-cell {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .editor-row td {
