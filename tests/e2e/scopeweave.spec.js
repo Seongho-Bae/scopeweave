@@ -458,4 +458,38 @@ test.describe('ScopeWeave Planner', () => {
     await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
     await expect(addChildBtnSpan).toHaveText('＋');
   });
+
+  test('adds task name context to inline action button aria-labels', async ({ page }) => {
+    // Add a task
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('Test Phase');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // Verify the row action buttons have contextual aria-labels
+    const row = page.locator('tr.task-row').filter({ hasText: 'Test Phase' }).first();
+    const editBtn = row.locator('button[data-action="edit"]');
+    await expect(editBtn).toHaveAttribute('aria-label', '편집 - Test Phase');
+
+    const deleteBtn = row.locator('button[data-action="delete"]');
+    await expect(deleteBtn).toHaveAttribute('aria-label', '삭제 - Test Phase');
+
+    const addChildBtn = row.locator('button[data-action="add-child"]');
+    await expect(addChildBtn).toHaveAttribute('aria-label', '하위 추가 - Test Phase');
+  });
+
+  test('adds task name context to actual progress select screen reader label', async ({ page }) => {
+    // Add a task
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('Context Test');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // Verify the sr-only label for actual progress has context
+    const row = page.locator('tr.task-row').filter({ hasText: 'Context Test' }).first();
+    const actualProgressSelect = row.locator('select[data-inline-progress]');
+    const selectId = await actualProgressSelect.getAttribute('id');
+    const label = page.locator(`label[for="${selectId}"]`);
+    const srOnlySpan = label.locator('.sr-only');
+
+    await expect(srOnlySpan).toHaveText('실적진척상태 - Context Test');
+  });
 });

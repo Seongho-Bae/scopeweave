@@ -40,3 +40,6 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
+## 2026-06-24 - Provide Context for Repeating Inline Actions
+**Learning:** Repeating form fields and action buttons in a data grid (like "Edit", "Delete", or inline selects) sound identical to screen reader users (e.g., "편집") without the row context.
+**Action:** When working with inline action buttons or fields in a data grid, extract an identifying entity name from the row data and append/prepend it to the `aria-label` or `sr-only` label text to provide clear context (e.g., "편집 - [작업명]").
