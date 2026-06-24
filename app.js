@@ -651,7 +651,7 @@ function createTreeCellContent(value, depth) {
   const treeValue = document.createElement('div');
   treeValue.className = `tree-value indent-${depth}`;
   if (value) {
-    treeValue.innerHTML = escapeHtml(value);
+    treeValue.textContent = value;
   } else {
     treeValue.appendChild(createEmptyCell());
   }
@@ -663,14 +663,10 @@ function createTextCellContent(value, warning = '') {
     return warning ? createWarningBadge(warning) : createEmptyCell();
   }
   if (!warning) {
-    const textSpan = document.createElement('span');
-    textSpan.innerHTML = escapeHtml(value);
-    return textSpan;
+    return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  const textSpan = document.createElement('span');
-  textSpan.innerHTML = escapeHtml(value);
-  wrapper.appendChild(textSpan);
+  wrapper.append(value);
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
@@ -699,7 +695,7 @@ function createOwnerCellContent(owner, ownerColorMap) {
   const badge = document.createElement('span');
   badge.className = 'owner-badge';
   badge.style.background = ownerColorMap.get(owner);
-  badge.innerHTML = escapeHtml(owner);
+  badge.textContent = owner;
   return badge;
 }
 
@@ -940,7 +936,8 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
+    // 🛡️ Sentinel: Strip HTML tags to ensure safe input handling and prevent XSS
+    sanitized[field] = String(draft?.[field] || '').trim().replace(/[<>]/g, '').slice(0, 1000);
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {

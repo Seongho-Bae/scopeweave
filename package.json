@@ -9,8 +9,5 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0"
-  },
-  "dependencies": {
-    "jsdom": "^29.1.1"
   }
 }
