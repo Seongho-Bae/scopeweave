@@ -575,7 +575,7 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = {
+  const testIdMap = Object.assign(Object.create(null), {
     phase: 'editor-phase',
     activity: 'editor-activity',
     task: 'editor-task',
@@ -588,7 +588,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     plannedEndDate: 'editor-planned-end',
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
-  };
+  });
 
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
