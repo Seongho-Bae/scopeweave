@@ -45,3 +45,7 @@
 **Vulnerability:** The local variable `testIdMap` inside `renderEditorField` was instantiated as a literal object, exposing prototype properties. If the `field` variable could be manipulated by an attacker to represent standard prototype properties (like `__proto__`), it could lead to unexpected behavior and bypasses.
 **Learning:** Even locally scoped dictionaries should be protected against prototype injection if they map untrusted string keys to values, especially in dynamic applications.
 **Prevention:** Instantiate all lookup maps, regardless of their scope, with `Object.assign(Object.create(null), { ... })` to ensure that prototype methods and properties are stripped.
+## 2026-06-24 - Prevent Stored XSS via localStorage projectName
+**Vulnerability:** The application loaded the `projectName` directly from `localStorage` in `hydrateState` and rendered it without sanitization. An attacker could manipulate this `localStorage` value (e.g., `<img src=x onerror=alert(1)>`) leading to Stored Cross-Site Scripting (XSS).
+**Learning:** All data loaded from `localStorage` should be treated as untrusted and must be sanitized or validated before being assigned to application state that determines DOM output.
+**Prevention:** Strictly enforce type coercion, trimming, and length limitation when reading user-controlled values like strings from `localStorage`. E.g., `String(value).trim().slice(0, 1000)`.

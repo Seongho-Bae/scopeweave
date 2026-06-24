@@ -1275,7 +1275,7 @@ function loadLocalState() {
 }
 
 function hydrateState(savedState) {
-  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, 1000);
+  state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
