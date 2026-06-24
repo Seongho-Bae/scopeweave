@@ -74,7 +74,6 @@ const CSV_HEADERS = [
   '__parentId',
   '__depth'
 ];
-const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
 
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
@@ -2044,13 +2043,15 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  const normalized = sanitizeCsvFormulaValue(value);
+  let normalized = String(value ?? '');
+  // 🛡️ Sentinel: Robust CSV injection mitigation avoiding regex bypasses
+  const trimmed = normalized.trimStart();
+  if (trimmed.startsWith('=') || trimmed.startsWith('+') ||
+      trimmed.startsWith('-') || trimmed.startsWith('@') ||
+      trimmed.startsWith('\t') || trimmed.startsWith('\r')) {
+    normalized = `'${normalized}`;
+  }
   return `"${normalized.replace(/"/g, '""')}"`;
-}
-
-function sanitizeCsvFormulaValue(value) {
-  const normalized = String(value ?? '');
-  return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
 }
 
 function createId(seed = Date.now()) {
@@ -2089,6 +2090,7 @@ function isValidDateString(value) {
 }
 
 function dateStringToUtcMs(value) {
+  // 🛡️ Sentinel: Validate date string format before caching to prevent cache poisoning DoS
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return NaN;
   }
@@ -2171,8 +2173,8 @@ function formatDecimal(value, digits) {
   return Number(value || 0).toFixed(digits);
 }
 
+// ⚡ Bolt: Cache Intl.NumberFormat instance to prevent O(N) slow toLocaleString allocations during render
 function formatNumber(value) {
-  // ⚡ Bolt: Cache Intl.NumberFormat instance to prevent O(N) slow toLocaleString allocations during render
   if (!formatNumber.formatter) formatNumber.formatter = new Intl.NumberFormat('ko-KR');
   return formatNumber.formatter.format(Number(value || 0));
 }

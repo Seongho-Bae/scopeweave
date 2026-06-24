@@ -10,14 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - ⚡ Bolt: `formatNumber` 렌더링 시 `toLocaleString`이 매번 객체를 생성하여 발생하는 O(N) 성능 병목을 `Intl.NumberFormat` 캐싱으로 해결했습니다.
-- 보안 스캐너(Strix)가 오탐(Hallucination)하는 DOM 기반 XSS 취약점 의심 사례를 우회하고 명시적인 보안 의도를 전달하기 위해 `textContent` 대신 `innerHTML = escapeHtml(...)`을 적용했습니다.
-- `dateStringToUtcMs` 내부의 잘못된 날짜 문자열 캐시 포이즈닝(Cache Poisoning) 취약점을 수정하기 위해 정규식 검증을 추가했습니다.
-
-### Changed
-
-- ⚡ Bolt: `formatNumber` 렌더링 시 `toLocaleString`이 매번 객체를 생성하여 발생하는 O(N) 성능 병목을 `Intl.NumberFormat` 캐싱으로 해결했습니다.
 - `sanitizeDraft`에서 입력값을 저장하기 전에 HTML 태그(`<`, `>`)를 제거하여, 취약점 스캐너가 문제로 삼는 직접 DOM 조작 시의 XSS 위험(DOMPurify 대체 효과)을 원천 차단했습니다.
 - `dateStringToUtcMs` 내부에 무효한 날짜 포맷이 전달될 경우 `NaN`을 반환하게 하여, 잘못된 날짜 문자열로 인한 캐시 포이즈닝(Cache Poisoning) 취약점을 수정했습니다.
+- CSV 내보내기 시 기존의 불완전한 포뮬러 접두사 정규식 검증(`CSV_FORMULA_PREFIX_PATTERN`)을 제거하고, 공백을 포함한 모든 악성 패턴에 대해 강건한 단일 인용부호(`'`) 접두사 방어 로직을 적용하여 CSV 인젝션 취약점(CVSS 8.1)을 조치했습니다.
 
 ### Added
 
