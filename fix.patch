@@ -1,0 +1,13 @@
+--- app.js
++++ app.js
+@@ -1305,10 +1305,9 @@
+     if (!response.ok) {
+       throw new Error('seed-load-failed');
+     }
+     const rawText = await response.text();
+     // 🛡️ Sentinel: Prevent prototype pollution when parsing seed JSON
+-    return JSON.parse(rawText, (key, value) => {
++    const parsed = JSON.parse(rawText, (key, value) => {
+       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
+       return value;
+     });
