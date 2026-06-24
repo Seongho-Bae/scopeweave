@@ -1306,7 +1306,12 @@ async function loadSeedTasks() {
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
-    return await response.json();
+    const rawText = await response.text();
+    // 🛡️ Sentinel: Prevent prototype pollution when parsing seed JSON
+    return JSON.parse(rawText, (key, value) => {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
+      return value;
+    });
   } catch {
     return [];
   }
