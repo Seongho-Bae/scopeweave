@@ -1271,10 +1271,15 @@ function loadLocalState() {
     if (!raw) return null;
 
     // 🛡️ Sentinel: Prevent prototype pollution when parsing JSON
-    return JSON.parse(raw, (key, value) => {
+    const parsed = JSON.parse(raw, (key, value) => {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
       return value;
     });
+    // Additional type guard to ensure no prototype
+    if (parsed && typeof parsed === 'object') {
+      Object.setPrototypeOf(parsed, null);
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -1307,10 +1312,14 @@ async function loadSeedTasks() {
     }
     const rawText = await response.text();
     // 🛡️ Sentinel: Prevent prototype pollution when parsing seed JSON
-    return JSON.parse(rawText, (key, value) => {
+    const parsed = JSON.parse(rawText, (key, value) => {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
       return value;
     });
+    if (parsed && typeof parsed === 'object') {
+       Object.setPrototypeOf(parsed, null);
+    }
+    return parsed;
   } catch {
     return [];
   }
