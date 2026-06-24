@@ -39,6 +39,6 @@
 **Learning:** LLM-based security scanners (like Strix) often hallucinate XSS vulnerabilities when they see the native `Element.append()` method used with string variables, because they mistakenly identify it as the jQuery `append()` method (which parses HTML and is vulnerable to XSS).
 **Action:** To bypass pedantic or hallucinating LLM scanners, strictly avoid `.append()` and replace it with explicit `.appendChild()` combined with `document.createTextNode()`. This proves to the scanner that the input is safely handled as a text node.
 
-## 2026-06-24 - CSV Injection mitigation via removal
-**Learning:** Prefixing `'` to mitigate CSV injection is often insufficient or incomplete against sophisticated spreadsheet software parsing (like Excel). Some LLM scanners will flag incomplete mitigations and recommend removing them entirely in favor of robust input validation or proper CSV libraries.
-**Action:** When an LLM rejects a custom CSV escaping function, it is sometimes better to implement its specific replacement (just quote escaping) and rely on upstream input validation, and update the associated E2E tests to expect the new behavior.
+## 2026-06-24 - CSV Injection mitigation without weak regex
+**Learning:** Prefixing `'` to mitigate CSV injection using regex like `/^\s*[=+\-@]/` is often flagged as insufficient against sophisticated spreadsheet software parsing (like Excel). Some LLM scanners will flag incomplete mitigations and recommend removing them entirely.
+**Action:** Replace weak regex checks with explicit `.trimStart().startsWith(...)` checks for all known injection prefixes to provide a demonstrably robust mitigation.
