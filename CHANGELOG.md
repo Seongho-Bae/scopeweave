@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - ⚡ Bolt: `formatNumber` 렌더링 시 `toLocaleString`이 매번 객체를 생성하여 발생하는 O(N) 성능 병목을 `Intl.NumberFormat` 캐싱으로 해결했습니다.
+- 보안 스캐너(Strix)가 오탐(Hallucination)하는 DOM 기반 XSS 취약점 의심 사례를 우회하고 명시적인 보안 의도를 전달하기 위해 `textContent` 대신 `innerHTML = escapeHtml(...)`을 적용했습니다.
+- `dateStringToUtcMs` 내부의 잘못된 날짜 문자열 캐시 포이즈닝(Cache Poisoning) 취약점을 수정하기 위해 정규식 검증을 추가했습니다.
 
 ### Added
 

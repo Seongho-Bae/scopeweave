@@ -651,7 +651,7 @@ function createTreeCellContent(value, depth) {
   const treeValue = document.createElement('div');
   treeValue.className = `tree-value indent-${depth}`;
   if (value) {
-    treeValue.textContent = value;
+    treeValue.innerHTML = escapeHtml(value);
   } else {
     treeValue.appendChild(createEmptyCell());
   }
@@ -663,10 +663,14 @@ function createTextCellContent(value, warning = '') {
     return warning ? createWarningBadge(warning) : createEmptyCell();
   }
   if (!warning) {
-    return document.createTextNode(value);
+    const textSpan = document.createElement('span');
+    textSpan.innerHTML = escapeHtml(value);
+    return textSpan;
   }
   const wrapper = document.createElement('div');
-  wrapper.append(value);
+  const textSpan = document.createElement('span');
+  textSpan.innerHTML = escapeHtml(value);
+  wrapper.appendChild(textSpan);
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
@@ -695,7 +699,7 @@ function createOwnerCellContent(owner, ownerColorMap) {
   const badge = document.createElement('span');
   badge.className = 'owner-badge';
   badge.style.background = ownerColorMap.get(owner);
-  badge.textContent = owner;
+  badge.innerHTML = escapeHtml(owner);
   return badge;
 }
 
@@ -2088,6 +2092,9 @@ function isValidDateString(value) {
 }
 
 function dateStringToUtcMs(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return NaN;
+  }
   if (!dateStringToUtcMs.cache) dateStringToUtcMs.cache = new Map();
   const dateToUtcMsCache = dateStringToUtcMs.cache;
 

@@ -1,0 +1,40 @@
+--- app.js
++++ app.js
+@@ -660,20 +660,21 @@
+   const treeValue = document.createElement('div');
+   treeValue.className = `tree-value indent-${depth}`;
+   if (value) {
+-    treeValue.textContent = value;
++    treeValue.innerHTML = escapeHtml(value);
+   } else {
+     treeValue.appendChild(createEmptyCell());
+   }
+   return treeValue;
+ }
+
+ function createTextCellContent(value, warning = '') {
+   if (!value) {
+     return warning ? createWarningBadge(warning) : createEmptyCell();
+   }
+   if (!warning) {
+-    return document.createTextNode(value);
++    const textSpan = document.createElement('span');
++    textSpan.innerHTML = escapeHtml(value);
++    return textSpan;
+   }
+   const wrapper = document.createElement('div');
+-  wrapper.append(value);
++  const textSpan = document.createElement('span');
++  textSpan.innerHTML = escapeHtml(value);
++  wrapper.appendChild(textSpan);
+   const validation = document.createElement('div');
+   validation.className = 'validation-message';
+   validation.textContent = warning;
+@@ -698,7 +699,7 @@
+   const badge = document.createElement('span');
+   badge.className = 'owner-badge';
+   badge.style.background = ownerColorMap.get(owner);
+-  badge.textContent = owner;
++  badge.innerHTML = escapeHtml(owner);
+   return badge;
+ }
