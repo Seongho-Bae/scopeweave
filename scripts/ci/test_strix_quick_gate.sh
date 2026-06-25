@@ -669,6 +669,18 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_not_contains "$opencode_config" "gpt-5-mini" "opencode config must not define unavailable GPT-5 mini fallback"
 }
 
+assert_pr_review_merge_scheduler_uses_github_actions_bot_token() {
+	local workflow_file="$REPO_ROOT/.github/workflows/pr-review-merge-scheduler.yml"
+	local scheduler_file="$REPO_ROOT/scripts/ci/pr_review_merge_scheduler.py"
+
+	assert_file_contains "$workflow_file" 'GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}' "scheduler branch updates and merges use the GitHub Actions bot token"
+	assert_file_contains "$workflow_file" "contents: write" "scheduler can perform GitHub Actions bot branch updates and merge commits"
+	assert_file_contains "$workflow_file" "pull-requests: write" "scheduler can call update-branch and auto-merge APIs"
+	assert_file_contains "$scheduler_file" "update-branch" "scheduler calls the GitHub update-branch API for outdated approved PRs"
+	assert_file_contains "$scheduler_file" "expected_head_sha={head}" "scheduler guards branch updates with the current PR head SHA"
+	assert_file_contains "$scheduler_file" "github-actions[bot]" "scheduler records mechanical mutations as GitHub Actions bot work"
+}
+
 assert_opencode_review_posts_suggested_diffs_inline() {
 	local workflow_file="$REPO_ROOT/.github/workflows/opencode-review.yml"
 
@@ -6194,6 +6206,8 @@ assert_strix_llm_file_read_is_literal_data
 assert_strix_child_target_uses_constant_argument
 
 assert_opencode_review_uses_codegraph_and_gpt5_fallback
+
+assert_pr_review_merge_scheduler_uses_github_actions_bot_token
 
 assert_opencode_review_posts_suggested_diffs_inline
 
