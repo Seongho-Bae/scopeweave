@@ -1097,10 +1097,7 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
-  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
-  const taskById = new Map();
-  state.tasks.forEach((task) => taskById.set(task.id, task));
-
+  // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -1113,25 +1110,7 @@ function getVisibleTasks() {
     }
   });
 
-  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
-  const visited = new Set();
-  return visible.filter((task) => {
-    let parentId = task.parentId;
-    visited.clear();
-    visited.add(task.id);
-    while (parentId) {
-      if (visited.has(parentId)) {
-        break;
-      }
-      visited.add(parentId);
-      const parent = taskById.get(parentId);
-      if (parent && !parent.expanded) {
-        return false;
-      }
-      parentId = parent?.parentId;
-    }
-    return true;
-  });
+  return visible;
 }
 
 function insertTaskAfter(task, afterId) {
