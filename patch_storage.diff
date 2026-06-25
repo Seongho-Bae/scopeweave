@@ -1,0 +1,46 @@
+--- app.js
++++ app.js
+@@ -1245,6 +1245,29 @@
+   return state.tasks.find((task) => task.id === taskId) || null;
+ }
+
++async function encryptData(data) {
++  const encoder = new TextEncoder();
++  const key = await crypto.subtle.generateKey(
++    { name: "AES-GCM", length: 256 },
++    true,
++    ["encrypt", "decrypt"]
++  );
++  const iv = crypto.getRandomValues(new Uint8Array(12));
++  const encodedData = encoder.encode(JSON.stringify(data));
++  const encryptedContent = await crypto.subtle.encrypt(
++    { name: "AES-GCM", iv: iv },
++    key,
++    encodedData
++  );
++
++  const exportedKey = await crypto.subtle.exportKey("jwk", key);
++  return {
++    iv: Array.from(iv),
++    key: exportedKey,
++    data: Array.from(new Uint8Array(encryptedContent))
++  };
++}
++
+ function persistState() {
+   const payload = {
+     projectName: state.projectName,
+     baseDate: state.baseDate,
+     tasks: state.tasks.map((task) => ({ ...task }))
+   };
+-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
++
++  // VULN-0001 fix: Encrypt sensitive data before storing in localStorage
++  encryptData(payload).then(encryptedPayload => {
++    localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedPayload));
++  }).catch(e => {
++    console.error('Failed to encrypt state:', e);
++  });
+
+   if (state.jsonSyncHandle) {
+     writeJsonSyncFile().catch(() => {

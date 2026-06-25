@@ -1,0 +1,34 @@
+--- app.js
++++ app.js
+@@ -1280,13 +1280,30 @@
+   }
+ }
+
+-function loadLocalState() {
++async function decryptData(encryptedPayload) {
++  if (!encryptedPayload || !encryptedPayload.iv || !encryptedPayload.key || !encryptedPayload.data) return null;
++  try {
++    const key = await crypto.subtle.importKey("jwk", encryptedPayload.key, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
++    const iv = new Uint8Array(encryptedPayload.iv);
++    const data = new Uint8Array(encryptedPayload.data);
++    const decryptedContent = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
++    const decoder = new TextDecoder();
++    return JSON.parse(decoder.decode(decryptedContent));
++  } catch (e) {
++    console.error('Failed to decrypt state:', e);
++    return null;
++  }
++}
++
++async function loadLocalStateAsync() {
+   try {
+     const raw = localStorage.getItem(STORAGE_KEY);
+-    return raw ? JSON.parse(raw) : null;
++    if (!raw) return null;
++    const parsed = JSON.parse(raw);
++    // Backward compatibility for unencrypted data
++    if (!parsed.iv) return parsed;
++    return await decryptData(parsed);
+   } catch {
+     return null;
+   }

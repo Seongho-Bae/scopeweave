@@ -143,7 +143,7 @@ async function bootstrap() {
     elements.connectJsonSyncButton.title = '이 브라우저는 wbs.json 직접 저장 연결을 지원하지 않습니다.';
   }
 
-  const savedState = loadLocalState();
+  const savedState = await loadLocalStateAsync();
   if (savedState) {
     hydrateState(savedState);
   } else {
@@ -1244,6 +1244,29 @@ function findTask(taskId) {
   return state.tasks.find((task) => task.id === taskId) || null;
 }
 
+async function encryptData(data) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encodedData = encoder.encode(JSON.stringify(data));
+  const encryptedContent = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    encodedData
+  );
+
+  const exportedKey = await crypto.subtle.exportKey("jwk", key);
+  return {
+    iv: Array.from(iv),
+    key: exportedKey,
+    data: Array.from(new Uint8Array(encryptedContent))
+  };
+}
+
 function persistState() {
   const payload = {
     projectName: state.projectName,
@@ -1259,10 +1282,28 @@ function persistState() {
   }
 }
 
-function loadLocalState() {
+async function decryptData(encryptedPayload) {
+  if (!encryptedPayload || !encryptedPayload.iv || !encryptedPayload.key || !encryptedPayload.data) return null;
+  try {
+    const key = await crypto.subtle.importKey("jwk", encryptedPayload.key, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    const iv = new Uint8Array(encryptedPayload.iv);
+    const data = new Uint8Array(encryptedPayload.data);
+    const decryptedContent = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(decryptedContent));
+  } catch (e) {
+    console.error("Failed to decrypt state:", e);
+    return null;
+  }
+}
+
+async function loadLocalStateAsync() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed.iv) return parsed;
+    return await decryptData(parsed);
   } catch {
     return null;
   }
