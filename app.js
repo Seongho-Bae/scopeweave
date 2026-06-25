@@ -156,7 +156,7 @@ async function bootstrap() {
 
 function bindEvents() {
   elements.projectNameInput.addEventListener('input', (event) => {
-    state.projectName = event.target.value.trim() || DEFAULT_PROJECT_NAME;
+    state.projectName = String(event.target.value).trim() || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
   });
@@ -577,7 +577,7 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = {
+  const testIdMap = Object.assign(Object.create(null), {
     phase: 'editor-phase',
     activity: 'editor-activity',
     task: 'editor-task',
@@ -590,7 +590,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     plannedEndDate: 'editor-planned-end',
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
-  };
+  });
 
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
@@ -1679,7 +1679,7 @@ function parseCsv(text) {
     }
   });
 
-  return rows.slice(1).filter((cells) => cells.some((cell) => cell.trim() !== '')).map((cells) => ({
+  return rows.slice(1).filter((cells) => cells.some((cell) => String(cell).trim() !== '')).map((cells) => ({
     phase: validateCsvCell(readCsvCell(cells, headerMap, '단계'), 'phase'),
     activity: validateCsvCell(readCsvCell(cells, headerMap, 'Activity'), 'activity'),
     task: validateCsvCell(readCsvCell(cells, headerMap, 'Task'), 'task'),
@@ -1701,7 +1701,7 @@ function parseCsv(text) {
 
 function readCsvCell(cells, headerMap, name) {
   const index = headerMap.get(name);
-  return index === undefined ? '' : (cells[index] || '').trim();
+  return index === undefined ? '' : String(cells[index] || '').trim();
 }
 
 async function connectJsonSync() {
