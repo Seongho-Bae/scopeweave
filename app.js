@@ -443,7 +443,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     toggleButton.dataset.action = 'toggle';
     toggleButton.setAttribute('aria-label', `${toggleLabel} - ${rowEntityName}`);
     toggleButton.setAttribute('aria-expanded', String(task.expanded));
-    toggleButton.title = toggleLabel;
+    toggleButton.title = `${toggleLabel} - ${rowEntityName}`;
     const toggleIcon = document.createElement('span');
     toggleIcon.setAttribute('aria-hidden', 'true');
     toggleIcon.textContent = task.expanded ? '▼' : '▶';
@@ -456,17 +456,17 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   }
 
   const isLeaf = task.depth >= 3;
-  const addChildButton = createActionButton(`하위 추가 - ${rowEntityName}`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
+  const addChildButton = createActionButton(`하위 추가 - ${rowEntityName}`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `하위 추가 - ${rowEntityName}`);
   addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
   }
 
-  const editButton = createActionButton(`편집 - ${rowEntityName}`, '✎', 'edit', '편집');
+  const editButton = createActionButton(`편집 - ${rowEntityName}`, '✎', 'edit', `편집 - ${rowEntityName}`);
   editButton.setAttribute('aria-haspopup', 'dialog');
 
-  const deleteButton = createActionButton(`삭제 - ${rowEntityName}`, '🗑', 'delete', '삭제');
+  const deleteButton = createActionButton(`삭제 - ${rowEntityName}`, '🗑', 'delete', `삭제 - ${rowEntityName}`);
 
   actionStack.append(
     addChildButton,
