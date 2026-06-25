@@ -143,7 +143,7 @@ async function bootstrap() {
     elements.connectJsonSyncButton.title = '이 브라우저는 wbs.json 직접 저장 연결을 지원하지 않습니다.';
   }
 
-  const savedState = await loadLocalStateAsync();
+  const savedState = loadLocalState();
   if (savedState) {
     hydrateState(savedState);
   } else {
@@ -1267,6 +1267,13 @@ async function encryptData(data) {
   };
 }
 
+async function decryptData(encryptedPayload) {
+  if (!encryptedPayload || !encryptedPayload.iv || !encryptedPayload.key || !encryptedPayload.data) return null;
+  const key = await crypto.subtle.importKey("jwk", encryptedPayload.key, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+  const decryptedContent = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(encryptedPayload.iv) }, key, new Uint8Array(encryptedPayload.data));
+  return JSON.parse(new TextDecoder().decode(decryptedContent));
+}
+
 function persistState() {
   const payload = {
     projectName: state.projectName,
@@ -1282,28 +1289,10 @@ function persistState() {
   }
 }
 
-async function decryptData(encryptedPayload) {
-  if (!encryptedPayload || !encryptedPayload.iv || !encryptedPayload.key || !encryptedPayload.data) return null;
-  try {
-    const key = await crypto.subtle.importKey("jwk", encryptedPayload.key, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
-    const iv = new Uint8Array(encryptedPayload.iv);
-    const data = new Uint8Array(encryptedPayload.data);
-    const decryptedContent = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
-    const decoder = new TextDecoder();
-    return JSON.parse(decoder.decode(decryptedContent));
-  } catch (e) {
-    console.error("Failed to decrypt state:", e);
-    return null;
-  }
-}
-
-async function loadLocalStateAsync() {
+function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed.iv) return parsed;
-    return await decryptData(parsed);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
