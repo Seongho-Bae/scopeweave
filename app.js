@@ -1275,10 +1275,19 @@ function loadLocalState() {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
       return value;
     });
-    // Additional type guard to ensure no prototype
-    if (parsed && typeof parsed === 'object') {
-      Object.setPrototypeOf(parsed, null);
-    }
+    const stripProto = (obj) => {
+      if (obj && typeof obj === 'object') {
+        if (!Array.isArray(obj)) {
+          Object.setPrototypeOf(obj, null);
+        }
+        for (const key in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            stripProto(obj[key]);
+          }
+        }
+      }
+    };
+    stripProto(parsed);
     return parsed;
   } catch {
     return null;
@@ -1316,9 +1325,19 @@ async function loadSeedTasks() {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
       return value;
     });
-    if (parsed && typeof parsed === 'object') {
-       Object.setPrototypeOf(parsed, null);
-    }
+    const stripProto = (obj) => {
+      if (obj && typeof obj === 'object') {
+        if (!Array.isArray(obj)) {
+          Object.setPrototypeOf(obj, null);
+        }
+        for (const key in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            stripProto(obj[key]);
+          }
+        }
+      }
+    };
+    stripProto(parsed);
     return parsed;
   } catch {
     return [];
