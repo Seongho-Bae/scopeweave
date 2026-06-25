@@ -2073,7 +2073,7 @@ function csvEscape(value) {
 
 function sanitizeCsvFormulaValue(value) {
   const normalized = String(value ?? '');
-  return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
+  return `\t${normalized}`;
 }
 
 function createId(seed = Date.now()) {
