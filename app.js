@@ -653,7 +653,7 @@ function createTreeCellContent(value, depth) {
   const treeValue = document.createElement('div');
   treeValue.className = `tree-value indent-${depth}`;
   if (value) {
-    treeValue.textContent = value;
+    treeValue.textContent = escapeHtml(value);
   } else {
     treeValue.appendChild(createEmptyCell());
   }
@@ -668,7 +668,7 @@ function createTextCellContent(value, warning = '') {
     return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  wrapper.append(value);
+  wrapper.textContent = value;
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
