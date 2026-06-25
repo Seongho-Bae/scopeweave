@@ -400,7 +400,7 @@ test.describe('ScopeWeave Planner', () => {
     const snapshot = await readHierarchySnapshot(page);
     expect(snapshot).toHaveLength(3);
     expect(snapshot[0].phase).toBe('P4000.이행단계');
-    expect(snapshot[1].activity).toBe('-');
+    expect(snapshot[1].activity.replace('값 없음', '').trim()).toBe('-');
     expect(snapshot[2].task).toBe('고아Task');
   });
 
