@@ -1280,7 +1280,7 @@ function persistState() {
     baseDate: state.baseDate,
     tasks: state.tasks.map((task) => ({ ...task }))
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {
