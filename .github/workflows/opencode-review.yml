@@ -33,6 +33,7 @@ permissions:
 
 jobs:
   opencode-review:
+    timeout-minutes: 120
     if: >-
       github.event_name == 'pull_request'
       && github.event.pull_request.draft != true
@@ -142,6 +143,12 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e
+        with:
+          egress-policy: audit
+          disable-file-monitoring: true
+
       - name: Checkout trusted review workflow
         if: github.event_name == 'pull_request_target'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
