@@ -30,8 +30,8 @@ def test_strix_ci_dependencies_are_pinned_in_repo_manifest() -> None:
     assert 'Gate Strix secrets' in workflow_source
     assert 'STRIX_FALLBACK_MODELS:' in workflow_source
     assert 'STRIX_FAIL_ON_PROVIDER_SIGNAL: "1"' in workflow_source
-    assert 'strix-agent==1.0.4' in requirements_source
-    assert 'google-cloud-aiplatform==1.133.0' in requirements_source
+    assert 'strix-agent==0.8.3' in requirements_source
+    assert 'google-cloud-aiplatform==1.158.0' in requirements_source
 
 
 def test_strix_tracks_all_reported_vulnerability_severities() -> None:
