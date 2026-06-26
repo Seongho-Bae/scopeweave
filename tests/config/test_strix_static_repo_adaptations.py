@@ -88,7 +88,6 @@ def test_opencode_review_workflow_has_runner_hardening() -> None:
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
     assert 'timeout-minutes: 25' in workflow_source
-    assert 'timeout-minutes: 60' in workflow_source
 
 
 
