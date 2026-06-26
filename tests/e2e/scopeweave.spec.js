@@ -469,3 +469,20 @@ test.describe('ScopeWeave Planner', () => {
     await expect(addChildBtnSpan).toHaveText('＋');
   });
 });
+
+test.describe('ScopeWeave Planner - Palette UX Enhancements', () => {
+  test('adds keyboard shortcut hints to editor buttons', async ({ page }) => {
+    await page.goto('/');
+
+    // Open editor
+    await page.getByRole('button', { name: '최상위 작업 추가', exact: true }).click();
+
+    // Verify save button tooltip
+    const saveButton = page.getByRole('button', { name: '저장', exact: true });
+    await expect(saveButton).toHaveAttribute('title', '저장 (Enter)');
+
+    // Verify cancel button tooltip
+    const cancelButton = page.getByRole('button', { name: '취소', exact: true });
+    await expect(cancelButton).toHaveAttribute('title', '취소 (Esc)');
+  });
+});
