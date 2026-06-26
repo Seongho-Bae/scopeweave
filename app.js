@@ -2160,8 +2160,9 @@ function formatDecimal(value, digits) {
   return Number(value || 0).toFixed(digits);
 }
 
+const koNumberFormatter = new Intl.NumberFormat('ko-KR');
 function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
+  return koNumberFormatter.format(Number(value || 0));
 }
 
 const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
