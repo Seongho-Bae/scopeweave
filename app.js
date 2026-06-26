@@ -943,7 +943,7 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
+    sanitized[field] = escapeHtml(String(draft?.[field] || "").trim().slice(0, 1000));
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
