@@ -30,8 +30,8 @@ def test_strix_ci_dependencies_are_pinned_in_repo_manifest() -> None:
     assert 'Gate Strix secrets' in workflow_source
     assert 'STRIX_FALLBACK_MODELS:' in workflow_source
     assert 'STRIX_FAIL_ON_PROVIDER_SIGNAL: "1"' in workflow_source
-    assert 'strix-agent==0.8.3' in requirements_source
-    assert 'google-cloud-aiplatform==1.158.0' in requirements_source
+    assert 'strix-agent==1.0.4' in requirements_source
+    assert 'google-cloud-aiplatform==1.133.0' in requirements_source
 
 
 def test_strix_tracks_all_reported_vulnerability_severities() -> None:
@@ -43,7 +43,7 @@ def test_strix_tracks_all_reported_vulnerability_severities() -> None:
     assert 'STRIX_FAIL_ON_MIN_SEVERITY: MEDIUM' in workflow_source
     assert 'STRIX_FAIL_ON_MIN_SEVERITY="${STRIX_FAIL_ON_MIN_SEVERITY:-MEDIUM}"' in gate_source
     assert 'include every model-reported vulnerability' in opencode_source
-    assert 'One Strix model vulnerability report requires one distinct finding' in opencode_source
+    assert "One Strix model vulnerability report requires one distinct finding" in opencode_source
 
 
 def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> None:
@@ -88,6 +88,7 @@ def test_opencode_review_workflow_has_runner_hardening() -> None:
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
     assert 'timeout-minutes: 25' in workflow_source
+    assert 'timeout-minutes: 60' in workflow_source
 
 
 
