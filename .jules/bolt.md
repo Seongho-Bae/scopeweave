@@ -35,3 +35,7 @@
 ## 2026-06-23 - Remove redundant O(N * Depth) visible tasks filtering loop
 **Learning:** `getVisibleTasks()` filters visible items by checking the expansion state of all ancestors for each task. The previous implementation correctly calculated visible tasks using a single O(N) top-down pass, but redundantly executed a secondary `.filter()` loop using a `taskById` map lookup and a tree traversal to root (`while(parentId)`). This unnecessary loop caused a performance bottleneck (taking ~167ms compared to ~13ms for the single-pass logic for 100 iterations of 2000 tasks).
 **Action:** When filtering hierarchical data based on parent state, always rely on a single top-down pass that propagates the hidden state (using a Set or property) instead of traversing the tree to the root for every single item in a redundant `.filter()` loop.
+
+## 2026-06-26 - [Title] Prevent O(N) array lookups in high-frequency drag events
+**Learning:** Calling `Array.find()` (via `findTask()`) inside a high-frequency event listener like `dragover` triggers an O(N) operation many times per second. This can cause severe UI stuttering and unresponsiveness during drag-and-drop actions on large lists.
+**Action:** Always pre-compute an O(1) lookup map (e.g., `new Map(tasks.map(t => [t.id, t]))`) during the one-time `dragstart` event and use `Map.get()` inside `dragover` and `drop`, then clear the map on `dragend`.

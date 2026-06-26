@@ -109,6 +109,7 @@ const state = {
   },
   jsonSyncHandle: null,
   dragTaskId: null,
+  dragTaskMap: null,
   toastTimer: null,
   previousFocus: null
 };
@@ -249,6 +250,7 @@ function bindEvents() {
     }
 
     state.dragTaskId = row.dataset.taskId;
+    state.dragTaskMap = new Map(state.tasks.map(t => [t.id, t]));
     row.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', state.dragTaskId);
@@ -264,8 +266,8 @@ function bindEvents() {
       return;
     }
 
-    const draggedTask = findTask(state.dragTaskId);
-    const targetTask = findTask(row.dataset.taskId);
+    const draggedTask = state.dragTaskMap ? state.dragTaskMap.get(state.dragTaskId) : findTask(state.dragTaskId);
+    const targetTask = state.dragTaskMap ? state.dragTaskMap.get(row.dataset.taskId) : findTask(row.dataset.taskId);
     if (!draggedTask || !targetTask || !canReorderWithinLevel(draggedTask, targetTask)) {
       return;
     }
@@ -292,8 +294,8 @@ function bindEvents() {
     }
 
     event.preventDefault();
-    const targetTask = findTask(row.dataset.taskId);
-    const draggedTask = findTask(state.dragTaskId);
+    const targetTask = state.dragTaskMap ? state.dragTaskMap.get(row.dataset.taskId) : findTask(row.dataset.taskId);
+    const draggedTask = state.dragTaskMap ? state.dragTaskMap.get(state.dragTaskId) : findTask(state.dragTaskId);
     if (draggedTask && targetTask && canReorderWithinLevel(draggedTask, targetTask)) {
       const rect = row.getBoundingClientRect();
       const placeAfter = event.clientY >= rect.top + rect.height / 2;
@@ -2012,6 +2014,7 @@ function showToast(message) {
 
 function clearDragState() {
   state.dragTaskId = null;
+  state.dragTaskMap = null;
   elements.tableBody.querySelectorAll('.dragging').forEach((row) => row.classList.remove('dragging'));
   clearDropTargets();
 }
