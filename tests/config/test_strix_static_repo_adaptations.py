@@ -39,7 +39,7 @@ def test_strix_tracks_all_reported_vulnerability_severities() -> None:
     gate_source = STRIX_GATE.read_text(encoding="utf-8")
     opencode_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
-    assert 'branches: [develop, master]' in workflow_source
+    assert 'branches: [main, develop, master]' in workflow_source
     assert 'STRIX_FAIL_ON_MIN_SEVERITY: MEDIUM' in workflow_source
     assert 'STRIX_FAIL_ON_MIN_SEVERITY="${STRIX_FAIL_ON_MIN_SEVERITY:-LOW}"' in gate_source
     assert 'include every model-reported vulnerability' in opencode_source
