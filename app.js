@@ -310,7 +310,6 @@ function renderAll() {
   const metrics = computeTaskMetrics();
 
   elements.projectNameInput.value = state.projectName;
-  document.title = state.projectName !== DEFAULT_PROJECT_NAME ? `${state.projectName} - ScopeWeave Planner` : 'ScopeWeave Planner';
   elements.baseDateInput.value = state.baseDate;
   elements.totalDays.textContent = `${formatNumber(metrics.totalDays)}일`;
   elements.plannedProgress.textContent = formatPercent(metrics.totalWeightedPlannedRatio * 100, 2);
@@ -538,11 +537,11 @@ function renderEditorRow(anchorId) {
     renderEditorField('단계', 'phase', draft.phase, 'text', depth === 1, '예: P1000.분석단계'),
     renderEditorField('Activity', 'activity', draft.activity, 'text', depth === 2, '예: 요구사항 분석'),
     renderEditorField('Task', 'task', draft.task, 'text', depth === 3, '예: 인터뷰 진행'),
-    renderEditorField('대분류', 'categoryLarge', draft.categoryLarge, 'text', false, '예: 공통'),
-    renderEditorField('중분류', 'categoryMedium', draft.categoryMedium, 'text', false, '예: 기획'),
-    renderEditorField('산출물', 'documentName', draft.documentName, 'text', false, '예: 요구사항정의서'),
-    renderEditorField('담당자', 'owner', draft.owner, 'text', false, '예: 홍길동'),
-    renderEditorField('지원팀', 'supportTeam', draft.supportTeam, 'text', false, '예: 인프라팀'),
+    renderEditorField('대분류', 'categoryLarge', draft.categoryLarge),
+    renderEditorField('중분류', 'categoryMedium', draft.categoryMedium),
+    renderEditorField('산출물', 'documentName', draft.documentName),
+    renderEditorField('담당자', 'owner', draft.owner),
+    renderEditorField('지원팀', 'supportTeam', draft.supportTeam),
     renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date'),
     renderEditorField('계획종료일', 'plannedEndDate', draft.plannedEndDate, 'date'),
     renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS),
@@ -561,7 +560,6 @@ function renderEditorRow(anchorId) {
   cancelButton.className = 'secondary-button';
   cancelButton.dataset.action = 'cancel-editor';
   cancelButton.textContent = '취소';
-  cancelButton.title = '취소 (Esc)';
   // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
   cancelButton.addEventListener('click', () => closeEditor());
   const errors = document.createElement('div');
