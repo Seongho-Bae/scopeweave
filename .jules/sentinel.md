@@ -50,3 +50,8 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-26 - Eliminate Math.random from task ID generation entirely
+**Vulnerability:** Even as a fallback to crypto implementations, `Math.random()` was still present in the application's unique task ID generation `createId` function. Its lack of cryptographic strength leaves it susceptible to predictability vectors.
+**Learning:** For client-side static apps, `crypto.randomUUID()` and `crypto.getRandomValues()` cover most modern browsers. If neither is present, falling back to a deterministic combination of timestamp (`Date.now()`) and a stateful, incrementing sequential counter is safer and less collision-prone than relying on the predictable pseudo-random `Math.random()`.
+**Prevention:** Avoid relying on `Math.random()` entirely for any form of unique identifier, security token, or randomness logic. In the absence of `crypto` utilities, rely on simple counters and deterministic patterns instead.
