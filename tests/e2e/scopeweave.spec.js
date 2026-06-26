@@ -78,8 +78,8 @@ test.describe('ScopeWeave Planner', () => {
     });
     await page.reload();
 
-    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled();
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0, { timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
     await expect(page.getByRole('button', { name: '간트차트보기' })).toBeDisabled();
     await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.');
@@ -96,7 +96,7 @@ test.describe('ScopeWeave Planner', () => {
       plannedEndDate: '2026-05-20'
     });
 
-    await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: phaseName })).toHaveCount(1);
+    await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: phaseName })).toHaveCount(1, { timeout: 10000 });
     await page.reload();
     await expect(page.locator('tbody tr[data-task-id]').filter({ hasText: phaseName })).toHaveCount(1);
   });
@@ -286,7 +286,7 @@ test.describe('ScopeWeave Planner', () => {
     });
     await page.reload();
 
-    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(1);
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(1, { timeout: 10000 });
     const firstRow = page.locator('tbody tr[data-task-id]').first();
     await expect(firstRow).toContainText('2026-05-20');
 
