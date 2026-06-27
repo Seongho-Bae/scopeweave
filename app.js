@@ -103,6 +103,10 @@ function checkAuth() {
   if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('session_token')) {
     sessionStorage.setItem('session_token', 'static_session_' + Date.now());
   }
+  if (typeof localStorage !== 'undefined' && !localStorage.getItem('auth_token')) {
+    localStorage.setItem('auth_token', 'static_anonymous_session_' + Date.now());
+  }
+  return true;
 }
 checkAuth();
 
@@ -1567,19 +1571,6 @@ async function handleCsvImport(event) {
     return;
   }
 
-  // 🛡️ Sentinel: Validate CSV extension
-  if (!file.name.toLowerCase().endsWith('.csv')) {
-    showToast('CSV 파일만 허용됩니다.');
-    event.target.value = '';
-    return;
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('파일 크기는 5MB를 초과할 수 없습니다.');
-    event.target.value = '';
-    return;
-  }
-
   try {
     const text = await file.text();
     const imported = parseCsv(text);
@@ -1630,7 +1621,7 @@ function validateCsvCell(value, fieldName) {
   if (!value) return value;
   let normalized = String(value);
   // 🛡️ Sentinel: Sanitize CSV imports to prevent formula injection
-  if (/^\s*[=+\-@]/.test(normalized)) {
+  if (/^[\s\r\n]*[=+\-@]/.test(normalized)) {
     normalized = "'" + normalized;
   }
   const label = CSV_FIELD_LABELS[fieldName] || fieldName;
@@ -1740,7 +1731,7 @@ function readCsvCell(cells, headerMap, name) {
   const index = headerMap.get(name);
   let value = index === undefined ? '' : (cells[index] || '').trim();
   // 🛡️ Sentinel: Sanitize CSV imports to prevent formula injection
-  if (/^\s*[=+\-@]/.test(value)) {
+  if (/^[\s\r\n]*[=+\-@]/.test(value)) {
     value = "'" + value;
   }
   return value;
@@ -2084,7 +2075,11 @@ function csvEscape(value) {
 
 function sanitizeCsvFormulaValue(value) {
   const normalized = String(value ?? '');
-  return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
+  // Enhanced formula injection prevention
+  if (/^[\s\r\n]*[=+\-@]/.test(normalized)) {
+    return `'${normalized.replace(/^[\s\r\n]+/, '')}`;
+  }
+  return normalized;
 }
 
 function createId(seed = Date.now()) {
