@@ -11,6 +11,7 @@ WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "strix.yml"
 
 
 def test_strix_workflow_uses_trusted_pr_scope_sentinel() -> None:
+    """Ensure that the Strix workflow uses the correct PR scope sentinel."""
     workflow_source = WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert "pull_request_target:" in workflow_source
@@ -19,6 +20,7 @@ def test_strix_workflow_uses_trusted_pr_scope_sentinel() -> None:
 
 
 def test_strix_workflow_enables_pr_scoping_only_for_trusted_pr_evidence() -> None:
+    """Ensure that PR scoping is only enabled when running trusted PR evidence."""
     workflow_source = WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert (

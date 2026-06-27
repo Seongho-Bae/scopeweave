@@ -16,6 +16,7 @@ K8S_SERVICE = REPO_ROOT / "infra" / "k8s" / "service.yaml"
 
 
 def test_strix_gate_keeps_workflow_and_script_changes_scannable() -> None:
+    """Ensure that Strix wrapper script does not arbitrarily drop workflow/script changes."""
     source = STRIX_GATE.read_text(encoding="utf-8")
 
     assert 'if [[ "$changed_file" == .github/workflows/* || "$changed_file" == scripts/ci/* ]]; then' not in source
@@ -23,6 +24,7 @@ def test_strix_gate_keeps_workflow_and_script_changes_scannable() -> None:
 
 
 def test_strix_ci_dependencies_are_pinned_in_repo_manifest() -> None:
+    """Ensure that the Strix pipeline dependencies are pinned correctly in the manifest."""
     workflow_source = STRIX_WORKFLOW.read_text(encoding="utf-8")
     requirements_source = (REPO_ROOT / "requirements-strix-ci.txt").read_text(encoding="utf-8")
 
@@ -35,6 +37,7 @@ def test_strix_ci_dependencies_are_pinned_in_repo_manifest() -> None:
 
 
 def test_strix_tracks_all_reported_vulnerability_severities() -> None:
+    """Ensure that Strix properly reacts to reported vulnerabilities of all severity levels."""
     workflow_source = STRIX_WORKFLOW.read_text(encoding="utf-8")
     gate_source = STRIX_GATE.read_text(encoding="utf-8")
     opencode_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
@@ -47,6 +50,7 @@ def test_strix_tracks_all_reported_vulnerability_severities() -> None:
 
 
 def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> None:
+    """Ensure that the OpenCode fallback script can successfully extract low-severity reports."""
     evidence_file = tmp_path / "failed-check-evidence.md"
     evidence_file.write_text(
         "\n".join(
@@ -85,6 +89,7 @@ def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> Non
 
 
 def test_opencode_review_workflow_has_runner_hardening() -> None:
+    """Ensure that the OpenCode workflow uses harden-runner correctly."""
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
     assert 'timeout-minutes: 120' in workflow_source
@@ -94,6 +99,7 @@ def test_opencode_review_workflow_has_runner_hardening() -> None:
 
 
 def test_kubernetes_deployment_uses_non_root_versioned_runtime() -> None:
+    """Ensure that the deployment configurations force a secure, non-root environment."""
     deployment_source = K8S_DEPLOYMENT.read_text(encoding="utf-8")
     service_source = K8S_SERVICE.read_text(encoding="utf-8")
 
@@ -113,6 +119,7 @@ def test_kubernetes_deployment_uses_non_root_versioned_runtime() -> None:
 
 
 def test_companion_workflows_cover_named_requirements_manifests_and_full_history() -> None:
+    """Ensure companion checks correctly match the expected requirement filename pattern."""
     dependency_review_source = DEPENDENCY_REVIEW_WORKFLOW.read_text(encoding="utf-8")
     osv_source = OSV_WORKFLOW.read_text(encoding="utf-8")
 

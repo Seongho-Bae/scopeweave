@@ -217,6 +217,7 @@ def repair_changed_file_evidence_phrase(
     changed_file_set = set(changed_files)
 
     def replace_match(match: re.Match[str]) -> str:
+        """Replace the matched phrase with the first actual changed file evidence."""
         raw_evidence = match.group(2)
         stripped_evidence = raw_evidence.rstrip(".,;:")
         punctuation = raw_evidence[len(stripped_evidence) :]
@@ -233,6 +234,7 @@ def remove_unsupported_inspected_change_phrases(text: str, changed_files: list[s
     changed_file_set = set(changed_files)
 
     def replace_match(match: re.Match[str]) -> str:
+        """Replace the matched phrase with the first actual changed file evidence."""
         evidence = safe_relative_evidence_path(match.group("path"))
         if evidence is None or evidence not in changed_file_set:
             return match.group("prefix")
