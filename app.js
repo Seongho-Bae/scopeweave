@@ -1287,13 +1287,17 @@ function normalizeStoredTask(task) {
 }
 
 async function loadSeedTasks() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch('./wbs.json', { cache: 'no-store' });
+    const response = await fetch('./wbs.json', { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
     return await response.json();
   } catch {
+    clearTimeout(timeoutId);
     return [];
   }
 }
