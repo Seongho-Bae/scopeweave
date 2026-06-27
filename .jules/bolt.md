@@ -35,6 +35,3 @@
 ## 2026-06-23 - Remove redundant O(N * Depth) visible tasks filtering loop
 **Learning:** `getVisibleTasks()` filters visible items by checking the expansion state of all ancestors for each task. The previous implementation correctly calculated visible tasks using a single O(N) top-down pass, but redundantly executed a secondary `.filter()` loop using a `taskById` map lookup and a tree traversal to root (`while(parentId)`). This unnecessary loop caused a performance bottleneck (taking ~167ms compared to ~13ms for the single-pass logic for 100 iterations of 2000 tasks).
 **Action:** When filtering hierarchical data based on parent state, always rely on a single top-down pass that propagates the hidden state (using a Set or property) instead of traversing the tree to the root for every single item in a redundant `.filter()` loop.
-## 2024-05-18 - Optimize formatNumber
-**Learning:** `Number.toLocaleString()` instantiates a new formatter internally every time it is called. When rendering large tables where many numbers are formatted (e.g., `formatNumber()` inside a render loop), this causes significant performance overhead and GC pressure.
-**Action:** Always cache an `Intl.NumberFormat` instance (e.g., `new Intl.NumberFormat('ko-KR')`) and reuse its `.format()` method instead of calling `.toLocaleString()` repeatedly in a loop or render function.
