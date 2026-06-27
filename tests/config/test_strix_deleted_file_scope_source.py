@@ -11,6 +11,7 @@ def test_strix_scope_normalizer_skips_deleted_changed_files_without_tracebacks()
     None
 ):
     """Ensure deleted files are skipped gracefully."""
+    """Ensure deleted files are skipped gracefully."""
     source = STRIX_GATE.read_text(encoding="utf-8")
 
     assert "candidate = (repo_root / relative_path).resolve(strict=False)" in source
