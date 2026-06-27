@@ -302,8 +302,8 @@ button {
   box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);
 }
 
-.icon-button:hover:not(:disabled),
-.toggle-button:hover:not(:disabled) {
+.icon-button:hover:not(:disabled):not([aria-disabled="true"]),
+.toggle-button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: #f8fafc;
   border-color: var(--border-strong);
   color: var(--text);
@@ -312,7 +312,9 @@ button {
 }
 
 .icon-button:disabled,
-.toggle-button:disabled {
+.icon-button[aria-disabled="true"],
+.toggle-button:disabled,
+.toggle-button[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -474,18 +476,20 @@ select[data-inline-progress]:focus {
   box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.3);
 }
 
-.primary-button:hover:not(:disabled) {
+.primary-button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: #1d4ed8;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);
   transform: translateY(-1px);
 }
 
-.primary-button:active:not(:disabled) {
+.primary-button:active:not(:disabled):not([aria-disabled="true"]) {
   transform: translateY(0);
 }
 
 .primary-button:disabled,
-.secondary-button:disabled {
+.primary-button[aria-disabled="true"],
+.secondary-button:disabled,
+.secondary-button[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -497,13 +501,13 @@ select[data-inline-progress]:focus {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-.secondary-button:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: #f8fafc;
   border-color: #94a3b8;
   transform: translateY(-1px);
 }
 
-.secondary-button:active:not(:disabled) {
+.secondary-button:active:not(:disabled):not([aria-disabled="true"]) {
   transform: translateY(0);
 }
 

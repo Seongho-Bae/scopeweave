@@ -139,7 +139,7 @@ async function bootstrap() {
   bindEvents();
 
   if (!window.showSaveFilePicker) {
-    elements.connectJsonSyncButton.disabled = true;
+    elements.connectJsonSyncButton.setAttribute('aria-disabled', 'true');
     elements.connectJsonSyncButton.title = '이 브라우저는 wbs.json 직접 저장 연결을 지원하지 않습니다.';
   }
 
@@ -168,10 +168,24 @@ function bindEvents() {
   });
 
   elements.addRootButton.addEventListener('click', () => openEditor({ mode: 'create', parentId: null, depth: 1, insertAfterId: getLastRootTaskId() }));
-  elements.exportCsvButton.addEventListener('click', exportCsv);
+  elements.exportCsvButton.addEventListener('click', (e) => {
+    if (elements.exportCsvButton.getAttribute('aria-disabled') === 'true') {
+      e.preventDefault();
+      showToast('내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
+      return;
+    }
+    exportCsv();
+  });
   elements.importCsvButton.addEventListener('click', () => elements.csvFileInput.click());
   elements.csvFileInput.addEventListener('change', handleCsvImport);
-  elements.openGanttButton.addEventListener('click', openGanttModal);
+  elements.openGanttButton.addEventListener('click', (e) => {
+    if (elements.openGanttButton.getAttribute('aria-disabled') === 'true') {
+      e.preventDefault();
+      showToast('간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.');
+      return;
+    }
+    openGanttModal();
+  });
   elements.closeGanttButton.addEventListener('click', closeGanttModal);
   elements.ganttModal.addEventListener('click', (event) => {
     if (event.target.dataset.closeModal === 'true') {
@@ -179,7 +193,12 @@ function bindEvents() {
     }
   });
 
-  elements.connectJsonSyncButton.addEventListener('click', async () => {
+  elements.connectJsonSyncButton.addEventListener('click', async (e) => {
+    if (elements.connectJsonSyncButton.getAttribute('aria-disabled') === 'true') {
+      e.preventDefault();
+      showToast('이 브라우저는 wbs.json 직접 저장 연결을 지원하지 않습니다.');
+      return;
+    }
     await connectJsonSync();
   });
 
@@ -321,9 +340,14 @@ function renderAll() {
   const rows = [];
 
   const hasTasks = state.tasks.length > 0;
-  elements.exportCsvButton.disabled = !hasTasks;
+  if (!hasTasks) {
+    elements.exportCsvButton.setAttribute('aria-disabled', 'true');
+    elements.openGanttButton.setAttribute('aria-disabled', 'true');
+  } else {
+    elements.exportCsvButton.removeAttribute('aria-disabled');
+    elements.openGanttButton.removeAttribute('aria-disabled');
+  }
   elements.exportCsvButton.title = hasTasks ? '' : '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.';
-  elements.openGanttButton.disabled = !hasTasks;
   elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
@@ -457,10 +481,11 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
 
   const isLeaf = task.depth >= 3;
   const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
-  addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
+  } else {
+    addChildButton.removeAttribute('aria-disabled');
   }
 
   const editButton = createActionButton(`${taskName} 편집`, '✎', 'edit', `${taskName} 편집`);
