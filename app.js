@@ -1817,8 +1817,9 @@ function renderGantt() {
     return;
   }
 
-  const minDate = plannedTasks.reduce((min, task) => (compareDateStrings(task.plannedStartDate, min) < 0 ? task.plannedStartDate : min), plannedTasks[0].plannedStartDate);
-  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDate, max) > 0 ? task.plannedEndDate : max), plannedTasks[0].plannedEndDate);
+  // ⚡ Bolt: Use direct string comparison for minDate/maxDate calculation since plannedTasks already filter for valid dates.
+  const minDate = plannedTasks.reduce((min, task) => (task.plannedStartDate < min ? task.plannedStartDate : min), plannedTasks[0].plannedStartDate);
+  const maxDate = plannedTasks.reduce((max, task) => (task.plannedEndDate > max ? task.plannedEndDate : max), plannedTasks[0].plannedEndDate);
   const weekdays = buildWeekdayTimeline(minDate, maxDate);
   const weeks = groupTimelineByWeek(weekdays);
 
@@ -1940,7 +1941,8 @@ function buildWeekdayTimeline(minDate, maxDate) {
   const days = [];
   let cursor = getMonday(minDate);
   const endBoundary = getFriday(maxDate);
-  while (compareDateStrings(cursor, endBoundary) <= 0) {
+  // ⚡ Bolt: Use direct string comparison for cursor loop since both are generated valid dates.
+  while (cursor <= endBoundary) {
     if (!isWeekend(cursor)) {
       days.push({
         date: cursor,
@@ -1978,11 +1980,13 @@ function createGanttBarElement(startDate, endDate, weekdays, type) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
     return null;
   }
-  const startIndex = weekdays.findIndex((day) => compareDateStrings(day.date, startDate) >= 0);
+  // ⚡ Bolt: Use direct string comparison instead of compareDateStrings to avoid
+  // redundant isValidDateString() checks and cache exhaustion during heavy loop iterations.
+  const startIndex = weekdays.findIndex((day) => day.date >= startDate);
   // ⚡ Bolt: Replace O(N) array clone+reverse with reverse loop to avoid O(T*D) memory allocations in Gantt render
   let normalizedEndIndex = -1;
   for (let i = weekdays.length - 1; i >= 0; i -= 1) {
-    if (compareDateStrings(weekdays[i].date, endDate) <= 0) {
+    if (weekdays[i].date <= endDate) {
       normalizedEndIndex = i;
       break;
     }

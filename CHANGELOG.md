@@ -39,3 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Playwright E2E coverage for add/edit hierarchy flows, delete
   confirmation, subtree drag-and-drop, and JSON sync shape.
 - GitHub Pages deployment workflow and operator documentation.
+
+## [Unreleased]
+### 성능 개선
+- `createGanttBarElement`, `renderGantt`, `buildWeekdayTimeline`에서 반복적으로 호출되던 `compareDateStrings`를 직접적인 문자열 비교 연산(`>=`, `<=`)으로 교체하여 O(N*D) 복잡도의 캐시 스레싱과 정규식 검사를 방지함.
