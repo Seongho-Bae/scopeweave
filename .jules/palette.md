@@ -47,10 +47,6 @@
 **Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
 **Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
 
-## 2026-06-28 - Keyboard Shortcut Tooltips
-**Learning:** Adding title attributes with keyboard shortcuts (like `(Enter)` and `(Esc)`) to primary interaction buttons (like Save or Cancel) significantly improves discoverability for power users without cluttering the UI.
-**Action:** Consistently add `title` attributes with keyboard shortcut hints to primary actions and cancel actions across form and dialog components.
-
-## 2026-06-28 - Test coverage and docstring verification
-**Learning:** CI requires a way to prove that the tests and docstrings are measured and achieve 100% coverage. If a JS/TS project defines a `test` script but no `coverage` script in `package.json`, the CI pipeline will fail assuming coverage isn't proven.
-**Action:** When working in JavaScript environments that track 100% test coverage through CI, ensure that `package.json` provides standard scripts like `coverage` and `docstring:coverage` configured to run your test runner (e.g. `playwright test`) so that automated tools properly trigger them.
+## 2026-06-28 - Keyboard Shortcut Hints
+**Learning:** Keyboard shortcut hints are more useful when they are discoverable to both mouse and assistive-technology users; `title` alone is hover-driven and unreliable for screen readers.
+**Action:** Pair optional title tooltips with `aria-keyshortcuts` on buttons that expose keyboard shortcuts.
