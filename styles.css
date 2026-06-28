@@ -390,7 +390,7 @@ select:focus-visible {
 }
 
 .empty-cell {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .editor-row td {

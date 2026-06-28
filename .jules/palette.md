@@ -42,4 +42,4 @@
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
 ## 2026-06-24 - Improve contrast and add keyboard shortcut hints
 **Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit greatly from explicit tooltip hints for shortcuts.
-**Action:** Always check contrast ratios for muted/warning text and include `title` attributes for buttons with keyboard shortcuts.
+**Action:** Always check contrast ratios for muted/warning text and include `aria-keyshortcuts` alongside visible or hover hints for buttons with keyboard shortcuts.
