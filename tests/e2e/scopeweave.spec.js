@@ -401,8 +401,11 @@ test.describe('ScopeWeave Planner', () => {
     expect(snapshot).toHaveLength(3);
     expect(snapshot[0].phase).toBe('P4000.이행단계');
     expect(snapshot[1].activity).toBe('-');
-
     expect(snapshot[2].task).toBe('고아Task');
+
+    const emptyActivityCell = page.locator('tbody tr[data-task-id]').nth(1).locator('td').nth(2).locator('.empty-cell');
+    await expect(emptyActivityCell.locator('[aria-hidden="true"]')).toHaveText('-');
+    await expect(emptyActivityCell.locator('.sr-only')).toHaveText('값 없음');
   });
 
   test('can edit an existing row and cancel the edit', async ({ page }) => {
