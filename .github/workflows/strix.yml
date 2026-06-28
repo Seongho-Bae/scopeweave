@@ -2,7 +2,7 @@ name: Strix Security Scan
 
 on:
   push:
-    branches: [main, develop, master]
+    branches: [main]
   pull_request_target:
   schedule:
     # Weekly scan on protected branches (Mondays at 03:00 UTC).
@@ -28,10 +28,7 @@ on:
         type: string
 
 concurrency:
-  group: >-
-    strix-${{ github.repository }}-${{ github.event_name == 'pull_request_target' &&
-    format('pr-{0}', github.event.pull_request.number) || github.event.inputs.pr_number != '' &&
-    format('pr-{0}', github.event.inputs.pr_number) || github.ref }}
+  group: strix-${{ github.repository }}
   # cancel-in-progress deliberately disabled: an attacker could force-push
   # a benign commit to cancel an in-progress scan of a malicious commit.
   cancel-in-progress: false
@@ -45,19 +42,12 @@ jobs:
   strix:
     timeout-minutes: 120
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
         with:
           egress-policy: audit
           disable-file-monitoring: true
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.13"
 
       - name: Materialize trusted workspace
         env:
@@ -88,7 +78,6 @@ jobs:
           PR_BASE_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.event.inputs.pr_base_sha }}
           PR_HEAD_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.inputs.pr_head_sha }}
         run: |
-          set -euo pipefail
           if [ -z "$PR_NUMBER" ] || [ -z "$PR_HEAD_SHA" ]; then
             echo "::error::PR number and head SHA are required for trusted PR-scope Strix evidence."
             exit 1
@@ -105,13 +94,6 @@ jobs:
           if [ -n "$PR_BASE_SHA" ]; then
             git -C "$TRUSTED_WORKSPACE" fetch --no-tags --depth=1 origin "$PR_BASE_SHA"
             git -C "$TRUSTED_WORKSPACE" cat-file -e "$PR_BASE_SHA^{commit}"
-          fi
-          # Fetching the expected head SHA directly avoids false failures when
-          # refs/pull/<n>/head has already advanced before this queued run starts.
-          if git -C "$TRUSTED_WORKSPACE" fetch --no-tags --depth=1 origin "$PR_HEAD_SHA"; then
-            git -C "$TRUSTED_WORKSPACE" cat-file -e "$PR_HEAD_SHA^{commit}"
-            git -C "$TRUSTED_WORKSPACE" update-ref "refs/remotes/pull/${PR_NUMBER}/head" "$PR_HEAD_SHA"
-            exit 0
           fi
           for pr_head_fetch_attempt in 1 2 3 4 5 6; do
             git -C "$TRUSTED_WORKSPACE" fetch --no-tags --prune origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/pull/${PR_NUMBER}/head"
@@ -138,7 +120,7 @@ jobs:
           STRIX_MODEL: ${{ github.event.inputs.strix_llm || 'openai/gpt-5' }}
           STRIX_OPENAI_API_KEY: ${{ secrets.STRIX_OPENAI_API_KEY }}
           STRIX_VERTEX_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
-          STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN || github.token }}
+          STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}
         run: |
           strix_model="$(printf '%s' "$STRIX_MODEL" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           case "$strix_model" in
@@ -150,7 +132,8 @@ jobs:
               ;;
             openai/gpt-5* | openai/gpt-[6-9]* | openai/gpt-[1-9][0-9]* | \
             openai/openai/gpt-5* | openai/openai/gpt-[6-9]* | openai/openai/gpt-[1-9][0-9]* | \
-            github_models/openai/gpt-5* | github_models/openai/gpt-[6-9]* | github_models/openai/gpt-[1-9][0-9]*)
+            github_models/openai/gpt-5* | github_models/openai/gpt-[6-9]* | github_models/openai/gpt-[1-9][0-9]* | \
+            github_models/deepseek/deepseek-r1-0528 | github_models/deepseek/deepseek-v3-0324)
               echo 'enabled=true' >> "$GITHUB_OUTPUT"
               echo 'provider_mode=github_models' >> "$GITHUB_OUTPUT"
               sanitized_github_models_token="$(printf '%s' "$STRIX_GITHUB_MODELS_TOKEN" | tr -d '\r\n')"
@@ -187,22 +170,17 @@ jobs:
               ;;
           esac
 
-      - name: Set up Python
-        if: steps.gate.outputs.enabled == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.13"
-
       - name: Install Strix
         if: steps.gate.outputs.enabled == 'true'
         working-directory: ${{ runner.temp }}/trusted-workspace
         run: |
-          python3 -m pip install --disable-pip-version-check --no-cache-dir --require-hashes -r requirements-strix-ci-hashes.txt
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --no-cache-dir -r requirements-strix-ci.txt
 
       - name: Mask LLM API key
         if: steps.gate.outputs.enabled == 'true'
         env:
-          LLM_API_KEY: ${{ steps.gate.outputs.provider_mode == 'github_models' && (secrets.STRIX_GITHUB_MODELS_TOKEN || github.token) || steps.gate.outputs.provider_mode == 'openai_direct' && secrets.STRIX_OPENAI_API_KEY || '' }}
+          LLM_API_KEY: ${{ steps.gate.outputs.provider_mode == 'github_models' && secrets.STRIX_GITHUB_MODELS_TOKEN || steps.gate.outputs.provider_mode == 'openai_direct' && secrets.STRIX_OPENAI_API_KEY || '' }}
         run: |
           # Sanitize CR/LF before masking to prevent broken ::add-mask::
           # commands and potential workflow command injection.
@@ -218,7 +196,7 @@ jobs:
       - name: Prepare LLM API key input file
         if: steps.gate.outputs.enabled == 'true'
         env:
-          LLM_API_KEY_SECRET: ${{ steps.gate.outputs.provider_mode == 'github_models' && (secrets.STRIX_GITHUB_MODELS_TOKEN || github.token) || steps.gate.outputs.provider_mode == 'openai_direct' && secrets.STRIX_OPENAI_API_KEY || '' }}
+          LLM_API_KEY_SECRET: ${{ steps.gate.outputs.provider_mode == 'github_models' && secrets.STRIX_GITHUB_MODELS_TOKEN || steps.gate.outputs.provider_mode == 'openai_direct' && secrets.STRIX_OPENAI_API_KEY || '' }}
           PROVIDER_MODE: ${{ steps.gate.outputs.provider_mode }}
         run: |
           sanitized="$(printf '%s' "$LLM_API_KEY_SECRET" | tr -d '\r\n')"
@@ -311,17 +289,18 @@ jobs:
               ;;
             openai/gpt-5* | openai/gpt-[6-9]* | openai/gpt-[1-9][0-9]* | \
             openai/openai/gpt-5* | openai/openai/gpt-[6-9]* | openai/openai/gpt-[1-9][0-9]* | \
-            github_models/openai/gpt-5* | github_models/openai/gpt-[6-9]* | github_models/openai/gpt-[1-9][0-9]*)
+            github_models/openai/gpt-5* | github_models/openai/gpt-[6-9]* | github_models/openai/gpt-[1-9][0-9]* | \
+            github_models/deepseek/deepseek-r1-0528 | github_models/deepseek/deepseek-v3-0324)
               printf '%s' "${strix_model#github_models/}" > "$strix_llm_file"
               ;;
             openai/*)
               printf '%s' "$strix_model" > "$strix_llm_file"
               ;;
             openai-direct/gpt-*)
-              printf 'openai_direct/%s' "${strix_model#openai-direct/}" > "$strix_llm_file"
+              printf 'openai/%s' "${strix_model#openai-direct/}" > "$strix_llm_file"
               ;;
             gpt-*)
-              printf 'openai_direct/%s' "$strix_model" > "$strix_llm_file"
+              printf 'openai/%s' "$strix_model" > "$strix_llm_file"
               ;;
             vertex_ai/gemini-3.1-pro-preview-customtools | vertex_ai/gemini-2.5-flash)
               printf '%s' "$strix_model" > "$strix_llm_file"
@@ -357,12 +336,12 @@ jobs:
           VERTEXAI_LOCATION: ${{ secrets.VERTEX_LOCATION || 'us-central1' }}
           VERTEX_LOCATION: ${{ secrets.VERTEX_LOCATION || 'us-central1' }}
           STRIX_TARGET_PATH: ${{ (github.event_name == 'pull_request_target' || github.event.inputs.pr_number != '') && '__PR_SCOPE__' || './' }}
-          STRIX_SOURCE_DIRS: ". backend frontend"
+          STRIX_SOURCE_DIRS: .
           STRIX_REASONING_EFFORT: low
           STRIX_LLM_MAX_RETRIES: 1
           STRIX_TRANSIENT_RETRY_PER_MODEL: 5
           STRIX_TRANSIENT_RETRY_BACKOFF_SECONDS: 60
-          STRIX_FALLBACK_MODELS: ${{ steps.gate.outputs.provider_mode == 'github_models' && 'github_models/deepseek/deepseek-r1-0528 github_models/deepseek/deepseek-v3-0324' || '' }}
+          STRIX_FALLBACK_MODELS: ${{ steps.gate.outputs.provider_mode == 'github_models' && 'deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324' || '' }}
           STRIX_FAIL_ON_PROVIDER_SIGNAL: "1"
           STRIX_VERTEX_FALLBACK_MODELS: ""
           NPM_CONFIG_IGNORE_SCRIPTS: "true"
@@ -386,7 +365,7 @@ jobs:
           bash "$TRUSTED_STRIX_GATE"
 
       - name: Collect Strix reports for artifact upload
-        if: ${{ always() && steps.gate.outputs.enabled == 'true' }}
+        if: ${{ always() && !cancelled() && steps.gate.outputs.enabled == 'true' }}
         env:
           PR_HEAD_SHA: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.inputs.pr_head_sha }}
         run: |
@@ -412,8 +391,8 @@ jobs:
           fi
 
       - name: Upload Strix reports artifact
-        if: ${{ always() && steps.gate.outputs.enabled == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && !cancelled() && steps.gate.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: strix-reports
           path: strix_runs/

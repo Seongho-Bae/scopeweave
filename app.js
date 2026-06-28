@@ -43,7 +43,7 @@ const EDITABLE_FIELDS = [
   'owner',
   'supportTeam',
   'plannedStartDate',
-  'plannedEndDate',
+  'plannedEndDdate',
   'actualProgressStatus',
   'actualStartDate',
   'actualEndDate'
@@ -74,25 +74,6 @@ const CSV_HEADERS = [
   '__parentId',
   '__depth'
 ];
-const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
-
-const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
-  phase: '단계',
-  activity: 'Activity',
-  task: 'Task',
-  categoryLarge: '대분류',
-  categoryMedium: '중분류',
-  documentName: '산출물',
-  owner: '담당자',
-  supportTeam: '지원팀',
-  plannedStartDate: '계획시작일',
-  plannedEndDate: '계획종료일',
-  actualProgressStatus: '실적진척상태',
-  actualStartDate: '실적시작일',
-  actualEndDate: '실적종료일'
-}));
-
-const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
 const state = {
   projectName: DEFAULT_PROJECT_NAME,
@@ -110,8 +91,7 @@ const state = {
   jsonSyncHandle: null,
   dragTaskId: null,
   dragTaskMap: null,
-  toastTimer: null,
-  previousFocus: null
+  toastTimer: null
 };
 
 const elements = {
@@ -138,11 +118,6 @@ bootstrap();
 
 async function bootstrap() {
   bindEvents();
-
-  if (!window.showSaveFilePicker) {
-    elements.connectJsonSyncButton.disabled = true;
-    elements.connectJsonSyncButton.title = '이 브라우저는 wbs.json 직접 저장 연결을 지원하지 않습니다.';
-  }
 
   const savedState = loadLocalState();
   if (savedState) {
@@ -322,12 +297,6 @@ function renderAll() {
   const visibleTasks = getVisibleTasks();
   const rows = [];
 
-  const hasTasks = state.tasks.length > 0;
-  elements.exportCsvButton.disabled = !hasTasks;
-  elements.exportCsvButton.title = hasTasks ? '' : '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.';
-  elements.openGanttButton.disabled = !hasTasks;
-  elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
-
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
   const hasChildrenSet = new Set();
   state.tasks.forEach(task => {
@@ -351,231 +320,96 @@ function renderAll() {
   }
 
   if (rows.length === 0) {
-    rows.push(createEmptyStateRow());
+    rows.push(`
+      <tr>
+        <td colspan="21">
+          <div class="gantt-empty">
+            <div class="empty-icon" aria-hidden="true">📋</div>
+            <h3 class="empty-title">등록된 작업이 없습니다</h3>
+            <p class="empty-desc">하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,<br>'CSV 가져오기'를 통해 기존 데이터를 불러오세요.</p>
+          </div>
+        </td>
+      </tr>
+    `);
   }
 
-  setTableBodyRows(rows);
+  elements.tableBody.innerHTML = rows.join('');
   renderEditorValidation();
 }
 
-function setTableBodyRows(rows) {
-  elements.tableBody.replaceChildren(...rows);
-}
-
-function createEmptyStateRow() {
-  const row = document.createElement('tr');
-  const cell = document.createElement('td');
-  cell.colSpan = 21;
-
-  const emptyState = document.createElement('div');
-  emptyState.className = 'table-empty';
-
-  const icon = document.createElement('div');
-  icon.className = 'empty-icon';
-  icon.setAttribute('aria-hidden', 'true');
-  icon.textContent = '📋';
-
-  const title = document.createElement('h3');
-  title.className = 'empty-title';
-  title.textContent = '등록된 작업이 없습니다';
-
-  const description = document.createElement('p');
-  description.className = 'empty-desc';
-  description.append(
-    "하단의 '최상위 작업 추가' 버튼을 눌러 프로젝트를 시작하거나,",
-    document.createElement('br'),
-    "'CSV 가져오기'를 통해 기존 데이터를 불러오세요."
-  );
-
-  const actions = document.createElement('div');
-  actions.className = 'empty-actions editor-actions';
-
-  const addRootBtn = document.createElement('button');
-  addRootBtn.type = 'button';
-  addRootBtn.className = 'primary-button';
-  addRootBtn.textContent = '최상위 작업 추가';
-  addRootBtn.addEventListener('click', () => {
-    openEditor({ mode: 'create', parentId: null, depth: 1, insertAfterId: getLastRootTaskId() });
-  });
-
-  const importCsvBtn = document.createElement('button');
-  importCsvBtn.type = 'button';
-  importCsvBtn.className = 'secondary-button';
-  importCsvBtn.textContent = 'CSV 가져오기';
-  importCsvBtn.addEventListener('click', () => {
-    document.getElementById('csv-file-input').click();
-  });
-
-  actions.append(addRootBtn, importCsvBtn);
-
-  emptyState.append(icon, title, description, actions);
-  cell.appendChild(emptyState);
-  row.appendChild(cell);
-  return row;
-}
-
-function createTableCell(className, content) {
-  const cell = document.createElement('td');
-  if (className) {
-    cell.className = className;
-  }
-  if (content) {
-    cell.appendChild(content);
-  }
-  return cell;
-}
-
 function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
-  const row = document.createElement('tr');
-  row.className = `task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}`;
-  row.dataset.taskId = task.id;
-  row.draggable = true;
-
-  const actionCell = document.createElement('td');
-  const actionStack = document.createElement('div');
-  actionStack.className = 'action-stack';
-
-  const taskName = task.task || task.activity || task.phase || '작업';
-
-  if (hasChildren) {
-    const toggleButton = document.createElement('button');
-    const toggleLabel = `${taskName} ${task.expanded ? '접기' : '펼치기'}`;
-    toggleButton.type = 'button';
-    toggleButton.className = 'toggle-button';
-    toggleButton.dataset.action = 'toggle';
-    toggleButton.setAttribute('aria-label', toggleLabel);
-    toggleButton.setAttribute('aria-expanded', String(task.expanded));
-    toggleButton.title = toggleLabel;
-    const toggleIcon = document.createElement('span');
-    toggleIcon.setAttribute('aria-hidden', 'true');
-    toggleIcon.textContent = task.expanded ? '▼' : '▶';
-    toggleButton.appendChild(toggleIcon);
-    actionStack.appendChild(toggleButton);
-  } else {
-    const placeholder = document.createElement('span');
-    placeholder.className = 'toggle-placeholder';
-    actionStack.appendChild(placeholder);
-  }
-
+  const toggleButton = hasChildren
+    ? `<button type="button" class="toggle-button" data-action="toggle" aria-label="${task.expanded ? '접기' : '펼치기'}" title="${task.expanded ? '접기' : '펼치기'}">${task.expanded ? '▼' : '▶'}</button>`
+    : '<span class="toggle-placeholder"></span>';
   const isLeaf = task.depth >= 3;
-  const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
-  addChildButton.disabled = isLeaf;
 
-  if (isLeaf) {
-    addChildButton.setAttribute('aria-disabled', 'true');
-  }
-
-  const editButton = createActionButton(`${taskName} 편집`, '✎', 'edit', `${taskName} 편집`);
-  editButton.setAttribute('aria-haspopup', 'dialog');
-
-  const deleteButton = createActionButton(`${taskName} 삭제`, '🗑', 'delete', `${taskName} 삭제`);
-
-  actionStack.append(
-    addChildButton,
-    editButton,
-    deleteButton
-  );
-  actionCell.appendChild(actionStack);
-  row.appendChild(actionCell);
-
-  row.append(
-    createTableCell('', createTreeCellContent(task.phase, task.depth)),
-    createTableCell('', createTextCellContent(task.activity)),
-    createTableCell('', createTextCellContent(task.task)),
-    createTableCell('priority-mobile', createTextCellContent(task.categoryLarge)),
-    createTableCell('priority-mobile', createTextCellContent(task.categoryMedium)),
-    createTableCell('priority-desktop', createTextCellContent(task.documentName)),
-    createTableCell('priority-mobile', createOwnerCellContent(task.owner, ownerColorMap)),
-    createTableCell('priority-desktop', createTextCellContent(task.supportTeam)),
-    createTableCell('priority-mobile', createStatusCellContent(taskMetrics.progressState)),
-    createTableCell('priority-mobile', createTextCellContent(task.plannedStartDate)),
-    createTableCell('priority-mobile', createTextCellContent(task.plannedEndDate)),
-    createTableCell('priority-desktop', createMetricText(formatNumber(taskMetrics.durationDays), 'task-duration-days')),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.plannedProgressRatio * 100, 2))),
-    createTableCell('priority-desktop', createMetricText(formatDecimal(taskMetrics.weightRatio, 3), 'task-weight-ratio')),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedPlannedRatio * 100, 2))),
-    createTableCell('priority-mobile', createActualProgressCellContent(task, taskMetrics)),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.actualProgressRatio * 100, 2))),
-    createTableCell('priority-mobile', createTextCellContent(task.actualStartDate, taskMetrics.actualDateWarning)),
-    createTableCell('priority-mobile', createTextCellContent(task.actualEndDate, taskMetrics.actualDateWarning)),
-    createTableCell('priority-desktop', createMetricText(formatPercent(taskMetrics.weightedActualRatio * 100, 2)))
-  );
-
-  return row;
-}
-
-function createActionButton(label, text, action, title) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'icon-button';
-  button.dataset.action = action;
-  button.setAttribute('aria-label', label);
-  button.title = title;
-  const iconSpan = document.createElement('span');
-  iconSpan.setAttribute('aria-hidden', 'true');
-  iconSpan.textContent = text;
-  button.appendChild(iconSpan);
-  return button;
+  return `
+    <tr class="task-row depth-${task.depth} ${index % 2 === 1 ? 'striped-even' : ''}" data-task-id="${escapeHtml(task.id)}" draggable="true">
+      <td>
+        <div class="action-stack">
+          ${toggleButton}
+          <button type="button" class="icon-button" data-action="add-child" aria-label="하위 추가" title="${isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가'}" ${isLeaf ? 'disabled' : ''}>＋</button>
+          <button type="button" class="icon-button" data-action="edit" aria-label="편집" title="편집">✎</button>
+          <button type="button" class="icon-button" data-action="delete" aria-label="삭제" title="삭제">🗑</button>
+        </div>
+      </td>
+      <td>${renderTreeCell(task.phase, task.depth)}</td>
+      <td>${renderTextCell(task.activity)}</td>
+      <td>${renderTextCell(task.task)}</td>
+      <td class="priority-mobile">${renderTextCell(task.categoryLarge)}</td>
+      <td class="priority-mobile">${renderTextCell(task.categoryMedium)}</td>
+      <td class="priority-desktop">${renderTextCell(task.documentName)}</td>
+      <td class="priority-mobile">${renderOwnerCell(task.owner, ownerColorMap)}</td>
+      <td class="priority-desktop">${renderTextCell(task.supportTeam)}</td>
+      <td class="priority-mobile">${renderStatusCell(taskMetrics.progressState)}</td>
+      <td class="priority-mobile">${renderTextCell(task.plannedStartDate)}</td>
+      <td class="priority-mobile">${renderTextCell(task.plannedEndDdate)}</td>
+      <td class="priority-desktop"><span class="metric-text" data-testid="task-duration-days">${formatNumber(taskMetrics.durationDays)}</span></td>
+      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.plannedProgressRatio * 100, 2)}</span></td>
+      <td class="priority-desktop"><span class="metric-text" data-testid="task-weight-ratio">${formatDecimal(taskMetrics.weightRatio, 3)}</span></td>
+      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.weightedPlannedRatio * 100, 2)}</span></td>
+      <td class="priority-mobile">${renderActualProgressCell(task, taskMetrics)}</td>
+      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.actualProgressRatio * 100, 2)}</span></td>
+      <td class="priority-mobile">${renderTextCell(task.actualStartDate, taskMetrics.actualDateWarning)}</td>
+      <td class="priority-mobile">${renderTextCell(task.actualEndDate, taskMetrics.actualDateWarning)}</td>
+      <td class="priority-desktop"><span class="metric-text">${formatPercent(taskMetrics.weightedActualRatio * 100, 2)}</span></td>
+    </tr>
+  `;
 }
 
 function renderEditorRow(anchorId) {
   const draft = state.editor.draft || createEmptyTaskDraft();
   const depth = state.editor.depth;
-
-  const row = document.createElement('tr');
-  row.className = 'editor-row';
-  row.dataset.editorAnchor = anchorId;
-
-  const cell = document.createElement('td');
-  cell.colSpan = 21;
-  const panel = document.createElement('div');
-  panel.className = 'editor-panel';
-  const form = document.createElement('form');
-  form.dataset.editorForm = 'true';
-  const editorGrid = document.createElement('div');
-  editorGrid.className = 'editor-grid';
-
-  [
-    renderEditorField('단계', 'phase', draft.phase, 'text', depth === 1, '예: P1000.분석단계'),
-    renderEditorField('Activity', 'activity', draft.activity, 'text', depth === 2, '예: 요구사항 분석'),
-    renderEditorField('Task', 'task', draft.task, 'text', depth === 3, '예: 인터뷰 진행'),
-    renderEditorField('대분류', 'categoryLarge', draft.categoryLarge),
-    renderEditorField('중분류', 'categoryMedium', draft.categoryMedium),
-    renderEditorField('산출물', 'documentName', draft.documentName),
-    renderEditorField('담당자', 'owner', draft.owner),
-    renderEditorField('지원팀', 'supportTeam', draft.supportTeam),
-    renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date'),
-    renderEditorField('계획종료일', 'plannedEndDate', draft.plannedEndDate, 'date'),
-    renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS),
-    renderEditorField('실적시작일', 'actualStartDate', draft.actualStartDate, 'date'),
-    renderEditorField('실적종료일', 'actualEndDate', draft.actualEndDate, 'date')
-  ].forEach((field) => editorGrid.appendChild(field));
-
-  const editorActions = document.createElement('div');
-  editorActions.className = 'editor-actions';
-  const saveButton = document.createElement('button');
-  saveButton.type = 'submit';
-  saveButton.className = 'primary-button';
-  saveButton.textContent = '저장';
-  const cancelButton = document.createElement('button');
-  cancelButton.type = 'button';
-  cancelButton.className = 'secondary-button';
-  cancelButton.dataset.action = 'cancel-editor';
-  cancelButton.textContent = '취소';
-  // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
-  cancelButton.addEventListener('click', () => closeEditor());
-  const errors = document.createElement('div');
-  errors.id = 'editor-errors';
-  errors.className = 'validation-message';
-  errors.setAttribute('aria-live', 'polite');
-  errors.setAttribute('aria-atomic', 'true');
-  editorActions.append(saveButton, cancelButton, errors);
-
-  form.append(editorGrid, editorActions);
-  panel.appendChild(form);
-  cell.appendChild(panel);
-  row.appendChild(cell);
-  return row;
+  return `
+    <tr class="editor-row" data-editor-anchor="${escapeHtml(anchorId)}">
+      <td colspan="21">
+        <div class="editor-panel">
+          <form data-editor-form="true">
+            <div class="editor-grid">
+              ${renderEditorField('단계', 'phase', draft.phase, 'text', depth === 1, '예: P1000.분석단계')}
+              ${renderEditorField('Activity', 'activity', draft.activity, 'text', depth === 2, '예: 요구사항 분석')}
+              ${renderEditorField('Task', 'task', draft.task, 'text', depth === 3, '예: 인터뷰 진행')}
+              ${renderEditorField('대분류', 'categoryLarge', draft.categoryLarge)}
+              ${renderEditorField('중분류', 'categoryMedium', draft.categoryMedium)}
+              ${renderEditorField('산출물', 'documentName', draft.documentName)}
+              ${renderEditorField('담당자', 'owner', draft.owner)}
+              ${renderEditorField('지원팀', 'supportTeam', draft.supportTeam)}
+              ${renderEditorField('계획시작일', 'plannedStartDate', draft.plannedStartDate, 'date')}
+              ${renderEditorField('계획종료일', 'plannedEndDdate', draft.plannedEndDdate, 'date')}
+              ${renderEditorSelectField('실적진척상태', 'actualProgressStatus', draft.actualProgressStatus, ACTUAL_PROGRESS_OPTIONS)}
+              ${renderEditorField('실적시작일', 'actualStartDate', draft.actualStartDate, 'date')}
+              ${renderEditorField('실적종료일', 'actualEndDate', draft.actualEndDate, 'date')}
+            </div>
+            <div class="editor-actions">
+              <button type="submit" class="primary-button">저장</button>
+              <button type="button" class="secondary-button" data-action="cancel-editor">취소</button>
+              <div id="editor-errors" class="validation-message"></div>
+            </div>
+          </form>
+        </div>
+      </td>
+    </tr>
+  `;
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
@@ -589,171 +423,70 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     owner: 'editor-owner',
     supportTeam: 'editor-support-team',
     plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
+    plannedEndDdate: 'editor-planned-end',
     actualStartDate: 'editor-actual-start',
     actualEndDate: 'editor-actual-end'
   };
-
-  const labelElement = document.createElement('label');
-  labelElement.className = 'editor-field';
-  const fieldId = `editor-input-${field}-${Date.now()}`;
-  labelElement.htmlFor = fieldId;
-  const labelText = document.createElement('span');
-  labelText.textContent = label;
-  if (required) {
-    const marker = document.createElement('span');
-    marker.className = 'required-indicator';
-    marker.setAttribute('aria-hidden', 'true');
-    marker.textContent = '*';
-    const srOnly = document.createElement('span');
-    srOnly.className = 'sr-only';
-    srOnly.textContent = '(필수)';
-    labelText.append(' ', marker, srOnly);
-  }
-  const input = document.createElement('input');
-  input.id = fieldId;
-  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
-  input.dataset.editorField = field;
-  input.type = type;
-  if (type === 'text') {
-    input.maxLength = 1000;
-  }
-  input.value = value || '';
-  if (required) {
-    input.required = true;
-    input.setAttribute('aria-required', 'true');
-  }
-  if (placeholder) {
-    input.placeholder = placeholder;
-  }
-  labelElement.append(labelText, input);
-  return labelElement;
+  const requiredHtml = required ? ' <span class="text-red-500" style="color:var(--danger)">*</span><span class="sr-only">(필수)</span>' : '';
+  const requiredAttr = required ? ' required aria-required="true"' : '';
+  const placeholderAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
+  return `
+    <label class="editor-field">
+      <span>${label}${requiredHtml}</span>
+      <input data-testid="${testIdMap[field] || `editor-${toKebab(field)}`}" data-editor-field="${field}" type="${type}" value="${escapeHtml(value || '')}"${requiredAttr}${placeholderAttr} />
+    </label>
+  `;
 }
 
 function renderEditorSelectField(label, field, value, options) {
-  const labelElement = document.createElement('label');
-  labelElement.className = 'editor-field';
-  const fieldId = `editor-select-${field}-${Date.now()}`;
-  labelElement.htmlFor = fieldId;
-  const labelText = document.createElement('span');
-  labelText.textContent = label;
-  const select = document.createElement('select');
-  select.id = fieldId;
-  select.dataset.editorField = field;
-  options.forEach((optionValue) => {
-    const option = document.createElement('option');
-    option.value = optionValue;
-    option.textContent = optionValue;
-    option.selected = optionValue === value;
-    select.appendChild(option);
-  });
-  labelElement.append(labelText, select);
-  return labelElement;
+  return `
+    <label class="editor-field">
+      <span>${label}</span>
+      <select data-editor-field="${field}">
+        ${options.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+      </select>
+    </label>
+  `;
 }
 
-function createTreeCellContent(value, depth) {
-  const treeValue = document.createElement('div');
-  treeValue.className = `tree-value indent-${depth}`;
-  if (value) {
-    treeValue.textContent = value;
-  } else {
-    treeValue.appendChild(createEmptyCell());
-  }
-  return treeValue;
+function renderTreeCell(value, depth) {
+  return `<div class="tree-value indent-${depth}">${value ? escapeHtml(value) : '<span class="empty-cell">-</span>'}</div>`;
 }
 
-function createTextCellContent(value, warning = '') {
+function renderTextCell(value, warning = '') {
   if (!value) {
-    return warning ? createWarningBadge(warning) : createEmptyCell();
+    return warning ? `<span class="warning-badge">${escapeHtml(warning)}</span>` : '<span class="empty-cell">-</span>';
   }
-  if (!warning) {
-    return document.createTextNode(value);
-  }
-  const wrapper = document.createElement('div');
-  wrapper.append(value);
-  const validation = document.createElement('div');
-  validation.className = 'validation-message';
-  validation.textContent = warning;
-  wrapper.appendChild(validation);
-  return wrapper;
+  return warning ? `<div>${escapeHtml(value)}<div class="validation-message">${escapeHtml(warning)}</div></div>` : escapeHtml(value);
 }
 
-function createEmptyCell() {
-  const emptyCell = document.createElement('span');
-  emptyCell.className = 'empty-cell';
-  emptyCell.textContent = '-';
-  return emptyCell;
-}
-
-function createWarningBadge(warning) {
-  const badge = document.createElement('span');
-  badge.className = 'warning-badge';
-  badge.textContent = warning;
-  return badge;
-}
-
-function createOwnerCellContent(owner, ownerColorMap) {
+function renderOwnerCell(owner, ownerColorMap) {
   if (!owner) {
-    return createEmptyCell();
+    return '<span class="empty-cell">-</span>';
   }
-  const badge = document.createElement('span');
-  badge.className = 'owner-badge';
-  badge.style.background = ownerColorMap.get(owner);
-  badge.textContent = owner;
-  return badge;
+  return `<span class="owner-badge" style="background:${ownerColorMap.get(owner)}">${escapeHtml(owner)}</span>`;
 }
 
-function createStatusCellContent(progressState) {
+function renderStatusCell(progressState) {
   if (!progressState.label) {
-    return createEmptyCell();
+    return '<span class="empty-cell">-</span>';
   }
-  const badge = document.createElement('span');
-  badge.className = `status-badge ${progressState.className}`;
-  badge.textContent = progressState.label;
-  return badge;
+  return `<span class="status-badge ${progressState.className}">${escapeHtml(progressState.label)}</span>`;
 }
 
-function createMetricText(value, testId = '') {
-  const metric = document.createElement('span');
-  metric.className = 'metric-text';
-  if (testId) {
-    metric.setAttribute('data-testid', testId);
-  }
-  metric.textContent = value;
-  return metric;
-}
-
-function createActualProgressCellContent(task, taskMetrics) {
-  const label = document.createElement('label');
-  const fieldId = `actual-progress-${task.id}`;
-  label.htmlFor = fieldId;
-  const srOnly = document.createElement('span');
-  srOnly.className = 'sr-only';
-  const taskName = task.task || task.activity || task.phase || '작업';
-  srOnly.textContent = `${taskName} 실적진척상태`;
-  const select = document.createElement('select');
-  select.id = fieldId;
-  select.dataset.inlineProgress = task.id;
-  ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
-    const option = document.createElement('option');
-    option.value = optionValue;
-    option.textContent = optionValue;
-    option.selected = task.actualProgressStatus === optionValue;
-    select.appendChild(option);
-  });
-  label.append(srOnly, select);
-
-  const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
-  if (warning) {
-    const validation = document.createElement('div');
-    validation.id = `actual-progress-error-${task.id}`;
-    validation.className = 'validation-message';
-    validation.textContent = warning;
-    label.appendChild(validation);
-    select.setAttribute('aria-invalid', 'true');
-    select.setAttribute('aria-describedby', validation.id);
-  }
-  return label;
+function renderActualProgressCell(task, taskMetrics) {
+  const options = ACTUAL_PROGRESS_OPTIONS.map((option) => `
+    <option value="${escapeHtml(option)}" ${task.actualProgressStatus === option ? 'selected' : ''}>${escapeHtml(option)}</option>
+  `).join('');
+  return `
+    <label>
+      <span class="sr-only">실적진척상태</span>
+      <select data-inline-progress="${escapeHtml(task.id)}">
+        ${options}
+      </select>
+      ${taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning ? `<div class="validation-message">${escapeHtml(taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning)}</div>` : ''}
+    </label>
+  `;
 }
 
 function renderEditorValidation() {
@@ -762,6 +495,11 @@ function renderEditorValidation() {
   const errorElement = document.getElementById('editor-errors');
   if (errorElement) {
     errorElement.textContent = errors.join(' ');
+  }
+
+  const cancelButton = elements.tableBody.querySelector('[data-action="cancel-editor"]');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', () => closeEditor(), { once: true });
   }
 }
 
@@ -816,7 +554,6 @@ function handleRowAction(action, taskId) {
 }
 
 function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertAfterId = null, draft = null }) {
-  state.previousFocus = document.activeElement;
   if (mode === 'edit') {
     const task = findTask(targetId);
     if (!task) {
@@ -843,14 +580,6 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
     };
   }
   renderAll();
-
-  // Focus the first input/select in the editor to keep keyboard users in flow
-  requestAnimationFrame(() => {
-    const firstInput = document.querySelector('.editor-row input:not([type="hidden"]), .editor-row select');
-    if (firstInput) {
-      firstInput.focus();
-    }
-  });
 }
 
 function closeEditor() {
@@ -864,11 +593,6 @@ function closeEditor() {
     errors: []
   };
   renderAll();
-
-  if (state.previousFocus) {
-    state.previousFocus.focus();
-    state.previousFocus = null;
-  }
 }
 
 function saveEditor() {
@@ -921,7 +645,7 @@ function createEmptyTaskDraft() {
     owner: '',
     supportTeam: '',
     plannedStartDate: '',
-    plannedEndDate: '',
+    plannedEndDdate: '',
     actualProgressStatus: '미착수(0%)',
     actualStartDate: '',
     actualEndDate: '',
@@ -944,7 +668,7 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
+    sanitized[field] = String(draft?.[field] || '').trim();
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
@@ -959,14 +683,6 @@ function validateDraft(draft, depth) {
     return errors;
   }
   const sanitized = sanitizeDraft(draft);
-
-  EDITABLE_FIELDS.forEach((field) => {
-    if (/[<>]/.test(sanitized[field])) {
-      const label = CSV_FIELD_LABELS[field] || field;
-      errors.push(`${label} 항목에는 HTML 태그 문자를 사용할 수 없습니다.`);
-    }
-  });
-
   if (!sanitized.phase && depth === 1) {
     errors.push('최상위 작업은 단계 값을 입력해야 합니다.');
   }
@@ -978,12 +694,16 @@ function validateDraft(draft, depth) {
   }
 
   validateDateField('계획시작일', sanitized.plannedStartDate, errors);
-  validateDateField('계획종료일', sanitized.plannedEndDate, errors);
+  validateDateField('계획종료일', sanitized.plannedEndDdate, errors);
   validateDateField('실적시작일', sanitized.actualStartDate, errors);
   validateDateField('실적종료일', sanitized.actualEndDate, errors);
 
-  validateDateRange('계획시작일', sanitized.plannedStartDate, '계획종료일', sanitized.plannedEndDate, errors);
-  validateDateRange('실적시작일', sanitized.actualStartDate, '실적종료일', sanitized.actualEndDate, errors);
+  if (sanitized.plannedStartDate && sanitized.plannedEndDdate && compareDateStrings(sanitized.plannedStartDate, sanitized.plannedEndDdate) > 0) {
+    errors.push('계획종료일은 계획시작일보다 빠를 수 없습니다.');
+  }
+  if (sanitized.actualStartDate && sanitized.actualEndDate && compareDateStrings(sanitized.actualStartDate, sanitized.actualEndDate) > 0) {
+    errors.push('실적종료일은 실적시작일보다 빠를 수 없습니다.');
+  }
 
   return Array.from(new Set(errors));
 }
@@ -992,23 +712,14 @@ function validateDateField(label, value, errors) {
   if (!value) {
     return;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !isValidDateString(value)) {
-    errors.push(`${label}은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.`);
-  }
-}
-
-function validateDateRange(startLabel, startValue, endLabel, endValue, errors) {
-  if (startValue && endValue && compareDateStrings(startValue, endValue) > 0) {
-    errors.push(`${endLabel}은 ${startLabel}보다 빠를 수 없습니다.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    errors.push(`${label}은 YYYY-MM-DD 형식이어야 합니다.`);
   }
 }
 
 function computeTaskMetrics() {
-  // ⚡ Bolt: Cache durationDays during total calculation to avoid recalculating for every task
-  const durationCache = new Map();
   const totalDays = state.tasks.reduce((sum, task) => {
-    const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
-    durationCache.set(task.id, duration);
+    const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDdate);
     return sum + duration;
   }, 0);
 
@@ -1018,13 +729,13 @@ function computeTaskMetrics() {
   let totalWeightedActualRatio = 0;
 
   state.tasks.forEach((task) => {
-    const durationDays = durationCache.get(task.id);
+    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDdate);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
-    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
+    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDdate);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
     const weightedPlannedRatio = weightRatio * plannedProgressRatio;
     const weightedActualRatio = weightRatio * actualProgressRatio;
-    const plannedDateWarning = getDateRangeWarning(task.plannedStartDate, task.plannedEndDate, '계획종료일이 시작일보다 빠릅니다.');
+    const plannedDateWarning = getDateRangeWarning(task.plannedStartDate, task.plannedEndDdate, '계획종료일이 시작일보다 빠릅니다.');
     const actualDateWarning = getDateRangeWarning(task.actualStartDate, task.actualEndDate, '실적종료일이 시작일보다 빠릅니다.');
     const progressState = deriveProgressState(task, baseDate);
 
@@ -1053,14 +764,14 @@ function computeTaskMetrics() {
 }
 
 function deriveProgressState(task, baseDate) {
-  if (!task.plannedStartDate || !task.plannedEndDate) {
+  if (!task.plannedStartDate || !task.plannedEndDdate) {
     return { label: '', className: '' };
   }
 
   if (task.actualStartDate && task.actualEndDate) {
     return { label: '완료', className: 'done' };
   }
-  if (compareDateStrings(baseDate, task.plannedEndDate) >= 0 && (!task.actualStartDate || !task.actualEndDate)) {
+  if (compareDateStrings(baseDate, task.plannedEndDdate) >= 0 && (!task.actualStartDate || !task.actualEndDate)) {
     return { label: '지연', className: 'delay' };
   }
   if (task.actualStartDate && !task.actualEndDate) {
@@ -1113,7 +824,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
-  // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
+  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
+  const taskById = new Map();
+  state.tasks.forEach((task) => taskById.set(task.id, task));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -1126,7 +840,22 @@ function getVisibleTasks() {
     }
   });
 
-  return visible;
+  return visible.filter((task) => {
+    let parentId = task.parentId;
+    const visited = new Set([task.id]);
+    while (parentId) {
+      if (visited.has(parentId)) {
+        break;
+      }
+      visited.add(parentId);
+      const parent = taskById.get(parentId);
+      if (parent && !parent.expanded) {
+        return false;
+      }
+      parentId = parent?.parentId;
+    }
+    return true;
+  });
 }
 
 function insertTaskAfter(task, afterId) {
@@ -1143,31 +872,16 @@ function insertTaskAfter(task, afterId) {
 }
 
 function deleteTaskAndDescendants(taskId) {
-  // ⚡ Bolt: Replace O(N * Depth) cascading loop with O(N) map-based BFS to prevent UI freeze during deletion
-  const childrenMap = new Map();
-  state.tasks.forEach(task => {
-    if (task.parentId) {
-      const children = childrenMap.get(task.parentId) || [];
-      children.push(task.id);
-      childrenMap.set(task.parentId, children);
-    }
-  });
-
   const idsToDelete = new Set([taskId]);
-  const queue = [taskId];
-  let queueIndex = 0;
-
-  while (queueIndex < queue.length) {
-    const currentId = queue[queueIndex++];
-    const children = childrenMap.get(currentId);
-    if (children) {
-      children.forEach(childId => {
-        if (!idsToDelete.has(childId)) {
-          idsToDelete.add(childId);
-          queue.push(childId);
-        }
-      });
-    }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    state.tasks.forEach((task) => {
+      if (idsToDelete.has(task.parentId) && !idsToDelete.has(task.id)) {
+        idsToDelete.add(task.id);
+        changed = true;
+      }
+    });
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
 }
@@ -1263,7 +977,12 @@ function persistState() {
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? JSON.parse(raw, (key, value) => {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        return undefined;
+      }
+      return value;
+    }) : null;
   } catch {
     return null;
   }
@@ -1272,20 +991,7 @@ function loadLocalState() {
 function hydrateState(savedState) {
   state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
-  state.tasks = Array.isArray(savedState.tasks)
-    ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
-    : [];
-}
-
-function normalizeStoredTask(task) {
-  const safeTask = isTaskRecord(task) ? task : {};
-  const normalizedTask = {
-    ...safeTask,
-    plannedEndDate: getPlannedEndDateValue(safeTask),
-    expanded: safeTask.expanded !== false
-  };
-  delete normalizedTask[LEGACY_PLANNED_END_FIELD];
-  return normalizedTask;
+  state.tasks = Array.isArray(savedState.tasks) ? savedState.tasks.map((task) => ({ ...task, expanded: task.expanded !== false })) : [];
 }
 
 async function loadSeedTasks() {
@@ -1298,17 +1004,6 @@ async function loadSeedTasks() {
   } catch {
     return [];
   }
-}
-
-function getPlannedEndDateValue(task) {
-  if (!isTaskRecord(task)) {
-    return '';
-  }
-  return task.plannedEndDate || task[LEGACY_PLANNED_END_FIELD] || '';
-}
-
-function isTaskRecord(task) {
-  return task !== null && typeof task === 'object' && !Array.isArray(task);
 }
 
 function normalizeImportedTasks(sourceTasks) {
@@ -1334,7 +1029,7 @@ function normalizeImportedTasks(sourceTasks) {
     owner: task.owner || '',
     supportTeam: task.supportTeam || '',
     plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
+    plannedEndDdate: task.plannedEndDdate || task.plannedEndDate || '',
     actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
     actualStartDate: task.actualStartDate || '',
     actualEndDate: task.actualEndDate || '',
@@ -1346,7 +1041,7 @@ function normalizeImportedTasks(sourceTasks) {
 function validateImportedTask(task, index) {
   const rowLabel = `${index + 2}행`;
   const plannedStartDate = task.plannedStartDate || '';
-  const plannedEndDate = getPlannedEndDateValue(task);
+  const plannedEndDate = task.plannedEndDdate || task.plannedEndDate || '';
   const actualStartDate = task.actualStartDate || '';
   const actualEndDate = task.actualEndDate || '';
 
@@ -1361,11 +1056,11 @@ function validateImportedTask(task, index) {
     }
   });
 
-  const dateRangeErrors = [];
-  validateDateRange('계획시작일', plannedStartDate, '계획종료일', plannedEndDate, dateRangeErrors);
-  validateDateRange('실적시작일', actualStartDate, '실적종료일', actualEndDate, dateRangeErrors);
-  if (dateRangeErrors.length > 0) {
-    throw new Error(`${rowLabel}: ${dateRangeErrors[0]}`);
+  if (plannedStartDate && plannedEndDate && compareDateStrings(plannedStartDate, plannedEndDate) > 0) {
+    throw new Error(`${rowLabel}: 계획종료일은 계획시작일보다 빠를 수 없습니다.`);
+  }
+  if (actualStartDate && actualEndDate && compareDateStrings(actualStartDate, actualEndDate) > 0) {
+    throw new Error(`${rowLabel}: 실적종료일은 실적시작일보다 빠를 수 없습니다.`);
   }
 }
 
@@ -1388,7 +1083,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     owner: task.owner || '',
     supportTeam: task.supportTeam || '',
     plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
+    plannedEndDdate: task.plannedEndDdate || task.plannedEndDate || '',
     actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
     actualStartDate: task.actualStartDate || '',
     actualEndDate: task.actualEndDate || ''
@@ -1515,7 +1210,7 @@ function exportCsv() {
       task.supportTeam,
       taskMetrics.progressState.label,
       task.plannedStartDate,
-      task.plannedEndDate,
+      task.plannedEndDdate,
       formatNumber(taskMetrics.durationDays),
       formatPercent(taskMetrics.plannedProgressRatio * 100, 2),
       formatDecimal(taskMetrics.weightRatio, 3),
@@ -1532,7 +1227,7 @@ function exportCsv() {
   });
 
   const csvText = [CSV_HEADERS, ...rows]
-    .map((row) => row.map((cell) => csvEscape(cell)).join(','))
+    .map((row) => row.map(csvEscape).join(','))
     .join('\r\n');
   downloadFile(csvText, `wbs_export_${formatCompactDate(new Date())}.csv`, 'text/csv;charset=utf-8');
 }
@@ -1540,12 +1235,6 @@ function exportCsv() {
 async function handleCsvImport(event) {
   const [file] = event.target.files || [];
   if (!file) {
-    return;
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('파일 크기는 5MB를 초과할 수 없습니다.');
-    event.target.value = '';
     return;
   }
 
@@ -1597,30 +1286,11 @@ function validateImportedTasks(tasks) {
 
 function validateCsvCell(value, fieldName) {
   if (!value) return value;
-  const normalized = String(value);
-  const label = CSV_FIELD_LABELS[fieldName] || fieldName;
-  if (normalized.length > 1000) {
-    throw new Error(`${label} 컬럼은 1000자 이하로 입력해야 합니다.`);
-  }
-  if (/[<>]/.test(normalized)) {
-    throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
-  }
-  return normalized;
+  return value.substring(0, 1000); // basic length restriction
 }
-
-function validateCsvInternalValue(value, fieldName) {
-  return validateCsvCell(value, fieldName);
-}
-
-function validateCsvId(value) { return validateCsvInternalValue(value, '__id'); }
-function validateCsvParentId(value) { return validateCsvInternalValue(value, '__parentId'); }
-function validateCsvDepth(value) {
-  const normalized = validateCsvInternalValue(value, '__depth');
-  if (normalized && !/^[1-3]$/.test(normalized)) {
-    throw new Error('__depth 컬럼은 1, 2, 3 중 하나여야 합니다.');
-  }
-  return normalized;
-}
+function validateCsvId(value) { return value; }
+function validateCsvParentId(value) { return value; }
+function validateCsvDepth(value) { return value; }
 
 function parseCsv(text) {
   const rows = [];
@@ -1691,7 +1361,7 @@ function parseCsv(text) {
     owner: validateCsvCell(readCsvCell(cells, headerMap, '담당자'), 'owner'),
     supportTeam: validateCsvCell(readCsvCell(cells, headerMap, '지원팀'), 'supportTeam'),
     plannedStartDate: validateCsvCell(readCsvCell(cells, headerMap, '계획시작일'), 'plannedStartDate'),
-    plannedEndDate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDate'),
+    plannedEndDdate: validateCsvCell(readCsvCell(cells, headerMap, '계획종료일'), 'plannedEndDdate'),
     actualProgressStatus: validateCsvCell(readCsvCell(cells, headerMap, '실적진척상태') || '미착수(0%)', 'actualProgressStatus'),
     actualStartDate: validateCsvCell(readCsvCell(cells, headerMap, '실적시작일'), 'actualStartDate'),
     actualEndDate: validateCsvCell(readCsvCell(cells, headerMap, '실적종료일'), 'actualEndDate'),
@@ -1747,8 +1417,7 @@ function exportJsonArray() {
     owner: task.owner,
     supportTeam: task.supportTeam,
     plannedStartDate: task.plannedStartDate,
-    plannedEndDate: task.plannedEndDate,
-    [LEGACY_PLANNED_END_FIELD]: task.plannedEndDate,
+    plannedEndDdate: task.plannedEndDdate,
     actualProgressStatus: task.actualProgressStatus,
     actualStartDate: task.actualStartDate,
     actualEndDate: task.actualEndDate
@@ -1756,186 +1425,101 @@ function exportJsonArray() {
 }
 
 function openGanttModal() {
-  state.previousFocus = document.activeElement;
   elements.ganttModal.classList.remove('hidden');
   renderGantt();
-  // Focus the modal to handle Escape key properly
-  elements.ganttModal.focus();
 }
 
 function closeGanttModal() {
   elements.ganttModal.classList.add('hidden');
-  if (state.previousFocus) {
-    state.previousFocus.focus();
-    state.previousFocus = null;
-  }
 }
 
 function renderGantt() {
-  const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDate));
+  const plannedTasks = state.tasks.filter((task) => isValidDateString(task.plannedStartDate) && isValidDateString(task.plannedEndDdate));
   if (plannedTasks.length === 0) {
     const emptyDiv = document.createElement('div');
-    emptyDiv.className = 'gantt-empty table-empty';
-
-    const icon = document.createElement('div');
-    icon.className = 'empty-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = '📊';
-
-    const title = document.createElement('h3');
-    title.className = 'empty-title';
-    title.textContent = '표시할 간트 차트가 없습니다';
-
-    const description = document.createElement('p');
-    description.className = 'empty-desc';
-
-    const strongStart = document.createElement('strong');
-    strongStart.textContent = '계획시작일';
-
-    const strongEnd = document.createElement('strong');
-    strongEnd.textContent = '계획종료일';
-
-    description.append(
-      '작업 목록에서 ',
-      strongStart,
-      '과 ',
-      strongEnd,
-      '을 입력하면 차트가 나타납니다.'
-    );
-
-    const actions = document.createElement('div');
-    actions.className = 'empty-actions editor-actions';
-
-    const backBtn = document.createElement('button');
-    backBtn.type = 'button';
-    backBtn.className = 'primary-button';
-    backBtn.textContent = '작업 목록으로 돌아가기';
-    backBtn.addEventListener('click', closeGanttModal);
-
-    actions.appendChild(backBtn);
-
-    emptyDiv.append(icon, title, description, actions);
-    elements.ganttContent.replaceChildren(emptyDiv);
+    emptyDiv.className = 'gantt-empty';
+    emptyDiv.textContent = '계획 일정이 있는 작업이 없습니다.';
+    elements.ganttContent.innerHTML = '';
+    elements.ganttContent.appendChild(emptyDiv);
     return;
   }
 
   const minDate = plannedTasks.reduce((min, task) => (compareDateStrings(task.plannedStartDate, min) < 0 ? task.plannedStartDate : min), plannedTasks[0].plannedStartDate);
-  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDate, max) > 0 ? task.plannedEndDate : max), plannedTasks[0].plannedEndDate);
+  const maxDate = plannedTasks.reduce((max, task) => (compareDateStrings(task.plannedEndDdate, max) > 0 ? task.plannedEndDdate : max), plannedTasks[0].plannedEndDdate);
   const weekdays = buildWeekdayTimeline(minDate, maxDate);
   const weeks = groupTimelineByWeek(weekdays);
 
+  const metaRows = state.tasks.map((task) => `
+    <tr>
+      <td>${renderTreeCell(task.phase || task.activity || task.task || '-', task.depth)}</td>
+      <td>${renderTextCell(task.activity)}</td>
+      <td>${renderTextCell(task.task)}</td>
+      <td>${renderTextCell(task.categoryLarge)}</td>
+      <td>${renderTextCell(task.categoryMedium)}</td>
+      <td>${renderTextCell(task.documentName)}</td>
+      <td>${renderTextCell(task.owner)}</td>
+      <td>${renderTextCell(task.supportTeam)}</td>
+      <td>${renderTextCell(task.plannedStartDate)}</td>
+      <td>${renderTextCell(task.plannedEndDdate)}</td>
+      <td>${renderTextCell(task.actualStartDate)}</td>
+      <td>${renderTextCell(task.actualEndDate)}</td>
+    </tr>
+  `).join('');
+
   const totalWidth = weekdays.length * 36;
+  const chartRows = state.tasks.map((task) => {
+    const planBar = createGanttBar(task.plannedStartDate, task.plannedEndDdate, weekdays, 'plan');
+    const actualBar = createGanttBar(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
+    return `
+      <tr>
+        <td colspan="${weekdays.length}">
+          <div class="gantt-day-track" style="width:${totalWidth}px">
+            ${planBar}
+            ${actualBar}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
-  const shell = document.createElement('div');
-  shell.className = 'gantt-shell';
-
-  const meta = document.createElement('div');
-  meta.className = 'gantt-meta';
-  meta.appendChild(createGanttMetaTable());
-
-  const chart = document.createElement('div');
-  chart.className = 'gantt-chart';
-  chart.appendChild(createGanttChartTable(weeks, weekdays, totalWidth));
-
-  shell.append(meta, chart);
-  elements.ganttContent.replaceChildren(shell);
-}
-
-function createGanttMetaTable() {
-  const table = document.createElement('table');
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  [
-    '단계',
-    'Activity',
-    'Task',
-    '대분류',
-    '중분류',
-    '산출물',
-    '담당자',
-    '지원팀',
-    '계획시작일',
-    '계획종료일',
-    '실적시작일',
-    '실적종료일'
-  ].forEach((label) => {
-    const th = document.createElement('th');
-    th.textContent = label;
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-
-  const tbody = document.createElement('tbody');
-  state.tasks.forEach((task) => {
-    const row = document.createElement('tr');
-    row.append(
-      createTableCell('', createTreeCellContent(task.phase || task.activity || task.task || '-', task.depth)),
-      createTableCell('', createTextCellContent(task.activity)),
-      createTableCell('', createTextCellContent(task.task)),
-      createTableCell('', createTextCellContent(task.categoryLarge)),
-      createTableCell('', createTextCellContent(task.categoryMedium)),
-      createTableCell('', createTextCellContent(task.documentName)),
-      createTableCell('', createTextCellContent(task.owner)),
-      createTableCell('', createTextCellContent(task.supportTeam)),
-      createTableCell('', createTextCellContent(task.plannedStartDate)),
-      createTableCell('', createTextCellContent(task.plannedEndDate)),
-      createTableCell('', createTextCellContent(task.actualStartDate)),
-      createTableCell('', createTextCellContent(task.actualEndDate))
-    );
-    tbody.appendChild(row);
-  });
-
-  table.append(thead, tbody);
-  return table;
-}
-
-function createGanttChartTable(weeks, weekdays, totalWidth) {
-  const table = document.createElement('table');
-  const thead = document.createElement('thead');
-  const weekRow = document.createElement('tr');
-  weeks.forEach((week) => {
-    const th = document.createElement('th');
-    th.className = 'gantt-week-header';
-    th.colSpan = week.days.length;
-    th.textContent = week.label;
-    weekRow.appendChild(th);
-  });
-
-  const dayRow = document.createElement('tr');
-  weekdays.forEach((day) => {
-    const th = document.createElement('th');
-    th.className = 'gantt-day-cell';
-    th.textContent = day.dayLabel;
-    dayRow.appendChild(th);
-  });
-  thead.append(weekRow, dayRow);
-
-  const tbody = document.createElement('tbody');
-  state.tasks.forEach((task) => {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = weekdays.length;
-
-    const track = document.createElement('div');
-    track.className = 'gantt-day-track';
-    track.style.width = `${totalWidth}px`;
-
-    const planBar = createGanttBarElement(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
-    const actualBar = createGanttBarElement(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
-    if (planBar) {
-      track.appendChild(planBar);
-    }
-    if (actualBar) {
-      track.appendChild(actualBar);
-    }
-
-    cell.appendChild(track);
-    row.appendChild(cell);
-    tbody.appendChild(row);
-  });
-
-  table.append(thead, tbody);
-  return table;
+  elements.ganttContent.innerHTML = `
+    <div class="gantt-shell">
+      <div class="gantt-meta">
+        <table>
+          <thead>
+            <tr>
+              <th>단계</th>
+              <th>Activity</th>
+              <th>Task</th>
+              <th>대분류</th>
+              <th>중분류</th>
+              <th>산출물</th>
+              <th>담당자</th>
+              <th>지원팀</th>
+              <th>계획시작일</th>
+              <th>계획종료일</th>
+              <th>실적시작일</th>
+              <th>실적종료일</th>
+            </tr>
+          </thead>
+          <tbody>${metaRows}</tbody>
+        </table>
+      </div>
+      <div class="gantt-chart">
+        <table>
+          <thead>
+            <tr>
+              ${weeks.map((week) => `<th class="gantt-week-header" colspan="${week.days.length}">${escapeHtml(week.label)}</th>`).join('')}
+            </tr>
+            <tr>
+              ${weekdays.map((day) => `<th class="gantt-day-cell">${escapeHtml(day.dayLabel)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${chartRows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 function buildWeekdayTimeline(minDate, maxDate) {
@@ -1955,30 +1539,26 @@ function buildWeekdayTimeline(minDate, maxDate) {
 }
 
 function groupTimelineByWeek(days) {
-  // ⚡ Bolt: Use an O(1) Map instead of O(N) Array.find to avoid O(N^2) bottleneck when grouping timeline days
   const groups = [];
-  const groupMap = new Map();
   days.forEach((day) => {
     const monday = getMonday(day.date);
-    const existing = groupMap.get(monday);
+    const existing = groups.find((group) => group.monday === monday);
     if (existing) {
       existing.days.push(day);
     } else {
-      const newGroup = {
+      groups.push({
         monday,
         label: `${monday.slice(5, 7)}월 ${monday.slice(8, 10)}일 주간`,
         days: [day]
-      };
-      groups.push(newGroup);
-      groupMap.set(monday, newGroup);
+      });
     }
   });
   return groups;
 }
 
-function createGanttBarElement(startDate, endDate, weekdays, type) {
+function createGanttBar(startDate, endDate, weekdays, type) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
-    return null;
+    return '';
   }
   const startIndex = weekdays.findIndex((day) => compareDateStrings(day.date, startDate) >= 0);
   // ⚡ Bolt: Replace O(N) array clone+reverse with reverse loop to avoid O(T*D) memory allocations in Gantt render
@@ -1991,16 +1571,12 @@ function createGanttBarElement(startDate, endDate, weekdays, type) {
   }
 
   if (startIndex === -1 || normalizedEndIndex === -1) {
-    return null;
+    return '';
   }
   if (normalizedEndIndex < startIndex) {
-    return null;
+    return '';
   }
-  const bar = document.createElement('div');
-  bar.className = `gantt-bar ${type}`;
-  bar.style.left = `${startIndex * 36}px`;
-  bar.style.width = `${(normalizedEndIndex - startIndex + 1) * 36}px`;
-  return bar;
+  return `<div class="gantt-bar ${type}" style="left:${startIndex * 36}px;width:${(normalizedEndIndex - startIndex + 1) * 36}px"></div>`;
 }
 
 function showToast(message) {
@@ -2039,63 +1615,31 @@ function downloadFile(content, fileName, mimeType) {
 }
 
 function csvEscape(value) {
-  const normalized = sanitizeCsvFormulaValue(value);
+  let normalized = String(value ?? '');
+  if (/^\s*[=+\-@]/.test(normalized)) {
+    normalized = `\t${normalized}`;
+  }
   return `"${normalized.replace(/"/g, '""')}"`;
-}
-
-function sanitizeCsvFormulaValue(value) {
-  const normalized = String(value ?? '');
-  return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
 }
 
 function createId(seed = Date.now()) {
   // Security enhancement: Prefer crypto.randomUUID for stronger randomness
-  if (typeof crypto !== 'undefined') {
-    if (crypto.randomUUID) {
-      return `task-${crypto.randomUUID()}`;
-    }
-    // Fallback: use crypto.getRandomValues if randomUUID is unavailable
-    if (crypto.getRandomValues) {
-      const arr = new Uint32Array(2);
-      crypto.getRandomValues(arr);
-      return `task-${arr[0].toString(16)}-${arr[1].toString(16)}`;
-    }
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `task-${crypto.randomUUID()}`;
   }
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
-// ⚡ Bolt: Memoize date parsing and validation to reduce GC pressure and expensive Date allocations in tight render loops
-
 function isValidDateString(value) {
-  if (!isValidDateString.cache) isValidDateString.cache = new Map();
-  const validDateCache = isValidDateString.cache;
-
-  if (validDateCache.has(value)) {
-    return validDateCache.get(value);
-  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
   }
-  const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
-  if (validDateCache.size < 500) {
-    validDateCache.set(value, isValid);
-  }
-  return isValid;
+  return formatDateInput(new Date(dateStringToUtcMs(value))) === value;
 }
 
 function dateStringToUtcMs(value) {
-  if (!dateStringToUtcMs.cache) dateStringToUtcMs.cache = new Map();
-  const dateToUtcMsCache = dateStringToUtcMs.cache;
-
-  if (dateToUtcMsCache.has(value)) {
-    return dateToUtcMsCache.get(value);
-  }
   const [year, month, day] = value.split('-').map(Number);
-  const ms = Date.UTC(year, month - 1, day);
-  if (dateToUtcMsCache.size < 500) {
-    dateToUtcMsCache.set(value, ms);
-  }
-  return ms;
+  return Date.UTC(year, month - 1, day);
 }
 
 function compareDateStrings(left, right) {
@@ -2167,16 +1711,13 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
-const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;'
-});
-
 function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (character) => HTML_ESCAPE_ENTITIES[character]);
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function toKebab(value) {

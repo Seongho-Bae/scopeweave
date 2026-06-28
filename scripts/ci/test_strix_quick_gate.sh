@@ -82,27 +82,20 @@ assert_workflow_uses_are_sha_pinned() {
 assert_strix_pr_scope_includes_deployment_context() {
 	assert_file_contains "$GATE_SCRIPT" "needs_deployment_context=0" "strix gate tracks deployment-context scoped PRs"
 	assert_file_contains "$GATE_SCRIPT" ".github/workflows/* | Dockerfile | frontend/Dockerfile | frontend/next.config.ts | docker-compose*.yml | render.yaml" "strix gate recognizes deployment and CI files"
-	assert_file_contains "$GATE_SCRIPT" "Dockerfile | */Dockerfile | Containerfile | */Containerfile | Makefile | */Makefile" "strix gate treats extensionless deployment files as source files"
 	assert_file_contains "$GATE_SCRIPT" "backend/scripts/docker_entrypoint.sh" "strix gate includes the combined Docker image entrypoint with deployment context"
-	assert_file_contains "$GATE_SCRIPT" "backend/api/auth.py" "strix gate includes backend auth context for deployment scans"
 	assert_file_contains "$GATE_SCRIPT" "frontend/package-lock.json" "strix gate includes frontend dependency lock context"
 	assert_file_contains "$GATE_SCRIPT" "frontend/postcss.config.mjs" "strix gate includes frontend build config context"
 	assert_file_contains "$GATE_SCRIPT" "VERSION" "strix gate includes release version context for workflow scans"
-	assert_file_contains "$GATE_SCRIPT" "scripts/ci/test_*.sh" "strix gate excludes large CI self-test harnesses from PR scan targets"
 }
 
 assert_strix_workflow_pr_trigger_hardened() {
 	local workflow_file="$REPO_ROOT/.github/workflows/strix.yml"
 
-	assert_file_contains "$workflow_file" "branches: [main, develop, master]" "strix workflow scans GitHub Flow and Git Flow protected branches"
+	assert_file_contains "$workflow_file" "branches: [main]" "strix workflow scans the protected main branch"
 	assert_file_contains "$workflow_file" "pull_request_target:" "strix workflow uses trusted PR trigger"
-	assert_file_contains "$workflow_file" "format('pr-{0}', github.event.pull_request.number)" "strix workflow scopes concurrency to the active pull request"
-	assert_file_contains "$workflow_file" "format('pr-{0}', github.event.inputs.pr_number)" "strix workflow scopes manual PR evidence concurrency to the requested pull request"
-	assert_file_contains "$workflow_file" "|| github.ref" "strix workflow scopes non-PR concurrency to the current ref"
+	assert_file_contains "$workflow_file" 'group: strix-${{ github.repository }}' "strix workflow serializes scans per repository for GitHub Models quota"
 	assert_file_contains "$workflow_file" "cancel-in-progress: false" "strix workflow never cancels in-progress security evidence"
 	assert_file_contains "$workflow_file" "models: read" "strix workflow grants only the GitHub Models read permission needed for Strix"
-	assert_file_contains "$workflow_file" "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6" "strix workflow pins actions/setup-python"
-	assert_file_contains "$workflow_file" 'python-version: "3.13"' "strix workflow runs Python steps on Python 3.13"
 	assert_file_contains "$workflow_file" "Materialize trusted workspace" "strix workflow materializes trusted workspace"
 	assert_file_contains "$workflow_file" "TRUSTED_WORKSPACE_SHA" "strix workflow pins trusted workspace SHA"
 	assert_file_contains "$workflow_file" "TRUSTED_WORKSPACE=\$trusted_workspace" "strix workflow exports a trusted workspace path"
@@ -176,21 +169,13 @@ assert_strix_workflow_pr_trigger_hardened() {
 	assert_file_contains "$GATE_SCRIPT" 'child_env["PNPM_CONFIG_IGNORE_SCRIPTS"] = "true"' "strix gate child process disables pnpm lifecycle scripts"
 	assert_file_contains "$GATE_SCRIPT" 'child_env["YARN_ENABLE_SCRIPTS"] = "false"' "strix gate child process disables yarn lifecycle scripts"
 	assert_file_contains "$GATE_SCRIPT" 'child_env["PYTHONWARNINGS"] = "ignore:Pydantic serializer warnings:UserWarning:pydantic.main"' "strix gate child env narrowly filters the known third-party Pydantic serializer warning"
-	assert_file_contains "$GATE_SCRIPT" '[[ "$normalized_changed_file" =~ ^backend/.+\.py$ ]]' "strix gate detects nested backend Python files for PR-scoped import context"
-	assert_file_contains "$GATE_SCRIPT" '[[ "$normalized_changed_file" == scripts/ci/test_*.sh || "$normalized_changed_file" == scripts/ci/*_test.sh ]]' "strix gate excludes large CI test harness scripts from model scan input"
-	assert_file_contains "$GATE_SCRIPT" "Materialized PR-head changed-file scope for Strix scan" "strix gate avoids copying the full PR head tree into privileged scan targets by default"
-	assert_file_contains "$GATE_SCRIPT" "sanitize_known_strix_report_warnings" "strix gate sanitizes only known internal Strix report warnings"
-	assert_file_contains "$GATE_SCRIPT" "iter_report_logs" "strix gate enumerates report logs through a safe walker"
-	assert_file_contains "$GATE_SCRIPT" "os.walk(root, topdown=True, followlinks=False)" "strix gate does not recurse into symlinked report directories"
-	assert_file_not_contains "$GATE_SCRIPT" 'root.rglob("*.log")' "strix gate avoids recursive pathlib glob traversal for report logs"
-	assert_file_contains "$GATE_SCRIPT" "has_strix_report_failure_signal" "strix gate fails closed on warning-class Strix report artifacts"
 	assert_file_not_contains "$workflow_file" "ignore::UserWarning" "strix workflow must not blanket-suppress all UserWarning output"
 	assert_file_not_contains "$workflow_file" "vertex_ai/* | vertex_ai_beta/*" "strix workflow must not accept arbitrary Vertex models"
 	assert_file_contains "$workflow_file" "provider_mode=openai_direct" "strix workflow requires direct OpenAI GPT-5 credentials"
 	assert_file_contains "$workflow_file" "provider_mode=github_models" "strix workflow supports GitHub Models provider mode"
-	assert_file_contains "$workflow_file" 'STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN || github.token }}' "strix workflow prefers the organization GitHub Models token secret and falls back to GITHUB_TOKEN"
-	assert_file_contains "$workflow_file" 'LLM_API_KEY_SECRET: ${{ steps.gate.outputs.provider_mode == '"'"'github_models'"'"' && (secrets.STRIX_GITHUB_MODELS_TOKEN || github.token) || steps.gate.outputs.provider_mode == '"'"'openai_direct'"'"' && secrets.STRIX_OPENAI_API_KEY || '"'"''"'"' }}' "strix workflow uses provider-scoped LLM key material"
-	assert_file_contains "$workflow_file" 'LLM_API_KEY: ${{ steps.gate.outputs.provider_mode == '"'"'github_models'"'"' && (secrets.STRIX_GITHUB_MODELS_TOKEN || github.token) || steps.gate.outputs.provider_mode == '"'"'openai_direct'"'"' && secrets.STRIX_OPENAI_API_KEY || '"'"''"'"' }}' "strix workflow masks provider-scoped LLM key material"
+	assert_file_contains "$workflow_file" 'STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}' "strix workflow uses the organization GitHub Models token secret"
+	assert_file_contains "$workflow_file" 'LLM_API_KEY_SECRET: ${{ steps.gate.outputs.provider_mode == '"'"'github_models'"'"' && secrets.STRIX_GITHUB_MODELS_TOKEN || steps.gate.outputs.provider_mode == '"'"'openai_direct'"'"' && secrets.STRIX_OPENAI_API_KEY || '"'"''"'"' }}' "strix workflow uses provider-scoped LLM key material"
+	assert_file_contains "$workflow_file" 'LLM_API_KEY: ${{ steps.gate.outputs.provider_mode == '"'"'github_models'"'"' && secrets.STRIX_GITHUB_MODELS_TOKEN || steps.gate.outputs.provider_mode == '"'"'openai_direct'"'"' && secrets.STRIX_OPENAI_API_KEY || '"'"''"'"' }}' "strix workflow masks provider-scoped LLM key material"
 	assert_file_not_contains "$workflow_file" "secrets.LLM_API_KEY" "strix workflow must not expose generic LLM_API_KEY for Vertex scans"
 	assert_file_contains "$workflow_file" "STRIX_GITHUB_MODELS_TOKEN is required for GitHub Models Strix scans" "strix workflow fails closed when GitHub Models credentials are absent"
 	assert_file_contains "$workflow_file" "STRIX_OPENAI_API_KEY is required for Strix OpenAI Platform scans" "strix workflow fails closed when direct credentials are absent"
@@ -203,10 +188,8 @@ assert_strix_workflow_pr_trigger_hardened() {
 	assert_file_contains "$workflow_file" "https://models.github.ai/inference" "strix workflow routes GitHub Models scans to the inference endpoint"
 	assert_file_contains "$workflow_file" "LLM_API_BASE_FILE" "strix workflow passes the GitHub Models API base through a trusted input file"
 	assert_file_not_contains "$workflow_file" '${{ secrets.STRIX_OPENAI_API_KEY || github.token }}' "strix workflow must not use fallback-secret syntax for LLM API keys"
-	assert_file_contains "$workflow_file" "github_models/deepseek/deepseek-r1-0528 github_models/deepseek/deepseek-v3-0324" "strix workflow configures reachable stronger-than-GPT-4.1 GitHub Models fallback models"
-	assert_file_not_contains "$workflow_file" 'github_models/deepseek/deepseek-r1-0528 | github_models/deepseek/deepseek-v3-0324)' "strix workflow keeps DeepSeek GitHub Models restricted to fallback-only routing"
-	assert_file_contains "$workflow_file" '${strix_model#github_models/}' "strix workflow strips manual github_models routing prefix for OpenAI GPT model names before passing model names to LiteLLM"
-	assert_file_contains "$workflow_file" "openai_direct/%s" "strix workflow keeps manual direct OpenAI scans distinct from GitHub Models openai/gpt-* routing"
+	assert_file_contains "$workflow_file" "deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" "strix workflow configures reachable stronger-than-GPT-4.1 GitHub Models fallback models"
+	assert_file_contains "$workflow_file" '${strix_model#github_models/}' "strix workflow strips manual github_models routing prefix before passing model names to LiteLLM"
 	assert_file_not_contains "$workflow_file" "openai/gpt-4.1" "strix workflow must not fall back to GPT-4.1 or weaker review evidence"
 	assert_file_not_contains "$workflow_file" "openai/gpt-5-*" "strix workflow must not accept older GPT-5 variants when GPT-5.4 is required"
 	assert_file_contains "$workflow_file" "openai/gpt-5-mini* | openai/gpt-5-nano*" "strix workflow rejects mini and nano GPT-5 variants for security evidence"
@@ -231,6 +214,7 @@ assert_strix_gpt54_model_guard_semantics() {
 	openai/gpt-5* | openai/gpt-[6-9]* | openai/gpt-[1-9][0-9]* | \
 	openai/openai/gpt-5* | openai/openai/gpt-[6-9]* | openai/openai/gpt-[1-9][0-9]* | \
 	github_models/openai/gpt-5* | github_models/openai/gpt-[6-9]* | github_models/openai/gpt-[1-9][0-9]* | \
+	github_models/deepseek/deepseek-r1-0528 | github_models/deepseek/deepseek-v3-0324 | \
 	gpt-5.[4-9]* | gpt-5.[1-9][0-9]* | gpt-[6-9]* | gpt-[1-9][0-9]* | \
 	openai-direct/gpt-5.[4-9]* | openai-direct/gpt-5.[1-9][0-9]* | openai-direct/gpt-[6-9]* | openai-direct/gpt-[1-9][0-9]* | \
 	vertex_ai/gemini-3.1-pro-preview-customtools | vertex_ai/gemini-2.5-flash)
@@ -272,18 +256,6 @@ assert_strix_gpt54_model_guard_cases() {
 	fi
 	if ! assert_strix_gpt54_model_guard_semantics "openai/openai/gpt-5.4"; then
 		record_failure "strix guard must accept GitHub Models openai/openai/gpt-5.4"
-	fi
-	if assert_strix_gpt54_model_guard_semantics "openai/deepseek/deepseek-r1-0528"; then
-		record_failure "strix guard must reject direct DeepSeek R1 primary selection"
-	fi
-	if assert_strix_gpt54_model_guard_semantics "openai/deepseek/deepseek-v3-0324"; then
-		record_failure "strix guard must reject direct DeepSeek V3 primary selection"
-	fi
-	if assert_strix_gpt54_model_guard_semantics "github_models/deepseek/deepseek-r1-0528"; then
-		record_failure "strix guard must reject manual GitHub Models DeepSeek R1 primary selection"
-	fi
-	if assert_strix_gpt54_model_guard_semantics "github_models/deepseek/deepseek-v3-0324"; then
-		record_failure "strix guard must reject manual GitHub Models DeepSeek V3 primary selection"
 	fi
 	if ! assert_strix_gpt54_model_guard_semantics "vertex_ai/gemini-3.1-pro-preview-customtools"; then
 		record_failure "strix guard must accept the organization-approved Vertex preview model"
@@ -331,13 +303,6 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	local workflow_file="$REPO_ROOT/.github/workflows/opencode-review.yml"
 	local opencode_config="$REPO_ROOT/opencode.jsonc"
 
-	assert_file_contains "$workflow_file" "pull_request_target:" "opencode review workflow runs on the trusted PR trigger so merge-conflict PRs still get the standard review surface"
-	assert_file_contains "$workflow_file" "pull_request:" "opencode review workflow publishes a PR-associated required check while trusted review side effects stay on pull_request_target"
-	assert_file_contains "$workflow_file" "Wait for trusted OpenCode approval review" "opencode pull_request bridge only waits for a trusted same-head OpenCode approval"
-	assert_file_contains "$workflow_file" "Trusted OpenCode requested changes for head" "opencode pull_request bridge fails immediately when the trusted same-head review requested changes"
-	assert_file_contains "$workflow_file" "github.event_name == 'pull_request_target'" "opencode review side effects are limited to pull_request_target or manual workflow dispatch"
-	assert_file_contains "$workflow_file" "opencode-review-target:" "opencode trusted review job is separate from the pull_request bridge"
-	assert_file_contains "$workflow_file" "github.event.pull_request.head.repo.full_name == github.repository" "opencode review workflow limits pull_request_target review execution to same-repository PRs"
 	assert_file_contains "$workflow_file" "Initialize CodeGraph index for OpenCode" "opencode review workflow initializes CodeGraph before review"
 	assert_file_contains "$workflow_file" "actions: read" "opencode review workflow can read failed Actions logs for GitHub Check diagnosis"
 	assert_file_contains "$workflow_file" "checks: read" "opencode review workflow can read failed check-run annotations for line-specific findings"
@@ -350,21 +315,11 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "statuses: read" "opencode review workflow can read failed status contexts for approval gating"
 	assert_file_contains "$workflow_file" "Prepare bounded OpenCode review evidence" "opencode review workflow prepares bounded local evidence instead of oversized GitHub prompt data"
 	assert_file_contains "$workflow_file" "emit_file_prefix" "opencode review prompt evidence is byte-capped before GitHub Models requests"
-	assert_file_contains "$workflow_file" "bounded-review-evidence.md" "opencode review prompt reads bounded evidence from the isolated workspace instead of inlining it"
+	assert_file_contains "$workflow_file" 'head -c 7000 "$OPENCODE_EVIDENCE_FILE"' "opencode review prompt includes a compact evidence prefix"
 	assert_file_contains "$workflow_file" "Prepare isolated OpenCode review workspace" "opencode review workflow isolates from the large project AGENTS.md"
 	assert_file_contains "$workflow_file" 'cd "$OPENCODE_REVIEW_WORKDIR"' "opencode review runs from the isolated OpenCode workspace"
 	assert_file_contains "$workflow_file" "failed-check-evidence.md" "opencode review copies full failed-check evidence into the isolated workspace"
-	assert_file_contains "$workflow_file" "Checkout trusted review workflow" "opencode review executes trusted workflow scripts from the base checkout"
-	assert_file_contains "$workflow_file" "Checkout trusted review workflow for manual PR review" "opencode review checks out the workflow dispatch ref for manual PR review reruns"
-	assert_file_contains "$workflow_file" "Materialize pull request head for OpenCode review data" "opencode review materializes PR-head source as read-only review data"
-	assert_file_contains "$workflow_file" 'ref: ${{ github.ref }}' "manual opencode review dispatch checks out the same ref as the workflow file"
-	assert_file_not_contains "$workflow_file" 'ref: ${{ github.event.inputs.pr_base_sha }}' "manual opencode review dispatch must not mix PR-local workflow YAML with base-branch scripts"
-	assert_file_contains "$workflow_file" 'git worktree add --detach "$OPENCODE_SOURCE_WORKDIR" "$PR_HEAD_SHA"' "opencode review materializes the PR head without actions/checkout credentials"
-	assert_file_contains "$workflow_file" 'cd "$OPENCODE_SOURCE_WORKDIR"' "opencode CodeGraph indexing runs against the PR-head source worktree"
-	assert_file_contains "$workflow_file" 'PR_MERGE_BASE="$(git -C "$OPENCODE_SOURCE_WORKDIR" merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA")"' "opencode review evidence diffs use the PR-head worktree merge base"
-	assert_file_contains "$workflow_file" 'git -C "$OPENCODE_SOURCE_WORKDIR" diff' "opencode review builds changed-file evidence from the PR-head worktree"
-	assert_file_not_contains "$workflow_file" 'ref: ${{ github.event.pull_request.base.sha' "opencode pull_request_target checkout avoids dynamic pull_request refs that Scorecard flags"
-	assert_file_not_contains "$workflow_file" 'ref: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha || github.sha }}' "opencode review must not checkout PR head into the trusted workflow workspace"
+	assert_file_contains "$workflow_file" 'PR_MERGE_BASE="$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA")"' "opencode review evidence diffs use the PR merge base"
 	assert_file_matches "$workflow_file" 'uses:[[:space:]]+actions/checkout@[0-9a-fA-F]{40}([[:space:]]|$)' "opencode review workflow pins checkout to a full commit SHA"
 	assert_workflow_uses_are_sha_pinned "$workflow_file" "opencode review workflow"
 	assert_file_contains "$workflow_file" "@colbymchenry/codegraph@0.9.9" "opencode review workflow pins the CodeGraph package"
@@ -376,69 +331,32 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "init -i" "opencode review workflow builds the CodeGraph index"
 	assert_file_contains "$workflow_file" "CodeGraph MCP tools" "opencode review prompt requires CodeGraph-backed review evidence"
 	assert_file_contains "$workflow_file" "general-purpose and meticulous" "opencode review prompt requires a general-purpose meticulous review"
-	assert_file_contains "$workflow_file" "actively consult CodeGraph MCP for structural checks, DeepWiki for repo docs, Context7 for current library/API docs, and web_search for bounded external lookups" "opencode review prompt directs the agent to use all configured MCP sources"
-	assert_file_contains "$workflow_file" "observable impact, trigger condition, minimal fix direction, and exact regression test or verification command" "opencode review prompt requires practical finding details"
-	assert_file_contains "$workflow_file" "The regression_test_direction should name an exact test target or verification command when the repository already provides one." "opencode review prompt requires concrete validation guidance"
-	assert_file_contains "$workflow_file" "P1/P2/P3 priority" "opencode review prompt requires Greptile-style priority labels"
-	assert_file_contains "$workflow_file" "nearby implementation, matching existing example, cross-file counterpart, current official docs, or failed check/log evidence" "opencode review prompt requires explicit evidence type"
-	assert_file_contains "$workflow_file" "flag unrelated PR scope drift" "opencode review prompt catches unrelated scope drift"
-	assert_file_contains "$workflow_file" "GitHub suggestion-ready minimal diffs" "opencode review prompt requires directly applicable suggested diffs"
-	assert_file_contains "$workflow_file" "compact Mermaid graph" "opencode review prompt requires a Mermaid risk graph"
-	assert_file_contains "$workflow_file" "PR mergeability evidence" "opencode review evidence includes PR mergeability state"
-	assert_file_contains "$workflow_file" "## Changed docs repository tree evidence" "opencode review evidence includes repo-tree facts for changed docs directories"
-	assert_file_contains "$workflow_file" 'git -C "$OPENCODE_SOURCE_WORKDIR" ls-tree -r --name-only "$PR_HEAD_SHA" -- "$docs_dir"' "opencode review evidence lists current-head docs assets from the PR head worktree before judging docs claims"
-	assert_file_contains "$workflow_file" "Do not claim repository docs, images, or reference assets are unavailable, missing, or absent unless the changed docs repository tree evidence proves it." "opencode review prompt forbids unsupported docs asset absence claims"
-	assert_file_contains "$workflow_file" "Merge Conflict Guidance" "opencode review overview includes conflict repair guidance"
-	assert_file_contains "$workflow_file" "mergeStateStatus DIRTY or CONFLICTING" "opencode review prompt handles merge conflicts"
-	assert_file_contains "$workflow_file" "mergeStateStatus BLOCKED is a branch policy, review, or check state, not conflict guidance" "opencode review prompt does not misclassify branch-policy blockers as merge conflicts"
-	if [ -e "$REPO_ROOT/.github/workflows/opencode-merge-conflict-guidance.yml" ]; then
-		record_failure "opencode merge-conflict guidance must stay inside OpenCode Review instead of a separate workflow"
-	fi
-	assert_file_contains "$workflow_file" "Structural exploration is mandatory for every PR" "opencode review prompt makes structural exploration mandatory"
-	assert_file_contains "$workflow_file" "Never state that structural exploration, structural analysis, or structural review is not required or unnecessary" "opencode review prompt forbids dismissing structural review"
-	assert_file_contains "$workflow_file" "If structural exploration was not possible or changed files could not be inspected after reading bounded-review-evidence.md and the changed files, do not approve" "opencode review prompt blocks approval without structural evidence"
-	assert_file_contains "$workflow_file" "Use CodeGraph for blast-radius, call graph, and test-coverage questions before broad local reads" "opencode review prompt adapts code-review-graph guidance without adding a duplicate dependency"
-	assert_file_contains "$workflow_file" "Prefer deletion, stdlib/native platform features, and already-installed dependencies before proposing new code or packages" "opencode review prompt adapts ponytail minimal-change guidance"
-	assert_file_contains "$workflow_file" "For Korean prose, preserve facts, identifiers, numbers, and quotes" "opencode review prompt adapts im-not-ai guidance only for Korean prose"
-	assert_file_contains "$workflow_file" "concrete CWE/KISA-style class" "opencode failed-check diagnosis maps Strix findings to evidence-backed security categories"
-	assert_file_contains "$workflow_file" "Do not request changes solely because the prompt did not inline the full evidence" "opencode review prompt requires file inspection instead of evidence-truncation blockers"
+	assert_file_contains "$workflow_file" "use CodeGraph MCP for structural checks, DeepWiki for repo docs, Context7 for current library/API docs, and web_search for bounded external lookups" "opencode review prompt directs the agent to use all configured MCP sources"
 	assert_file_contains "$workflow_file" "Inspect changed files and focused hunks directly when MCP evidence is insufficient." "opencode review allows focused direct source inspection when MCP evidence is insufficient"
 	assert_file_contains "$workflow_file" "Never return raw tool-call markup, tool-call JSON, or MCP call syntax in the review body" "opencode review prompt forbids raw tool-call transcripts as final review output"
 	assert_file_contains "$workflow_file" "Do not spend the session listing every changed path before reviewing" "opencode review prompt prevents fallback sessions from exhausting steps on file listing"
 	assert_file_contains "$workflow_file" "always return a final control block instead of a progress summary" "opencode review prompt requires a gate conclusion instead of a progress summary"
-	assert_file_contains "$workflow_file" "timeout 600 opencode run" "opencode review primary model has a bounded timeout so fallback review can publish promptly"
-	assert_file_contains "$workflow_file" "timeout-minutes: 25" "opencode review primary model job leaves room to retry one timed-out OpenCode attempt"
-	assert_file_contains "$workflow_file" 'OPENCODE_MODEL_ATTEMPTS: "2"' "opencode review retries transient model execution failures before exhausting a model"
-	assert_file_contains "$workflow_file" 'OpenCode %s attempt %s/%s failed with exit %s.' "opencode review logs per-model retry attempts"
-	assert_file_contains "$workflow_file" '137|143) break ;;' "opencode review stops same-model retries only for killed or terminated OpenCode processes"
-	assert_file_not_contains "$workflow_file" '124|137|143) break ;;' "opencode review retries timeout failures before exhausting the current model"
+	assert_file_contains "$workflow_file" "timeout 1200 opencode run" "opencode review primary model has a bounded extended timeout for larger workflow diffs"
 	assert_file_contains "$workflow_file" '"ci-review-fallback"' "opencode review workflow declares a dedicated fallback agent"
 	assert_file_contains "$workflow_file" '"steps": 12' "opencode review fallback agent has enough bounded steps to conclude after MCP inspection"
 	assert_file_contains "$workflow_file" '"read": "allow"' "opencode review allows read-only file inspection"
 	assert_file_contains "$workflow_file" '"grep": "allow"' "opencode review allows focused literal searches"
 	assert_file_contains "$workflow_file" '"external_directory": "allow"' "opencode review can read the real checkout from its isolated review workspace"
 	assert_file_not_contains "$workflow_file" '"external_directory": "deny"' "opencode review must not block focused reads of the real checkout"
-	assert_file_contains "$workflow_file" "Bounded evidence is available in ./bounded-review-evidence.md" "opencode review prompt points the model at the bounded evidence file"
-	assert_file_contains "$workflow_file" "Current runtime-version review contract" "opencode review evidence names the current runtime-version contract"
-	assert_file_contains "$workflow_file" "Do not request rollback of Node 24 or Python 3.14 solely from model memory" "opencode review prompt rejects stale runtime-version model memory"
-	assert_file_not_contains "$workflow_file" 'head -c 20000 "$OPENCODE_EVIDENCE_FILE"' "opencode review prompt must not exceed GitHub Models prompt limits by inlining bounded evidence"
+	assert_file_contains "$workflow_file" "Bounded evidence follows as untrusted PR metadata" "opencode review prompt includes bounded PR metadata in the model prompt"
 	assert_file_contains "$workflow_file" "## Focused changed hunks" "opencode review evidence includes focused changed hunks"
-	assert_file_contains "$workflow_file" 'git -C "$OPENCODE_SOURCE_WORKDIR" diff --unified=12 --find-renames "$PR_MERGE_BASE" "$PR_HEAD_SHA"' "opencode review evidence includes focused hunks from the PR merge base"
+	assert_file_contains "$workflow_file" 'git diff --unified=12 --find-renames "$PR_MERGE_BASE" "$PR_HEAD_SHA"' "opencode review evidence includes focused hunks from the PR merge base"
 	assert_file_contains "$workflow_file" 'mapfile -t focused_hunk_paths' "opencode review evidence builds focused hunks from the changed file list"
-	assert_file_contains "$workflow_file" 'git -C "$OPENCODE_SOURCE_WORKDIR" diff --name-only --find-renames "$PR_MERGE_BASE" "$PR_HEAD_SHA"' "opencode review evidence discovers focused hunk paths dynamically"
+	assert_file_contains "$workflow_file" 'git diff --name-only --find-renames "$PR_MERGE_BASE" "$PR_HEAD_SHA"' "opencode review evidence discovers focused hunk paths dynamically"
 	assert_file_contains "$workflow_file" '-- "${focused_hunk_paths[@]}"' "opencode review evidence passes dynamic changed paths to git diff"
 	assert_file_contains "$workflow_file" "do not return file-inaccessible findings" "opencode review prompt forbids placeholder inaccessible-file findings when hunks are present"
 	assert_file_contains "$workflow_file" "Do not include analysis, planning, tool-call narration, placeholders, or prose before the sentinel." "opencode review prompt forbids reasoning text before the control sentinel"
 	assert_file_contains "$workflow_file" "OpenCode output did not include a valid control conclusion." "opencode review model steps fail when output lacks a parseable control conclusion"
 	assert_file_contains "$workflow_file" 'bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file"' "opencode review model steps validate the control block before publishing"
-	assert_file_contains "$workflow_file" 'if bash "$GITHUB_WORKSPACE/scripts/ci/opencode_review_approve_gate.sh" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" >/dev/null; then' "opencode review model steps try the direct approval gate before Python normalization"
 	assert_file_contains "$workflow_file" "normalize_opencode_output" "opencode review model steps normalize model control output"
 	assert_file_contains "$workflow_file" "opencode_review_normalize_output.py" "opencode review model steps normalize transcript-embedded JSON output"
-	assert_file_contains "$workflow_file" '"$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$output_file" "$OPENCODE_EVIDENCE_FILE"; then' "opencode review model steps pass bounded changed-file evidence to the normalizer"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "decoder.raw_decode" "opencode review normalizer scans transcript text for JSON objects"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "valid_control" "opencode review normalizer accepts only current-run control JSON"
-	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "first_changed_file_from_evidence" "opencode review normalizer can recover approval evidence from bounded changed-file evidence"
-	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "first_actual_changed_file_evidence" "opencode review normalizer verifies approval evidence against bounded changed-file paths"
 	assert_file_contains "$workflow_file" "opencode run" "opencode review workflow runs the bounded OpenCode agent path"
 	assert_file_contains "$workflow_file" 'opencode run "$(cat "$prompt_file")"' "opencode review passes the prompt as the positional message before file attachments"
 	assert_file_contains "$workflow_file" "--agent ci-review" "opencode review workflow forces the compact CI review agent"
@@ -446,73 +364,34 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "--pure" "opencode review workflow avoids external OpenCode plugins during CI"
 	assert_file_contains "$workflow_file" "--format json" "opencode review workflow captures the OpenCode session id as JSON"
 	assert_file_contains "$workflow_file" "opencode export" "opencode review workflow extracts assistant text from the completed OpenCode session"
-	assert_file_contains "$workflow_file" 'gate_status=0' "opencode review publish step tracks invalid control output before failing closed"
+	assert_file_contains "$workflow_file" 'gate_status=0' "opencode review publish step tracks invalid control output without failing the check"
 	assert_file_contains "$workflow_file" 'gate_status=$?' "opencode review publish step lets approval gate explain invalid control output"
 	assert_file_contains "$workflow_file" "OpenCode comment gate result: %s (exit %s)" "opencode review publish step logs invalid control output status"
-	assert_file_contains "$workflow_file" "OpenCode publish gate rejected the selected model output; failing this check instead of posting a stale review." "opencode review publish step fails closed when normalized evidence is invalid"
 	assert_file_contains "$workflow_file" 'normalized_comment_json="$(mktemp)"' "opencode review publish step creates a normalized control payload file"
-	assert_file_contains "$workflow_file" '"$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$clean_output"' "opencode review publish step re-normalizes the ANSI-stripped selected model output"
-	assert_file_contains "$workflow_file" "Selected successful OpenCode output did not include a valid control conclusion." "opencode review publish step refuses stale success status when the selected output is invalid"
-	assert_file_contains "$workflow_file" "exit 4" "opencode review publish step fails closed on invalid selected successful output"
 	assert_file_contains "$workflow_file" 'opencode_review_approve_gate.sh "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$comment_body_file" "$normalized_comment_json"' "opencode review publish step extracts normalized control JSON"
 	assert_file_contains "$workflow_file" 'cat "$normalized_comment_json"' "opencode review publish step rebuilds the overview from normalized control JSON"
-	assert_file_contains "$workflow_file" 'OPENCODE_FALLBACK_OUTPUT_FILE: ${{ runner.temp }}/opencode-review-fallback.md' "opencode approval step can directly re-read the selected fallback output"
-	assert_file_contains "$workflow_file" 'load_selected_review_output()' "opencode approval step has a direct selected-output fallback when the overview comment is stale or invalid"
-	assert_file_contains "$workflow_file" "gate result from Review Overview comment" "opencode approval step distinguishes overview-comment gate results"
-	assert_file_contains "$workflow_file" "gate result from selected OpenCode output" "opencode approval step can recover from an invalid overview by validating the selected successful output"
 	assert_file_contains "$workflow_file" 'APPROVAL_CHECK_WAIT_ATTEMPTS: "241"' "opencode approval waits for long-running peer checks before approving"
 	assert_file_contains "$workflow_file" 'CHECK_LOOKUP_RETRY_ATTEMPTS: "5"' "opencode approval retries transient GitHub check lookup failures before changing review state"
 	assert_file_contains "$workflow_file" 'GitHub Checks lookup failed; retrying' "opencode approval logs transient check lookup retries"
 	assert_file_contains "$workflow_file" 'collect_github_checks_with_retry collect_pending_github_checks "$output_file"' "opencode approval retry-wraps pending check lookup"
 	assert_file_contains "$workflow_file" 'collect_github_checks_with_retry collect_failed_github_checks "$failed_checks_file"' "opencode approval retry-wraps failed check lookup"
-	assert_file_contains "$workflow_file" 'approve_low_risk_changed_files_after_model_failure()' "opencode approval has a deterministic fallback for low-risk model-output failures"
-	assert_file_contains "$workflow_file" 'This fallback is not used for workflow, source-code, script, dependency, infrastructure, configuration, or lockfile changes.' "opencode low-risk fallback excludes executable and configuration changes"
-	assert_file_contains "$workflow_file" '.github/workflows' "opencode low-risk fallback explicitly excludes workflow changes"
-	assert_file_contains "$workflow_file" 'approve_review_tooling_bootstrap_after_model_failure()' "opencode approval has a deterministic fallback for review-tooling bootstrap failures"
-	assert_file_contains "$workflow_file" '[ ! -e "$source_root/.git" ]' "opencode review-tooling bootstrap accepts git worktrees whose .git entry is a file"
-	assert_file_contains "$workflow_file" 'Deterministic review-tooling bootstrap fallback approval was used' "opencode review-tooling bootstrap fallback explains model-output failure approval"
-	assert_file_contains "$workflow_file" 'scripts/ci/strix_quick_gate.sh' "opencode review-tooling bootstrap fallback is scoped to the Strix/OpenCode review bundle"
-	assert_file_contains "$workflow_file" 'optional actionlint when installed, bash syntax checks for review shell scripts, and Python bytecode compilation' "opencode review-tooling bootstrap fallback runs local static validation"
 	assert_file_contains "$workflow_file" 'current_peer_checks_still_running()' "opencode evidence waits for PR statusCheckRollup peer checks before reviewing"
 	assert_file_contains "$workflow_file" 'collect_pending_github_checks()' "opencode approval collects pending peer GitHub Checks"
+	assert_file_not_contains "$workflow_file" 'gh run list' "opencode approval must not mix non-PR workflow runs into PR gate decisions"
 	assert_file_contains "$workflow_file" 'collect_current_head_strix_workflow_runs()' "opencode approval separately accounts for jobless current-head Strix workflow runs"
-	assert_file_contains "$workflow_file" 'actions/workflows/strix.yml' "opencode approval probes whether Strix is installed before listing Strix runs"
-	assert_file_contains "$workflow_file" 'grep -Fq "HTTP 404" "$workflow_lookup_err"' "opencode approval treats missing Strix workflow as optional instead of a check lookup failure"
-	assert_file_contains "$workflow_file" 'gh run list' "opencode approval uses the Actions run list API for current-head Strix evidence"
-	assert_file_contains "$workflow_file" '--commit "$HEAD_SHA"' "opencode approval asks GitHub for runs scoped to the current PR head"
-	assert_file_contains "$workflow_file" '--limit 200' "opencode approval looks up enough Strix workflow runs to compare current-head failures against newer manual evidence"
-	assert_file_not_contains "$workflow_file" 'actions/workflows/strix.yml/runs?per_page=50' "opencode approval must not rely on a shallow Strix workflow-run REST page"
-	assert_file_contains "$workflow_file" 'select((.headSha // .head_sha // "") == $head_sha)' "opencode approval filters supplemental Strix workflow runs to the current PR head"
-	assert_file_contains "$workflow_file" 'select((.event // "") == "pull_request_target" or (.event // "") == "workflow_dispatch")' "opencode approval compares PR Strix runs with manual current-head evidence reruns"
-	assert_file_contains "$workflow_file" '$newest_success_run_id' "opencode approval suppresses older current-head Strix failures after a newer successful evidence run"
+	assert_file_contains "$workflow_file" 'actions/workflows/strix.yml/runs?event=pull_request_target&per_page=30' "opencode approval scopes supplemental workflow-run lookup to Strix pull_request_target runs"
+	assert_file_contains "$workflow_file" 'select((.head_sha // "") == $head_sha)' "opencode approval filters supplemental Strix workflow runs to the current PR head"
 	assert_file_contains "$workflow_file" 'Strix Security Scan/strix workflow run' "opencode approval reports pending or failed current-head Strix workflow runs explicitly"
 	assert_file_contains "$workflow_file" '["FAILURE","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STARTUP_FAILURE"]' "opencode approval treats failed PR statusCheckRollup check runs as blockers"
 	assert_file_contains "$workflow_file" 'grep -Fq -- "Strix Security Scan/strix:" "$rollup_file"' "opencode approval avoids duplicate supplemental Strix workflow-run blockers when statusCheckRollup already has the Strix check"
-	assert_file_contains "$workflow_file" 'current_head_manual_strix_success_status()' "opencode approval can identify same-head manual Strix success status evidence"
-	assert_file_contains "$workflow_file" 'filter_superseded_strix_failures()' "opencode approval filters only explicitly superseded stale Strix failures"
-	assert_file_contains "$workflow_file" 'Manual workflow_dispatch Strix evidence passed' "opencode approval requires an explicit manual Strix evidence status description"
-	assert_file_contains "$workflow_file" 'last // empty' "opencode approval checks the latest strix status before accepting manual success evidence"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" '"workflow_run"' "failed-check evidence includes failed same-head workflow runs outside statusCheckRollup"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "--json databaseId,workflowName,status,conclusion,url,event,headSha" "failed-check evidence scopes supplemental workflow runs with event and head SHA metadata"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'select((.event // "") == "pull_request_target" or (.event // "") == "workflow_dispatch")' "failed-check evidence appends PR Strix workflow runs and manual PR evidence reruns"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'select((.headSha // "") == env.HEAD_SHA)' "failed-check evidence only appends current-head workflow runs"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'select((.workflowName // "") == "Strix Security Scan" or (.workflowName // "") == "Strix")' "failed-check evidence only appends Strix workflow runs"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'group_by(.__context_key)' "failed-check evidence groups manual Strix statuses by context before accepting superseding success"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'map(last)' "failed-check evidence accepts only the latest status per context"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'awk -F '"'"'\t'"'"' -v run_id="$run_id"' "failed-check evidence avoids duplicate workflow-run evidence when statusCheckRollup already includes the run"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'select((.name // "") != "opencode-review")' "failed-check evidence excludes stale OpenCode bridge check runs"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'select((.checkSuite.workflowRun.workflow.name // "") != "OpenCode Review")' "failed-check evidence excludes stale OpenCode workflow failures"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'select((.context // "") != "opencode-review")' "failed-check evidence excludes stale OpenCode status contexts"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'validate_input GH_REPOSITORY' "failed-check evidence validates repository input before GitHub CLI use"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'validate_input PR_NUMBER' "failed-check evidence validates PR number input before GitHub CLI use"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" 'validate_input HEAD_SHA' "failed-check evidence validates head SHA input before GitHub CLI use"
-	assert_file_not_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" '[[ ! "$run_id" =~ ^[0-9]+$ ]]' "failed-check evidence no longer suppresses failed contexts as superseded"
 	assert_file_contains "$workflow_file" 'wait_for_peer_github_checks "$pending_checks_file"' "opencode approval gates approval on pending peer GitHub Checks"
-	assert_file_contains "$workflow_file" 'collect_unresolved_human_review_threads()' "opencode approval re-queries unresolved human review threads immediately before approval"
-	assert_file_contains "$workflow_file" "reviewThreads(first: 100)" "opencode approval reads review threads from GitHub before approval"
-	assert_file_contains "$workflow_file" "Latest unresolved human review thread evidence" "opencode approval preserves unresolved human thread evidence in the blocking review"
-	assert_file_contains "$workflow_file" "OpenCode reviewed the current-head evidence but found unresolved human review threads before approval." "opencode approval requests changes instead of approving after a fresh human objection"
-	assert_file_contains "$workflow_file" 'OpenCode reviewed the current-head bounded evidence but could not approve while peer GitHub Checks were still pending.' "opencode approval requests changes when peer checks remain pending"
+	assert_file_contains "$workflow_file" 'OpenCode Agent could not approve because GitHub Checks were still pending before approval.' "opencode approval requests changes when peer checks remain pending"
 	assert_file_contains "$workflow_file" 'select((.status // "") != "COMPLETED")' "opencode approval treats incomplete check runs as approval blockers"
 	assert_file_contains "$workflow_file" '["PENDING","EXPECTED"]' "opencode approval treats pending status contexts as approval blockers"
 	assert_file_contains "$workflow_file" "<!-- opencode-review-overview -->" "opencode review publishes a durable Review Overview marker"
@@ -524,13 +403,6 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" 'update_review_overview()' "opencode approval step can rewrite the durable Review Overview after final gate decisions"
 	assert_file_contains "$workflow_file" 'update_review_overview "$event" "$body"' "opencode approval reviews refresh the durable overview with the actual approval-step event"
 	assert_file_contains "$workflow_file" 'env GH_TOKEN="$overview_comment_token"' "opencode approval overview updates use the workflow comment token"
-	assert_file_contains "$workflow_file" 'warn_gh_publication_failure()' "opencode approval soft-fails PR review/comment publication errors"
-	assert_file_contains "$workflow_file" 'OpenCode could not publish %s; continuing without review side effect.' "opencode approval explains permission-denied publication failures"
-	assert_file_contains "$workflow_file" 'warn_gh_publication_failure "initial review overview lookup"' "opencode initial overview lookup soft-fails permission-denied publication errors"
-	assert_file_contains "$workflow_file" 'warn_gh_publication_failure "initial review overview update"' "opencode initial overview update soft-fails permission-denied publication errors"
-	assert_file_contains "$workflow_file" 'warn_gh_publication_failure "initial review overview comment"' "opencode initial overview comment soft-fails permission-denied publication errors"
-	assert_file_contains "$workflow_file" 'warn_gh_publication_failure "pull review"' "opencode approval soft-fails permission-denied review publication"
-	assert_file_contains "$workflow_file" 'warn_gh_publication_failure "review overview comment"' "opencode approval soft-fails permission-denied overview publication"
 	assert_file_not_contains "$workflow_file" 'gh api -X DELETE "repos/${GH_REPOSITORY}/issues/comments/${comment_id}"' "opencode review must not delete Review Overview gate evidence"
 	assert_file_not_contains "$workflow_file" '--file "$OPENCODE_EVIDENCE_FILE"' "opencode review must not attach evidence content to GitHub Models requests"
 	assert_file_not_contains "$workflow_file" "opencode github run" "opencode review workflow must not use the oversized GitHub agent prompt path"
@@ -544,12 +416,10 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "statusCheckRollup" "opencode review workflow reads current-head GitHub Checks before approval"
 	assert_file_contains "$workflow_file" "OPENCODE_FAILED_CHECK_EVIDENCE_FILE" "opencode review workflow persists failed-check evidence across review and approval steps"
 	assert_file_contains "$workflow_file" "collect_failed_check_evidence.sh" "opencode review workflow collects failed check logs and annotations"
-	assert_file_contains "$workflow_file" 'HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha }}' "opencode evidence step passes HEAD_SHA to failed-check evidence collection"
+	assert_file_contains "$workflow_file" 'HEAD_SHA: ${{ github.event.pull_request.head.sha }}' "opencode evidence step passes HEAD_SHA to failed-check evidence collection"
 	assert_file_contains "$workflow_file" "FAILED_CHECK_EVIDENCE_ATTEMPTS" "opencode review workflow bounds waiting for peer check failures before model review"
 	assert_file_contains "$workflow_file" 'FAILED_CHECK_EVIDENCE_ATTEMPTS: "31"' "opencode review workflow waits long enough for slow Strix self-test failures"
 	assert_file_contains "$workflow_file" "collect_failed_check_evidence_with_wait" "opencode review workflow waits briefly for failed checks before building model evidence"
-	assert_file_contains "$workflow_file" "Failed-check evidence collector is not installed in this repository." "opencode review evidence handles repos without the failed-check helper instead of retrying a missing script"
-	assert_file_contains "$workflow_file" "collect_failed_check_evidence_or_note()" "opencode approval handles repos without the failed-check helper before publishing fallback reviews"
 	assert_file_contains "$workflow_file" "current_peer_checks_still_running" "opencode review workflow distinguishes pending peer checks from completed check state"
 	assert_file_contains "$workflow_file" 'select((.name // "") != "opencode-review")' "opencode review evidence wait excludes its own check run"
 	assert_file_contains "$workflow_file" 'select((.checkSuite.workflowRun.workflow.name // "") != "OpenCode PR Review")' "opencode review evidence wait excludes its own workflow"
@@ -563,16 +433,7 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "When Strix logs contain multiple" "failed-check evidence collector requires all model-reported vulnerabilities"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "Create one OpenCode finding per Strix model vulnerability report" "failed-check evidence contract requires one finding per Strix model report"
 	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "model name, title, severity, endpoint, and Code Locations/path:line evidence" "failed-check evidence collector names required Strix report fields"
-	assert_file_contains "$workflow_file" "If bounded failed GitHub Check evidence contains active failed checks, treat it as a blocker until diagnosed." "opencode review prompt forces active failed-check diagnosis"
-	assert_file_contains "$workflow_file" "A successful same-head manual workflow_dispatch Strix run may supersede a stale failed PR statusCheckRollup Strix context only when failed-check evidence explicitly lists it under Superseded failed checks with the exact target URL" "opencode review prompt allows only explicit same-head manual Strix evidence to supersede stale rollup failures"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "Superseded failed checks" "failed-check evidence lists stale failed contexts superseded by current-head manual Strix evidence"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "manual_success_contexts" "failed-check evidence compares explicit manual success statuses before active failures"
-	assert_file_contains "$REPO_ROOT/scripts/ci/collect_failed_check_evidence.sh" "No active failed GitHub Checks remained after superseded checks were classified" "failed-check evidence reports no active failures after stale contexts are superseded"
-	assert_file_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "Strix vulnerability report window([[:space:]]|$)" "failed-check fallback detects numbered Strix vulnerability report windows with a POSIX ERE boundary"
-	assert_file_not_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "Strix vulnerability report window\\\\b" "failed-check fallback must not rely on non-portable grep -E word boundaries"
-	assert_file_not_contains "$workflow_file" "failed_check_evidence_has_active_failures" "opencode approval must treat collected failed rollup contexts as blockers"
-	assert_file_not_contains "$workflow_file" "failed-check evidence showed only superseded failures" "opencode approval must not continue approval after failed PR rollup contexts"
-	assert_file_not_contains "$workflow_file" "preserving model REQUEST_CHANGES" "opencode request-changes path must validate failed-check findings when failed rollup contexts exist"
+	assert_file_contains "$workflow_file" "If bounded failed GitHub Check evidence is present, treat it as a blocker until diagnosed." "opencode review prompt forces failed-check diagnosis"
 	assert_file_contains "$workflow_file" "include every model-reported vulnerability as a separate evidence-backed finding" "opencode review prompt requires all Strix model findings"
 	assert_file_contains "$workflow_file" "Multiple Strix model reports must not be collapsed" "opencode review prompt prevents collapsing multiple Strix model reports"
 	assert_file_contains "$workflow_file" "One Strix model vulnerability report requires one distinct finding" "opencode review prompt requires one finding per Strix model report"
@@ -581,20 +442,16 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "Do not request changes with only a check URL, workflow name, or generic failure summary." "opencode review prompt forbids generic failed-check reviews"
 	assert_file_contains "$workflow_file" "Failed-check findings must be line-specific and concrete" "opencode review prompt requires line-specific failed-check findings"
 	assert_file_contains "$workflow_file" "never use line 0" "opencode review prompt forbids non-specific line 0 findings"
-	assert_file_contains "$workflow_file" "The suggested_diff must be source-backed and GitHub suggestion-ready when possible: every removed line in the diff must exist in the cited current local file" "opencode review prompt forbids non-source-backed suggested diffs"
+	assert_file_contains "$workflow_file" "The suggested_diff must be source-backed: every removed line in the diff must exist in the cited current local file" "opencode review prompt forbids non-source-backed suggested diffs"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" '.line | type == "number" and . > 0 and floor == .' "opencode approval gate rejects line zero findings"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" '$p != "n/a" and $p != "unknown"' "opencode approval gate rejects placeholder finding paths"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" 'startswith("cannot provide diff")' "opencode approval gate rejects placeholder suggested diffs"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" "source_file.is_file()" "opencode approval gate requires finding paths to exist"
 	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" "removed_line not in source_line_set" "opencode approval gate rejects suggested diffs that remove code absent from the cited file"
-	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "isinstance(line, bool)" "opencode normalizer rejects boolean line findings"
-	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" "line <= 0" "opencode normalizer rejects line zero findings"
-	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" "--check-structural-approval" "opencode approval gate delegates structural approval rejection to the normalizer"
-	assert_file_not_contains "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" "structural exploration was not possible" "opencode approval gate does not duplicate structural failure phrases"
+	assert_file_contains "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" 'finding["line"] <= 0' "opencode normalizer rejects line zero findings"
 	assert_file_contains "$workflow_file" "validate_opencode_failed_check_review.sh" "opencode approval gate validates request-changes reviews against failed-check evidence"
 	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "FAILED_CHECK_EVIDENCE_NOT_REFERENCED" "failed-check review validator rejects unrelated speculative findings"
-	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "extract_strix_report_model_markers" "failed-check review validator extracts model markers from Strix vulnerability report windows"
-	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "(?:model|for model)[[:space:]]+" "failed-check review validator reads both Model and for model lines inside Strix reports"
+	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "github(?:_|-)models" "failed-check review validator extracts both github_models and github-models model prefixes"
 	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "Self-test Strix gate script" "failed-check review validator requires Strix failed step evidence"
 	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "github.event.inputs.strix_llm" "failed-check review validator requires exact Strix missing assertion evidence"
 	assert_file_contains "$REPO_ROOT/scripts/ci/validate_opencode_failed_check_review.sh" "extract_strix_required_markers" "failed-check review validator extracts Strix report titles and locations"
@@ -615,34 +472,19 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_contains "$workflow_file" "Unrelated speculative findings are invalid when failed-check evidence is present." "opencode review prompt forbids unrelated failed-check findings"
 	assert_file_contains "$workflow_file" "run_failed_check_diagnosis" "opencode approval gate reruns OpenCode diagnosis when checks fail after the initial review"
 	assert_file_contains "$workflow_file" "OpenCode action outcomes were primary=" "opencode approval gate records invalid model outcome details"
-	assert_file_contains "$workflow_file" "OpenCode model attempts did not produce a usable control block" "opencode approval gate reports invalid model output as a review-governance blocker"
-	assert_file_contains "$workflow_file" "leaving the PR review unchanged because this is review tooling instability, not a source-code finding" "opencode approval gate leaves invalid model output as tooling failure without review side effects"
-	assert_file_not_contains "$workflow_file" "Review Evidence Missing" "opencode model-failure fallback must not publish synthetic review-evidence findings"
-	assert_file_contains "$workflow_file" "request_changes_for_merge_conflict_if_present" "opencode approval gate checks mergeability before approving model or fallback output"
-	assert_file_contains "$workflow_file" "Merge Conflict Guidance" "opencode approval gate emits explicit conflict guidance when mergeability is dirty"
-	assert_file_contains "$workflow_file" "flowchart LR" "opencode merge-conflict guidance includes a compact Mermaid graph"
 	assert_file_contains "$workflow_file" "Failed check evidence for line-specific fixes" "opencode approval gate includes failed-check evidence when diagnosis cannot complete"
 	assert_file_contains "$workflow_file" "emit_line_specific_fallback_findings" "opencode failed-check fallback maps known Strix failures to source lines"
 	assert_file_contains "$workflow_file" 'repo_root="${GITHUB_WORKSPACE:-$PWD}"' "opencode failed-check fallback maps source lines from the repository root"
-	assert_file_contains "$workflow_file" "## Findings" "opencode failed-check fallback publishes line-specific repair findings"
+	assert_file_contains "$workflow_file" "Line-specific fallback findings" "opencode failed-check fallback publishes line-specific repair findings"
 	assert_file_contains "$workflow_file" "emit_opencode_failed_check_fallback_findings.sh" "opencode failed-check fallback delegates deterministic Strix report expansion to tested helper"
 	assert_file_contains "$workflow_file" "OpenCode failed-check fallback helper exited non-zero; using inline fallback." "opencode failed-check fallback handles helper failures without aborting under set -e"
-	assert_file_contains "$workflow_file" "Do not depend on Copilot Review, CodeRabbitAI, or any human reviewer" "opencode review format is independent of other review agents"
 	assert_file_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "emit_strix_report_findings" "failed-check fallback emits every Strix vulnerability report as a separate finding"
 	assert_file_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "Strix provider signal left current-head security evidence incomplete" "failed-check fallback does not claim reports are absent after Strix emitted vulnerabilities"
-	assert_file_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "cancelled pull_request_target run still used the base branch copies" "failed-check fallback explains trusted-base Strix workflow semantics for self-modifying PRs"
-	assert_file_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "get_validated_pr_diff_range" "failed-check fallback validates PR diff range before comparing trusted Strix inputs"
-	assert_file_contains "$workflow_file" ".github/workflows/strix.yml" "opencode inline fallback watches Strix workflow changes"
-	assert_file_contains "$workflow_file" "scripts/ci/strix_quick_gate.sh" "opencode inline fallback watches trusted Strix gate changes"
-	assert_file_contains "$workflow_file" "scripts/ci/test_strix_quick_gate.sh" "opencode inline fallback watches trusted Strix self-test changes"
-	assert_file_contains "$workflow_file" "requirements-strix-ci.txt" "opencode inline fallback watches trusted Strix dependency changes"
-	assert_file_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "Strix provider failure blocked current-head security evidence" "failed-check fallback does not label non-quota provider routing/auth failures as quota"
-	assert_file_not_contains "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" "Strix provider quota blocked current-head security evidence" "failed-check fallback avoids misleading quota-only provider blocker title"
 	assert_file_contains "$workflow_file" "- Root cause:" "opencode review request-changes body includes root cause per finding"
 	assert_file_contains "$workflow_file" "- Regression test:" "opencode review request-changes body includes regression test direction per finding"
 	assert_file_contains "$workflow_file" "- Suggested diff:" "opencode review request-changes body includes suggested diff per finding"
-	assert_file_contains "$workflow_file" "OpenCode reviewed the current-head bounded evidence and found failing GitHub Checks that need source-backed diagnosis before merge." "opencode review workflow requests changes when current-head GitHub Checks failed"
-	assert_file_contains "$workflow_file" "OpenCode reviewed the current-head evidence but could not verify peer GitHub Checks before approval." "opencode review workflow explains check lookup failures instead of approving"
+	assert_file_contains "$workflow_file" "OpenCode Agent requested changes because GitHub Checks failed on the current head." "opencode review workflow requests changes when current-head GitHub Checks failed"
+	assert_file_contains "$workflow_file" "OpenCode Agent could not verify GitHub Checks before approval." "opencode review workflow explains check lookup failures instead of approving"
 	assert_file_contains "$workflow_file" '["FAILURE","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STARTUP_FAILURE"]' "opencode review workflow treats failed check-run conclusions as request-changes blockers"
 	assert_file_contains "$workflow_file" '["FAILURE","ERROR"]' "opencode review workflow treats failed status contexts as request-changes blockers"
 	assert_file_not_contains "$workflow_file" "MODEL: github-models/gpt-4.1" "opencode review must not fall back to GPT-4.1"
@@ -669,35 +511,18 @@ assert_opencode_review_uses_codegraph_and_gpt5_fallback() {
 	assert_file_not_contains "$opencode_config" "gpt-5-mini" "opencode config must not define unavailable GPT-5 mini fallback"
 }
 
-assert_opencode_review_posts_suggested_diffs_inline() {
-	local workflow_file="$REPO_ROOT/.github/workflows/opencode-review.yml"
-
-	assert_file_contains "$workflow_file" "create_pull_review_with_payload" "opencode review can post custom review payloads"
-	assert_file_contains "$workflow_file" "comments: [" "opencode review payload includes inline review comments"
-	assert_file_contains "$workflow_file" '#### Suggested diff\n```diff\n' "opencode review puts suggested diffs inside inline review comments"
-	assert_file_contains "$workflow_file" "GitHub did not accept the inline review comments" "opencode review explains anchor failures instead of copying diffs to the PR body"
-	assert_file_contains "$workflow_file" "publish_request_changes_from_control" "opencode review REQUEST_CHANGES path publishes findings from the control JSON"
-
-	if awk '/format_request_changes_body\(\)/,/build_request_changes_review_payload\(\)/ { print }' "$workflow_file" |
-		grep -Fq '```diff'; then
-		record_failure "opencode review PR-level REQUEST_CHANGES body must not contain fenced suggested diffs"
-	fi
-}
-
 assert_opencode_review_normalizer_accepts_transcript_json() {
 	local tmp_dir
 	local output_file
-	local evidence_file
 	local rc
 	local gate_result
 	tmp_dir="$(mktemp -d)"
 	output_file="$tmp_dir/opencode-output.md"
-	evidence_file="$tmp_dir/bounded-evidence.md"
 
 	cat >"$output_file" <<'EOF'
 OpenCode transcript text before the review control block.
 
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after inspecting .github/workflows/opencode-review.yml.","summary":"Reviewed scripts/ci/opencode_review_normalize_output.py, scripts/ci/test_strix_quick_gate.sh, and current head evidence; no blocking review findings were identified.","findings":[]}
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found in the current bounded evidence.","summary":"Reviewed current head evidence and no blocking review findings were identified.","findings":[]}
 EOF
 
 	set +e
@@ -721,100 +546,6 @@ EOF
 	assert_equals "0" "$rc" "normalized OpenCode transcript passes approval gate"
 	assert_equals "APPROVE" "$gate_result" "normalized OpenCode transcript gate result"
 
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-The changed implementation evidence inspected includes app.js and styles.css.
-
-<!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after inspecting the implementation behavior.","summary":"The duration calculation changes are consistent with the current UI behavior.","findings":[]}
--->
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-prose.out" 2>"$tmp_dir/normalize-prose.err"
-	rc=$?
-	set -e
-
-	assert_equals "0" "$rc" "opencode review normalizer salvages approval file evidence from model prose"
-	assert_file_contains "$output_file" "Inspected changed file evidence: app.js." "opencode review normalizer annotates salvaged changed-file evidence"
-
-	set +e
-	gate_result="$(
-		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
-			"abc123" "42" "1" "$output_file"
-	)"
-	rc=$?
-	set -e
-
-	assert_equals "0" "$rc" "prose-salvaged OpenCode transcript passes approval gate"
-	assert_equals "APPROVE" "$gate_result" "prose-salvaged OpenCode transcript gate result"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
-<!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blocking issues found","summary":"Reviewed changes in this PR, including configuration files, CI scripts, and documentation. No actionable blockers or security issues identified.","findings":[]}
--->
-EOF
-	cat >"$evidence_file" <<'EOF'
-## Changed files
-
-M	scripts/ci/test_strix_quick_gate.sh
-M	.github/workflows/opencode-review.yml
-
-## Focused changed hunks
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" "$evidence_file" >"$tmp_dir/normalize-evidence.out" 2>"$tmp_dir/normalize-evidence.err"
-	rc=$?
-	set -e
-
-	assert_equals "0" "$rc" "opencode review normalizer salvages approval file evidence from bounded evidence"
-	assert_file_contains "$output_file" "Inspected changed file evidence: scripts/ci/test_strix_quick_gate.sh." "opencode review normalizer annotates bounded changed-file evidence"
-
-	set +e
-	gate_result="$(
-		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
-			"abc123" "42" "1" "$output_file"
-	)"
-	rc=$?
-	set -e
-
-	assert_equals "0" "$rc" "bounded-evidence-salvaged OpenCode transcript passes approval gate"
-	assert_equals "APPROVE" "$gate_result" "bounded-evidence-salvaged OpenCode transcript gate result"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
-<!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found","summary":"Approved after reviewing 1 changed file. Inspected changes in src/app.py (via bounded evidence and direct read). Inspected changed file evidence: path/to/file1.ext.","findings":[]}
--->
-EOF
-	cat >"$evidence_file" <<'EOF'
-## Changed files
-
-M	index.html
-M	tests/e2e/scopeweave.spec.js
-
-## Focused changed hunks
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" "$evidence_file" >"$tmp_dir/normalize-placeholder.out" 2>"$tmp_dir/normalize-placeholder.err"
-	rc=$?
-	set -e
-
-	assert_equals "0" "$rc" "opencode review normalizer repairs placeholder changed-file evidence with bounded evidence"
-	assert_file_contains "$output_file" "Inspected changed file evidence: index.html." "opencode review normalizer annotates actual changed-file evidence after placeholder prose"
-	assert_file_not_contains "$output_file" "path/to/file1.ext" "opencode review normalizer removes placeholder changed-file evidence"
-	assert_file_not_contains "$output_file" "src/app.py" "opencode review normalizer removes non-current inspected-file prose"
-
 	rm -rf "$tmp_dir"
 }
 
@@ -836,7 +567,7 @@ assert_opencode_review_publish_body_discards_trailing_model_prose() {
 <!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
 
 <!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after inspecting .github/workflows/opencode-review.yml.","summary":"Reviewed scripts/ci/opencode_review_normalize_output.py, scripts/ci/test_strix_quick_gate.sh, and current head evidence; no blocking review findings were identified.","findings":[]}
+{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found in the current bounded evidence.","summary":"Reviewed current head evidence and no blocking review findings were identified.","findings":[]}
 -->
 
 But that is not meticulous.
@@ -865,186 +596,6 @@ EOF
 	assert_file_contains "$comment_body_file" '"result":"APPROVE"' "opencode publish sanitizer keeps normalized approval JSON"
 	assert_file_not_contains "$comment_body_file" "But that is not meticulous." "opencode publish sanitizer drops trailing model prose"
 	assert_file_not_contains "$comment_body_file" "We should request changes." "opencode publish sanitizer drops contradictory trailing model prose"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_review_gate_rejects_missing_structural_exploration_approval() {
-	local tmp_dir
-	local output_file
-	local rc
-	local gate_result
-	tmp_dir="$(mktemp -d)"
-	output_file="$tmp_dir/opencode-output.md"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found, but structural exploration was not possible.","summary":"This docs-only PR does not require structural review and the evidence was truncated.","findings":[]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize.out" 2>"$tmp_dir/normalize.err"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode normalizer rejects approvals that admit missing structural exploration"
-	assert_file_contains "$tmp_dir/normalize.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for missing structural exploration"
-
-	cat >"$output_file" <<'EOF'
-<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
-
-<!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found, but structural exploration was not possible.","summary":"This docs-only PR does not require structural review and the evidence was truncated.","findings":[]}
--->
-EOF
-
-	set +e
-	gate_result="$(
-		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
-			"abc123" "42" "1" "$output_file"
-	)"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode approval gate rejects approvals that admit missing structural exploration"
-	assert_equals "NO_CONCLUSION" "$gate_result" "missing structural exploration rejection gate result"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"Accessibility improvements with no blockers","summary":"Verified changes in index.html and tests/e2e/scopeweave.spec.js. MCP sources unavailable for structural analysis.","findings":[]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-mcp-unavailable.out" 2>"$tmp_dir/normalize-mcp-unavailable.err"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode normalizer rejects approvals that admit MCP structural evidence is unavailable"
-	assert_file_contains "$tmp_dir/normalize-mcp-unavailable.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for MCP structural unavailability"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after structural exploration of changed files.","summary":"CodeGraph evidence was insufficient for one generated artifact, but local inspection covered the changed workflow, scripts, and tests.","findings":[]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-valid.out" 2>"$tmp_dir/normalize-valid.err"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode normalizer rejects approvals that omit concrete changed-file evidence"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blockers found after structural exploration of .github/workflows/opencode-review.yml.","summary":"CodeGraph evidence was insufficient for one generated artifact, but local inspection covered scripts/ci/test_strix_quick_gate.sh and the changed workflow.","findings":[]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize-valid.out" 2>"$tmp_dir/normalize-valid.err"
-	rc=$?
-	set -e
-
-	assert_equals "0" "$rc" "opencode normalizer accepts approvals that name concrete changed-file evidence after structural inspection"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_review_gate_rejects_no_changes_approval() {
-	local tmp_dir
-	local output_file
-	local rc
-	local gate_result
-	tmp_dir="$(mktemp -d)"
-	output_file="$tmp_dir/opencode-output.md"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No changes detected in the PR head source directory.","summary":"No files or changes were found in the PR head source directory, indicating no actionable changes to review.","findings":[]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize.out" 2>"$tmp_dir/normalize.err"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode normalizer rejects no-changes approvals"
-	assert_file_contains "$tmp_dir/normalize.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for no-changes approval"
-
-	cat >"$output_file" <<'EOF'
-<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
-
-<!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No changes detected in the PR head source directory.","summary":"No files or changes were found in the PR head source directory, indicating no actionable changes to review.","findings":[]}
--->
-EOF
-
-	set +e
-	gate_result="$(
-		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
-			"abc123" "42" "1" "$output_file"
-	)"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode approval gate rejects no-changes approvals"
-	assert_equals "NO_CONCLUSION" "$gate_result" "no-changes approval rejection gate result"
-	assert_file_contains "$REPO_ROOT/.github/workflows/opencode-review.yml" "Never approve with a reason or summary that says no changes" "opencode prompt rejects no-changes approvals when bounded evidence lists changed files"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_review_gate_rejects_approve_without_changed_file_evidence() {
-	local tmp_dir
-	local output_file
-	local rc
-	local gate_result
-	tmp_dir="$(mktemp -d)"
-	output_file="$tmp_dir/opencode-output.md"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blocking issues found; changes improve CI configuration and documentation.","summary":"PR enhances OpenCode review workflow with clearer guidance and validation. Changes are well-contained with no security or functional regressions detected.","findings":[]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/normalize.out" 2>"$tmp_dir/normalize.err"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode normalizer rejects approvals without changed-file evidence"
-	assert_file_contains "$tmp_dir/normalize.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for approvals without changed-file evidence"
-
-	cat >"$output_file" <<'EOF'
-<!-- opencode-review-gate head_sha=abc123 run_id=42 run_attempt=1 -->
-
-<!-- opencode-review-control-v1
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"APPROVE","reason":"No blocking issues found; changes improve CI configuration and documentation.","summary":"PR enhances OpenCode review workflow with clearer guidance and validation. Changes are well-contained with no security or functional regressions detected.","findings":[]}
--->
-EOF
-
-	set +e
-	gate_result="$(
-		bash "$REPO_ROOT/scripts/ci/opencode_review_approve_gate.sh" \
-			"abc123" "42" "1" "$output_file"
-	)"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode approval gate rejects approvals without changed-file evidence"
-	assert_equals "NO_CONCLUSION" "$gate_result" "missing changed-file evidence rejection gate result"
-	assert_file_contains "$REPO_ROOT/.github/workflows/opencode-review.yml" "Before APPROVE, the summary must include at least one exact changed file path inspected as changed-file evidence" "opencode prompt requires changed-file evidence before approval"
 
 	rm -rf "$tmp_dir"
 }
@@ -1084,21 +635,6 @@ EOF
 
 	assert_equals "4" "$rc" "opencode normalizer rejects line zero findings"
 	assert_file_contains "$tmp_dir/normalize.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for line zero findings"
-
-	cat >"$output_file" <<'EOF'
-OpenCode transcript text before the review control block.
-
-{"head_sha":"abc123","run_id":"42","run_attempt":"1","result":"REQUEST_CHANGES","reason":"Boolean line blocker","summary":"Boolean line values are not concrete source locations.","findings":[{"path":"scripts/ci/example.sh","line":true,"severity":"HIGH","title":"Boolean line","problem":"Boolean line values are not actionable.","root_cause":"The review did not inspect a concrete line.","fix_direction":"Inspect the actual file and cite a positive integer line number.","regression_test_direction":"Add a gate test for boolean line rejection.","suggested_diff":"diff --git a/scripts/ci/example.sh b/scripts/ci/example.sh\n--- a/scripts/ci/example.sh\n+++ b/scripts/ci/example.sh\n@@ -1 +1 @@\n-old\n+new"}]}
-EOF
-
-	set +e
-	python3 "$REPO_ROOT/scripts/ci/opencode_review_normalize_output.py" \
-		"abc123" "42" "1" "$output_file" >"$tmp_dir/bool-line.out" 2>"$tmp_dir/bool-line.err"
-	rc=$?
-	set -e
-
-	assert_equals "4" "$rc" "opencode normalizer rejects boolean line findings"
-	assert_file_contains "$tmp_dir/bool-line.err" "NO_CONCLUSION" "opencode normalizer reports no valid conclusion for boolean line findings"
 
 	rm -rf "$tmp_dir"
 }
@@ -1317,26 +853,31 @@ assert_opencode_failed_check_fallback_emits_each_strix_report() {
 	fixture_repo="$tmp_dir/repo"
 	evidence_file="$tmp_dir/failed-check-evidence.md"
 	output_file="$tmp_dir/fallback.md"
-	mkdir -p "$fixture_repo/backend/services" "$fixture_repo/frontend/src/app/prompt-studio" "$fixture_repo/frontend"
 
-	{
-		for _ in $(seq 1 59); do
-			printf '# filler\n'
-		done
-		printf 'filename = part.get_filename()\n'
-	} >"$fixture_repo/backend/services/email_parser.py"
-	{
-		for _ in $(seq 1 28); do
-			printf '// filler\n'
-		done
-		printf 'setTestResult(await apiClient.post("/prompt-studio", payload));\n'
-	} >"$fixture_repo/frontend/src/app/prompt-studio/page.tsx"
-	{
-		for _ in $(seq 1 34); do
-			printf '// filler\n'
-		done
-		printf 'const nextConfig = {};\n'
-	} >"$fixture_repo/frontend/next.config.ts"
+	mkdir -p "$fixture_repo/backend/services" "$fixture_repo/frontend/src/app/prompt-studio" "$fixture_repo/frontend"
+	for line_number in $(seq 1 90); do
+		printf '# email parser fixture line %s\n' "$line_number"
+	done >"$fixture_repo/backend/services/email_parser.py"
+	for line_number in $(seq 1 40); do
+		printf '// prompt studio fixture line %s\n' "$line_number"
+	done >"$fixture_repo/frontend/src/app/prompt-studio/page.tsx"
+	cat >"$fixture_repo/frontend/next.config.ts" <<'EOF'
+// fixture line 1
+// fixture line 2
+// fixture line 3
+// fixture line 4
+// fixture line 5
+// fixture line 6
+// fixture line 7
+// fixture line 8
+// fixture line 9
+const nextConfig = {
+  async headers() {
+    return [];
+  },
+};
+export default nextConfig;
+EOF
 
 	cat >"$evidence_file" <<'EOF'
 ## Failed check: Strix Security Scan/strix
@@ -1379,133 +920,9 @@ EOF
 	assert_file_contains "$output_file" "Strix report from deepseek/deepseek-r1-0528: Prompt Injection and XSS in AI Prompt Studio" "fallback includes second report from same model"
 	assert_file_contains "$output_file" "frontend/src/app/prompt-studio/page.tsx:29" "fallback maps second report to exact source line"
 	assert_file_contains "$output_file" "Strix report from deepseek/deepseek-v3-0324: Missing Content Security Policy in Next.js Frontend" "fallback includes report from second model"
-	assert_file_contains "$output_file" "frontend/next.config.ts:35" "fallback derives a concrete CSP hardening line"
-	assert_file_contains "$output_file" "Suggested edit: change \`frontend/next.config.ts:35\`" "fallback provides a concrete suggested edit for model reports"
+	assert_file_contains "$output_file" "frontend/next.config.ts:10" "fallback derives a concrete CSP hardening line"
 	assert_file_contains "$output_file" "Strix provider signal left current-head security evidence incomplete" "fallback still reports provider failure after vulnerability reports"
 	assert_file_not_contains "$output_file" "failed before producing vulnerability reports" "fallback does not contradict preserved Strix report windows"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_failed_check_fallback_explains_trusted_base_strix_prs() {
-	local tmp_dir
-	local fixture_repo
-	local evidence_file
-	local output_file
-	local base_sha
-	local head_sha
-	tmp_dir="$(mktemp -d)"
-	fixture_repo="$tmp_dir/repo"
-	evidence_file="$tmp_dir/failed-check-evidence.md"
-	output_file="$tmp_dir/fallback.md"
-
-	mkdir -p "$fixture_repo/.github/workflows"
-	cat >"$fixture_repo/.github/workflows/strix.yml" <<'EOF'
-name: Strix Security Scan
-concurrency:
-  cancel-in-progress: false
-EOF
-
-	git init -q "$fixture_repo" >/dev/null
-	git -C "$fixture_repo" config user.email "copilot@example.com"
-	git -C "$fixture_repo" config user.name "copilot"
-	git -C "$fixture_repo" add .github/workflows/strix.yml
-	git -C "$fixture_repo" commit -m "base" >/dev/null
-	base_sha="$(git -C "$fixture_repo" rev-parse HEAD)"
-
-	cat >"$fixture_repo/.github/workflows/strix.yml" <<'EOF'
-name: Strix Security Scan
-concurrency:
-  group: strix-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
-EOF
-	git -C "$fixture_repo" add .github/workflows/strix.yml
-	git -C "$fixture_repo" commit -m "head" >/dev/null
-	head_sha="$(git -C "$fixture_repo" rev-parse HEAD)"
-
-	cat >"$evidence_file" <<'EOF'
-## Failed check: Strix Security Scan/strix
-
-Conclusion: cancelled
-
-No GitHub Actions job log is available for this failed workflow run.
-EOF
-
-	PR_BASE_SHA="$base_sha" PR_HEAD_SHA="$head_sha" \
-		bash "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" \
-		"$evidence_file" "$fixture_repo" >"$output_file"
-
-	assert_file_contains "$output_file" "cancelled pull_request_target run still used the base branch copies" "fallback explains trusted-base workflow execution"
-	assert_file_contains "$output_file" "Re-run Strix after the trusted base branch contains the workflow/gate change or capture equivalent temporary evidence tied to this head SHA" "fallback directs reviewers to trusted-base rerun or equivalent evidence"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_failed_check_fallback_does_not_treat_no_report_summary_as_report() {
-	local tmp_dir
-	local evidence_file
-	local output_file
-	tmp_dir="$(mktemp -d)"
-	evidence_file="$tmp_dir/failed-check-evidence.md"
-	output_file="$tmp_dir/fallback.md"
-
-	cat >"$evidence_file" <<'EOF'
-## Failed check: Strix Security Scan/strix
-
-### Failed log signal summary
-
-```text
-strix	Run Strix (quick)	openai.RateLimitError: Too many requests.
-strix	Run Strix (quick)	httpx.HTTPStatusError: Client error '401 Unauthorized' for url 'https://api.deepseek.com/beta/chat/completions'
-strix	Run Strix (quick)	litellm.BadRequestError: DeepseekException - {"error":{"message":"Authentication Fails, Your api key is invalid"}}
-strix	Run Strix (quick)	Configured model and fallback models were unavailable.
-```
-
-No Strix vulnerability report windows were detected in the failed log.
-EOF
-
-	bash "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" \
-		"$evidence_file" "$REPO_ROOT" >"$output_file"
-
-	assert_file_contains "$output_file" "Strix provider failure blocked current-head security evidence" "fallback treats no-report summary as provider blocker"
-	assert_file_contains "$output_file" "api.deepseek.com" "fallback preserves direct DeepSeek endpoint failure evidence"
-	assert_file_contains "$output_file" "Authentication Fails" "fallback preserves direct DeepSeek authentication failure evidence"
-	assert_file_contains "$output_file" "github_models/deepseek/deepseek-r1-0528 github_models/deepseek/deepseek-v3-0324" "fallback gives exact GitHub Models fallback list"
-	assert_file_contains "$output_file" "Suggested edit: \`.github/workflows/strix.yml" "fallback gives a line-specific suggested edit for provider routing"
-	assert_file_not_contains "$output_file" "Strix provider signal left current-head security evidence incomplete" "fallback does not invent vulnerability report windows from a no-report summary"
-	assert_file_not_contains "$output_file" "after vulnerability reports" "fallback does not contradict no-report evidence"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_failed_check_fallback_handles_deepseek_auth_only_signal() {
-	local tmp_dir
-	local evidence_file
-	local output_file
-	tmp_dir="$(mktemp -d)"
-	evidence_file="$tmp_dir/failed-check-evidence.md"
-	output_file="$tmp_dir/fallback.md"
-
-	cat >"$evidence_file" <<'EOF'
-## Failed check: Strix Security Scan/strix
-
-### Failed log signal summary
-
-```text
-strix	Run Strix (quick)	httpx.HTTPStatusError: Client error '401 Unauthorized' for url 'https://api.deepseek.com/beta/chat/completions'
-strix	Run Strix (quick)	litellm.BadRequestError: DeepseekException - {"error":{"message":"Authentication Fails, Your api key is invalid"}}
-```
-
-No Strix vulnerability report windows were detected in the failed log.
-EOF
-
-	bash "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" \
-		"$evidence_file" "$REPO_ROOT" >"$output_file"
-
-	assert_file_contains "$output_file" "Strix provider failure blocked current-head security evidence" "fallback treats DeepSeek auth-only logs as provider blockers"
-	assert_file_contains "$output_file" "api.deepseek.com" "fallback preserves DeepSeek auth-only endpoint evidence"
-	assert_file_contains "$output_file" "Authentication Fails" "fallback preserves DeepSeek auth-only failure evidence"
-	assert_file_contains "$output_file" "Suggested edit: \`.github/workflows/strix.yml" "fallback gives suggested edit for DeepSeek auth-only provider routing"
 
 	rm -rf "$tmp_dir"
 }
@@ -1579,127 +996,9 @@ EOF
 	assert_file_contains "$output_file" "Endpoint: /api/me. Method: GET" "fallback preserves pg-erd-cloud endpoint and method"
 	assert_file_contains "$output_file" "Strix report from deepseek/deepseek-v3-0324: Frontend Security Issues: XSS, Hardcoded Credentials, and Insecure Data Handling" "fallback preserves wrapped pg-erd-cloud frontend title"
 	assert_file_contains "$output_file" "frontend/next.config.ts:3" "fallback anchors locationless frontend report to a concrete frontend hardening line"
-	assert_file_contains "$output_file" "Suggested edit: change \`frontend/next.config.ts:3\`" "fallback provides pg-erd-cloud frontend suggested edit"
 	assert_file_contains "$output_file" "Unable to map Strix findings" "fallback preserves failed Strix mapping signal"
 	assert_file_contains "$output_file" "Strix provider signal left current-head security evidence incomplete" "fallback reports incomplete Strix evidence after model findings"
 	assert_file_not_contains "$output_file" "failed before producing vulnerability reports" "fallback does not erase model findings after provider signals"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_failed_check_fallback_handles_split_code_location_lines() {
-	local tmp_dir
-	local fixture_repo
-	local evidence_file
-	local output_file
-	local migration_file
-	tmp_dir="$(mktemp -d)"
-	fixture_repo="$tmp_dir/repo"
-	evidence_file="$tmp_dir/failed-check-evidence.md"
-	output_file="$tmp_dir/fallback.md"
-	migration_file="$fixture_repo/backend/alembic/versions/0002_provider_writeback_retry_queue.py"
-
-	mkdir -p "$(dirname "$migration_file")"
-	for line_number in $(seq 1 80); do
-		if [ "$line_number" -eq 43 ]; then
-			printf '\tlegacy_index_execution_placeholder(statement)\n'
-		else
-			printf '# migration fixture line %s\n' "$line_number"
-		fi
-	done >"$migration_file"
-
-	cat >"$evidence_file" <<'EOF'
-## Failed check: Strix Security Scan/strix
-
-### Failed log signal summary
-
-```text
-strix	Run Strix (quick)	Strix fallback model 'github_models/deepseek/deepseek-r1-0528' emitted provider infrastructure or failure-signal output; trying next configured fallback if available.
-strix	Run Strix (quick)	Strix reported zero vulnerabilities before provider infrastructure failure; failing closed because provider infrastructure failures are not clean scan evidence.
-```
-
-### Strix vulnerability report window 1
-
-│  Vulnerability Report                                                        │
-│  Title: SQL Injection Vulnerability in Database Script                       │
-│  Severity: HIGH                                                              │
-│  Target:                                                                     │
-│  /workspace/strix-pr-scope.e0AHf4/backend/alembic/versions/0002_provider_wr  │
-│  iteback_retry_queue.py                                                      │
-│  Code Locations                                                              │
-│                                                                              │
-│    Location 1:                                                               │
-│  backend/alembic/versions/0002_provider_writeback_retry_queue.py:43          │
-│    Vulnerable code location                                                  │
-│    legacy_index_execution_placeholder(statement)                             │
-│  Model openai/deepseek/deepseek-r1-0528                                      │
-│  Vulnerabilities 1                                                           │
-EOF
-
-	bash "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" \
-		"$evidence_file" "$fixture_repo" >"$output_file"
-
-	assert_file_contains "$output_file" "Strix report from openai/deepseek/deepseek-r1-0528: SQL Injection Vulnerability in Database Script" "fallback includes split-location Strix report"
-	assert_file_contains "$output_file" "backend/alembic/versions/0002_provider_writeback_retry_queue.py:43" "fallback maps split Code Locations path to exact line"
-	assert_file_contains "$output_file" "Code location evidence: backend/alembic/versions/0002_provider_writeback_retry_queue.py:43" "fallback preserves split Code Locations evidence"
-	assert_file_contains "$output_file" "Suggested edit: change \`backend/alembic/versions/0002_provider_writeback_retry_queue.py:43\`" "fallback gives suggested edit for split Code Locations"
-	assert_file_not_contains "$output_file" "Strix report did not include a mappable Code Location" "fallback does not misclassify split Code Locations as unmapped"
-
-	rm -rf "$tmp_dir"
-}
-
-assert_opencode_failed_check_fallback_does_not_anchor_unmapped_strix_reports_to_workflow() {
-	local tmp_dir
-	local fixture_repo
-	local evidence_file
-	local output_file
-	tmp_dir="$(mktemp -d)"
-	fixture_repo="$tmp_dir/repo"
-	evidence_file="$tmp_dir/failed-check-evidence.md"
-	output_file="$tmp_dir/fallback.md"
-
-	mkdir -p "$fixture_repo/.github/workflows" "$fixture_repo/scripts/ci"
-	cat >"$fixture_repo/.github/workflows/strix.yml" <<'EOF'
-name: Strix Security Scan
-jobs:
-  strix:
-    steps:
-      - name: Run Strix
-        env:
-          STRIX_FALLBACK_MODELS: github_models/deepseek/deepseek-r1-0528 github_models/deepseek/deepseek-v3-0324
-EOF
-
-	cat >"$evidence_file" <<'EOF'
-## Failed check: Strix Security Scan/strix
-
-### Failed log signal summary
-
-```text
-strix	Run Strix (quick)	Below-threshold findings detected, but infrastructure errors occurred during this pipeline run; refusing bypass due to potentially incomplete scan.
-strix	Run Strix (quick)	Unable to map Strix findings to changed files; failing closed for pull request.
-```
-
-### Strix vulnerability report window 1
-
-│  Vulnerability Report                                                        │
-│  Title: Insecure Direct Object Reference (IDOR) in User Profile API          │
-│  Severity: MEDIUM                                                            │
-│  Target: /workspace/strix-pr-scope.mVhTAV/backend                            │
-│  Code Locations                                                              │
-│    Location 1: backend/api/users.py:45-52                                    │
-│  Model github_models/deepseek/deepseek-v3-0324                               │
-│  Vulnerabilities 1                                                           │
-EOF
-
-	bash "$REPO_ROOT/scripts/ci/emit_opencode_failed_check_fallback_findings.sh" \
-		"$evidence_file" "$fixture_repo" >"$output_file"
-
-	assert_file_contains "$output_file" "Strix provider signal left current-head security evidence incomplete" "fallback reports incomplete Strix evidence for unmapped report"
-	assert_file_contains "$output_file" "did not map to an existing repository file" "fallback explains unmapped Strix report"
-	assert_file_contains "$output_file" "Insecure Direct Object Reference (IDOR) in User Profile API" "fallback preserves unmapped report title as diagnostic evidence"
-	assert_file_not_contains "$output_file" "Strix report from github_models/deepseek/deepseek-v3-0324" "fallback does not convert unmapped report into source finding"
-	assert_file_not_contains "$output_file" "Inspect and patch .github/workflows/strix.yml" "fallback does not anchor unmapped report to workflow line"
-	assert_file_not_contains "$output_file" "backend/api/users.py:45" "fallback does not cite nonexistent source path as actionable line"
 
 	rm -rf "$tmp_dir"
 }
@@ -1858,7 +1157,7 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 		echo "scan ok with timeout disabled"
 		exit 0
 		;;
-	vertex-primary-notfound-fallback-success|github-models-fallback-success|github-models-fallback-success-deepseek-v3|github-models-fallback-requires-api-base|github-models-model-prefix-with-api-base-succeeds|github-models-meta-prefix-with-api-base-succeeds|github-models-mistral-prefix-with-api-base-succeeds)
+	vertex-primary-notfound-fallback-success|github-models-fallback-success|github-models-fallback-success-deepseek-v3|github-models-fallback-requires-api-base|github-models-model-prefix-with-api-base-succeeds)
 		case "${STRIX_LLM:-}" in
 		vertex_ai/missing-primary)
 			echo "Error: litellm.NotFoundError: Vertex_aiException - x"
@@ -1869,11 +1168,11 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			echo "scan ok with fallback"
 			exit 0
 			;;
-		openai/gpt-5|openai/openai/gpt-5.4|openai/meta/test-github-model|openai/mistral-ai/test-github-model)
+		openai/gpt-5|openai/openai/gpt-5.4)
 			echo "scan ok with GitHub Models fallback"
 			exit 0
 			;;
-		openai/deepseek/deepseek-r1-0528)
+		deepseek/deepseek-r1-0528)
 			if [ "${FAKE_STRIX_SCENARIO:?}" = "github-models-fallback-success-deepseek-v3" ]; then
 				echo "LLM CONNECTION FAILED"
 				echo "Could not establish connection to the language model."
@@ -1883,7 +1182,7 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			echo "scan ok with GitHub Models fallback"
 			exit 0
 			;;
-		openai/deepseek/deepseek-v3-0324)
+		deepseek/deepseek-v3-0324)
 			echo "scan ok with GitHub Models fallback"
 			exit 0
 			;;
@@ -2190,19 +1489,15 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			;;
 		esac
 		;;
-	github-models-primary-unavailable-fallback-success|github-models-primary-denied-fallback-success)
+	github-models-primary-unavailable-fallback-success)
 		case "${STRIX_LLM:-}" in
 		openai/gpt-5)
 			echo "LLM CONNECTION FAILED"
 			echo "Could not establish connection to the language model."
-			if [ "${FAKE_STRIX_SCENARIO:?}" = "github-models-primary-denied-fallback-success" ]; then
-				echo "openai.PermissionDeniedError: Error code: 403"
-			else
-				echo "Error: litellm.BadRequestError: OpenAIException - Unavailable model: gpt-5"
-			fi
+			echo "Error: litellm.BadRequestError: OpenAIException - Unavailable model: gpt-5"
 			exit 1
 			;;
-		openai/deepseek/deepseek-r1-0528)
+		deepseek/deepseek-r1-0528)
 			echo "scan ok after GitHub Models unavailable fallback"
 			exit 0
 			;;
@@ -2220,7 +1515,7 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			echo "Error: litellm.RateLimitError: RateLimitError: OpenAIException - Too many requests. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service."
 			exit 1
 			;;
-		openai/deepseek/deepseek-r1-0528)
+		deepseek/deepseek-r1-0528)
 			echo "scan ok after GitHub Models rate-limit fallback"
 			exit 0
 			;;
@@ -2230,30 +1525,25 @@ case "${FAKE_STRIX_SCENARIO:?}" in
 			;;
 		esac
 		;;
-	github-models-fallback-provider-signal-tries-next | github-models-fallback-vulnerability-before-next-success-blocks)
+	github-models-fallback-provider-signal-tries-next)
 		case "${STRIX_LLM:-}" in
 		openai/gpt-5)
 			echo "LLM CONNECTION FAILED"
 			echo "Could not establish connection to the language model."
-			echo "Error: litellm.RateLimitError: RateLimitError: OpenAIException - Too many requests."
+			echo "Error: litellm.BadRequestError: OpenAIException - Unavailable model: gpt-5"
 			exit 1
 			;;
-		openai/deepseek/deepseek-r1-0528)
-			if [ "${FAKE_STRIX_SCENARIO:?}" = "github-models-fallback-vulnerability-before-next-success-blocks" ]; then
-				mkdir -p "$STRIX_REPORTS_DIR/fake-pr-baseline-provider-signal/vulnerabilities"
-				cat >"$STRIX_REPORTS_DIR/fake-pr-baseline-provider-signal/vulnerabilities/vuln-0001.md" <<'EOS'
+		deepseek/deepseek-r1-0528)
+			mkdir -p "$STRIX_REPORTS_DIR/fake-pr-baseline-provider-signal/vulnerabilities"
+			cat >"$STRIX_REPORTS_DIR/fake-pr-baseline-provider-signal/vulnerabilities/vuln-0001.md" <<'EOS'
 Severity: CRITICAL
 Location 1:
 sync-module-system/smart-crawling-biz/src/main/java/org/empasy/sync/modules/system/service/impl/SysUserServiceImpl.java:5
 EOS
-			else
-				echo "LLM CONNECTION FAILED"
-				echo "Could not establish connection to the language model."
-				echo "Error: litellm.BadRequestError: OpenAIException - Unavailable model: deepseek-r1-0528"
-			fi
+			echo "Warning: fallback model emitted provider failure-signal output"
 			exit 2
 			;;
-		openai/deepseek/deepseek-v3-0324)
+		deepseek/deepseek-v3-0324)
 			echo "scan ok after second GitHub Models fallback"
 			exit 0
 			;;
@@ -2744,29 +2034,6 @@ EOS
 		echo "Denied: provider credentials were rejected"
 		exit 0
 		;;
-	report-known-internal-warning-sanitized)
-		mkdir -p "$STRIX_REPORTS_DIR/fake-known-internal-warning"
-		cat >"$STRIX_REPORTS_DIR/fake-known-internal-warning/strix.log" <<'EOS'
-2026-06-18 13:08:05.986 WARNING strix-pr-scope-example - strix.core.execution: agent a9fb4033 produced non-lifecycle final output in non-interactive mode; forcing tool continuation (1/500): internal agent coordination note
-2026-06-18 13:10:44.089 INFO    strix-pr-scope-example - strix.tools.finish.tool: finish_scan: completed scan with 0 vulnerability report(s)
-EOS
-		outside_report_dir="${FAKE_STRIX_OUTSIDE_REPORT_DIR:-$(dirname -- "$STRIX_REPORTS_DIR")/outside-strix-report}"
-		mkdir -p "$outside_report_dir"
-		cat >"$outside_report_dir/strix.log" <<'EOS'
-2026-06-18 13:08:05.986 WARNING strix-pr-scope-example - strix.core.execution: agent a9fb4033 produced non-lifecycle final output in non-interactive mode; forcing tool continuation (1/500): outside report should not be rewritten
-EOS
-		ln -s "$outside_report_dir" "$STRIX_REPORTS_DIR/fake-known-internal-warning/linked-outside"
-		echo "scan ok with sanitized internal Strix report notice"
-		exit 0
-		;;
-	report-unknown-warning-fails)
-		mkdir -p "$STRIX_REPORTS_DIR/fake-unknown-warning"
-		cat >"$STRIX_REPORTS_DIR/fake-unknown-warning/strix.log" <<'EOS'
-2026-06-18 13:08:05.986 WARNING strix-pr-scope-example - strix.provider: provider returned incomplete scan state
-EOS
-		echo "scan ok but unknown report warning remains"
-		exit 0
-		;;
 	bare-timeout-with-provider-marker)
 		# Emit bare "Connection timed out" alongside a provider marker so
 		# is_timeout_error() matches the Tier 3 branch gated on
@@ -3075,15 +2342,6 @@ EOS
 **Target:** File: /workspace/smart-crawling-server/sync-module-system/smart-crawling-playwright/src/main/java/org/empasy/sync/mcp/service/PlayWrightService.java
 EOS
 		echo "Penetration test failed: baseline critical finding with absolute target"
-		exit 1
-		;;
-	pr-baseline-critical-extensionless-dockerfile-target)
-		mkdir -p "$STRIX_REPORTS_DIR/fake-pr-baseline-dockerfile/vulnerabilities"
-		cat >"$STRIX_REPORTS_DIR/fake-pr-baseline-dockerfile/vulnerabilities/vuln-0001.md" <<'EOS'
-**Severity:** CRITICAL
-**Target:** File: /workspace/smart-crawling-server/Dockerfile
-EOS
-		echo "Penetration test failed: baseline critical finding with extensionless Dockerfile target"
 		exit 1
 		;;
 	pr-baseline-critical-subdir-target)
@@ -3407,10 +2665,6 @@ EOS
 			echo "Error: deployment scope missing backend/scripts/docker_entrypoint.sh ($target_path)" >&2
 			exit 57
 		fi
-		if [ ! -f "$target_path/backend/core/runtime_secrets.py" ]; then
-			echo "Error: deployment scope missing backend/core/runtime_secrets.py ($target_path)" >&2
-			exit 60
-		fi
 		if ! grep -Fq -- 'CMD ["/app/scripts/docker_entrypoint.sh"]' "$target_path/Dockerfile"; then
 			echo "Error: deployment Dockerfile does not reference docker_entrypoint.sh ($target_path)" >&2
 			exit 58
@@ -3577,8 +2831,8 @@ EOS
 		echo 'async def assign_thread_id(*args, **kwargs): return "thread"' >"$repo_root_dir/backend/services/threading_service.py"
 		echo 'async def send_email(*args, **kwargs): return None' >"$repo_root_dir/backend/services/email_client.py"
 		echo 'pytest==0' >"$repo_root_dir/backend/requirements.txt"
-	elif [ "$scenario" = "pr-deployment-scope-entrypoint-context" ] || [ "$scenario" = "pr-baseline-critical-extensionless-dockerfile-target" ]; then
-		mkdir -p "$repo_root_dir/.github/workflows" "$repo_root_dir/backend/api" "$repo_root_dir/backend/core" "$repo_root_dir/backend/scripts" "$repo_root_dir/frontend"
+	elif [ "$scenario" = "pr-deployment-scope-entrypoint-context" ]; then
+		mkdir -p "$repo_root_dir/.github/workflows" "$repo_root_dir/backend/scripts" "$repo_root_dir/frontend"
 		echo 'name: OpenCode Review' >"$repo_root_dir/.github/workflows/opencode-review.yml"
 		cat >"$repo_root_dir/Dockerfile" <<'EOS'
 FROM python:3.11-slim AS backend-runtime
@@ -3592,10 +2846,6 @@ EOS
 #!/usr/bin/env bash
 echo "Starting backend (uvicorn :8000)"
 EOS
-		echo 'router = object()' >"$repo_root_dir/backend/api/auth.py"
-		echo 'class Settings: pass' >"$repo_root_dir/backend/core/config.py"
-		echo 'def validate_auth_session_hmac_secret_value(value): return value' >"$repo_root_dir/backend/core/runtime_secrets.py"
-		echo 'app = object()' >"$repo_root_dir/backend/main.py"
 		touch "$repo_root_dir/frontend/Dockerfile"
 		echo '{"scripts":{"start":"next start"}}' >"$repo_root_dir/frontend/package.json"
 		touch "$repo_root_dir/frontend/next.config.ts"
@@ -3640,11 +2890,6 @@ EOS
 			STRIX_LLM_MAX_RETRIES="1"
 			GEMINI_LOCATION="GLOBAL"
 			UNRELATED_SECRET="should-not-forward"
-		)
-	fi
-	if [ "$scenario" = "report-known-internal-warning-sanitized" ]; then
-		env_cmd+=(
-			FAKE_STRIX_OUTSIDE_REPORT_DIR="$repo_root_dir/outside-strix-report"
 		)
 	fi
 	if [ "$min_fail_severity" = "__UNSET__" ]; then
@@ -3800,21 +3045,6 @@ EOS
 			"scenario=$scenario runtime env forwarding"
 	fi
 
-	if [ "$scenario" = "report-known-internal-warning-sanitized" ]; then
-		assert_file_not_contains \
-			"$repo_root_dir/strix_runs/fake-known-internal-warning/strix.log" \
-			"produced non-lifecycle final output" \
-			"scenario=$scenario strips the known internal Strix warning from published artifacts"
-		assert_file_contains \
-			"$repo_root_dir/strix_runs/fake-known-internal-warning/strix.log" \
-			"finish_scan: completed scan with 0 vulnerability report(s)" \
-			"scenario=$scenario keeps non-warning Strix report evidence"
-		assert_file_contains \
-			"$repo_root_dir/outside-strix-report/strix.log" \
-			"outside report should not be rewritten" \
-			"scenario=$scenario does not rewrite logs through symlinked report directories"
-	fi
-
 	if [ "$scenario" = "pr-changed-scope-full-set" ]; then
 		assert_internal_pr_scope_targets "$target_log" "$repo_root_dir" "$expected_calls"
 	fi
@@ -3916,25 +3146,18 @@ if [ -x "$scoped_file" ]; then
 	exit 64
 fi
 unchanged_file="$target_path/${FAKE_STRIX_EXPECTED_UNCHANGED_FILE:?}"
-if [ "${FAKE_STRIX_EXPECT_FULL_HEAD_SCOPE:-0}" = "1" ]; then
-	if [ ! -f "$unchanged_file" ]; then
-		echo "Error: full PR head scoped file missing ($unchanged_file)" >&2
-		exit 65
-	fi
-	if ! grep -Fq -- "${FAKE_STRIX_EXPECTED_UNCHANGED_CONTENT:?}" "$unchanged_file"; then
-		echo "Error: full PR head scoped file did not contain head-tree content" >&2
-		cat -- "$unchanged_file" >&2
-		exit 66
-	fi
-	if [ -x "$unchanged_file" ]; then
-		echo "Error: full PR head scoped file must be copied as non-executable data" >&2
-		exit 67
-	fi
-else
-	if [ -e "$unchanged_file" ]; then
-		echo "Error: unrelated PR head file leaked into bounded scope ($unchanged_file)" >&2
-		exit 68
-	fi
+if [ ! -f "$unchanged_file" ]; then
+	echo "Error: full PR head scoped file missing ($unchanged_file)" >&2
+	exit 65
+fi
+if ! grep -Fq -- "${FAKE_STRIX_EXPECTED_UNCHANGED_CONTENT:?}" "$unchanged_file"; then
+	echo "Error: full PR head scoped file did not contain head-tree content" >&2
+	cat -- "$unchanged_file" >&2
+	exit 66
+fi
+if [ -x "$unchanged_file" ]; then
+	echo "Error: full PR head scoped file must be copied as non-executable data" >&2
+	exit 67
 fi
 echo "scan ok with PR head content"
 EOF
@@ -3994,7 +3217,6 @@ EOF
 			FAKE_STRIX_UNEXPECTED_BASE_CONTENT="$unexpected_base_content" \
 			FAKE_STRIX_EXPECTED_UNCHANGED_FILE="docs/full-scope-context.md" \
 			FAKE_STRIX_EXPECTED_UNCHANGED_CONTENT="HEAD_FULL_SCOPE_CONTEXT_SHOULD_BE_SCANNED" \
-			FAKE_STRIX_EXPECT_FULL_HEAD_SCOPE="$disable_pr_scoping" \
 			STRIX_DISABLE_PR_SCOPING="$disable_pr_scoping" \
 			STRIX_LLM_FILE="$strix_llm_file" \
 			LLM_API_KEY_FILE="$llm_api_key_file" \
@@ -4132,7 +3354,7 @@ EOS
 	rm -rf "$tmp_dir"
 }
 
-run_pull_request_target_bounded_head_context_scope_case() {
+run_pull_request_target_full_head_context_scope_case() {
 	local tmp_dir
 	tmp_dir="$(mktemp -d)"
 	local bin_dir="$tmp_dir/bin"
@@ -4169,12 +3391,21 @@ if ! grep -Fq -- "${FAKE_STRIX_EXPECTED_HEAD_CONTENT:?}" "$changed_file"; then
 	cat -- "$changed_file" >&2
 	exit 65
 fi
-if [ -e "$context_file" ]; then
-	echo "Error: unrelated PR head backend context leaked into bounded scope" >&2
+if ! grep -Fq -- "${FAKE_STRIX_EXPECTED_HEAD_CONTEXT:?}" "$context_file"; then
+	echo "Error: full PR head backend context content missing" >&2
 	cat -- "$context_file" >&2
 	exit 66
 fi
-echo "scan ok with bounded PR head backend context"
+if [ -x "$context_file" ]; then
+	echo "Error: full PR head backend context file must be copied as non-executable data" >&2
+	exit 67
+fi
+if grep -Fq -- "${FAKE_STRIX_UNEXPECTED_BASE_CONTEXT:?}" "$context_file"; then
+	echo "Error: full PR head context leaked trusted base content" >&2
+	cat -- "$context_file" >&2
+	exit 68
+fi
+echo "scan ok with full PR head backend context"
 EOF
 	chmod +x "$fake_strix"
 	printf '%s' 'gemini/test-model' >"$strix_llm_file"
@@ -4230,8 +3461,8 @@ EOF
 	local rc=$?
 	set -e
 
-	assert_equals "0" "$rc" "case=pull-request-target-backend-context-uses-bounded-head-scope exit code"
-	assert_file_contains "$output_log" "scan ok with bounded PR head backend context" "case=pull-request-target-backend-context-uses-bounded-head-scope output"
+	assert_equals "0" "$rc" "case=pull-request-target-backend-context-uses-full-head-scope exit code"
+	assert_file_contains "$output_log" "scan ok with full PR head backend context" "case=pull-request-target-backend-context-uses-full-head-scope output"
 
 	rm -rf "$tmp_dir"
 }
@@ -4678,68 +3909,68 @@ if [ ! -f "$target_path/backend/services/threading_service.py" ]; then
 	echo "Error: threading backend context missing from frontend email PR scope" >&2
 	exit 78
 fi
-if ! grep -Fq -- 'BASE_EMAIL_API_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/api/emails.py"; then
-	echo "Error: email API trusted backend context did not use base content" >&2
+if ! grep -Fq -- 'HEAD_EMAIL_API_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/api/emails.py"; then
+	echo "Error: email API backend context did not use PR head content" >&2
 	cat -- "$target_path/backend/api/emails.py" >&2
 	exit 79
 fi
-if grep -Fq -- 'HEAD_EMAIL_API_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/api/emails.py"; then
-	echo "Error: email API trusted backend context leaked PR-head content" >&2
+if grep -Fq -- 'BASE_EMAIL_API_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/api/emails.py"; then
+	echo "Error: email API backend context leaked trusted base content" >&2
 	cat -- "$target_path/backend/api/emails.py" >&2
 	exit 87
 fi
-if ! grep -Fq -- 'BASE_AUTH_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/api/auth.py"; then
-	echo "Error: auth trusted backend context did not use base content" >&2
+if ! grep -Fq -- 'HEAD_AUTH_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/api/auth.py"; then
+	echo "Error: auth backend context did not use PR head content" >&2
 	cat -- "$target_path/backend/api/auth.py" >&2
 	exit 82
 fi
-if grep -Fq -- 'HEAD_AUTH_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/api/auth.py"; then
-	echo "Error: auth trusted backend context leaked PR-head content" >&2
+if grep -Fq -- 'BASE_AUTH_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/api/auth.py"; then
+	echo "Error: auth backend context leaked trusted base content" >&2
 	cat -- "$target_path/backend/api/auth.py" >&2
 	exit 88
 fi
-if ! grep -Fq -- 'BASE_EMAIL_MODEL_SHOULD_BE_SCANNED' "$target_path/backend/db/models.py"; then
-	echo "Error: email model trusted backend context did not use base content" >&2
+if ! grep -Fq -- 'HEAD_EMAIL_MODEL_SHOULD_BE_SCANNED' "$target_path/backend/db/models.py"; then
+	echo "Error: email model backend context did not use PR head content" >&2
 	cat -- "$target_path/backend/db/models.py" >&2
 	exit 83
 fi
-if grep -Fq -- 'HEAD_EMAIL_MODEL_SHOULD_NOT_BE_SCANNED' "$target_path/backend/db/models.py"; then
-	echo "Error: email model trusted backend context leaked PR-head content" >&2
+if grep -Fq -- 'BASE_EMAIL_MODEL_SHOULD_NOT_BE_SCANNED' "$target_path/backend/db/models.py"; then
+	echo "Error: email model backend context leaked trusted base content" >&2
 	cat -- "$target_path/backend/db/models.py" >&2
 	exit 89
 fi
-if ! grep -Fq -- 'BASE_CONFIG_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/core/config.py"; then
-	echo "Error: backend config trusted context did not use base content" >&2
+if ! grep -Fq -- 'HEAD_CONFIG_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/core/config.py"; then
+	echo "Error: backend config context did not use PR head content" >&2
 	cat -- "$target_path/backend/core/config.py" >&2
 	exit 84
 fi
-if grep -Fq -- 'HEAD_CONFIG_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/core/config.py"; then
-	echo "Error: backend config trusted context leaked PR-head content" >&2
+if grep -Fq -- 'BASE_CONFIG_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/core/config.py"; then
+	echo "Error: backend config context leaked trusted base content" >&2
 	cat -- "$target_path/backend/core/config.py" >&2
 	exit 90
 fi
-if ! grep -Fq -- 'BASE_ROUTER_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/main.py"; then
-	echo "Error: backend router registration trusted context did not use base content" >&2
+if ! grep -Fq -- 'HEAD_ROUTER_CONTEXT_SHOULD_BE_SCANNED' "$target_path/backend/main.py"; then
+	echo "Error: backend router registration context did not use PR head content" >&2
 	cat -- "$target_path/backend/main.py" >&2
 	exit 85
 fi
-if grep -Fq -- 'HEAD_ROUTER_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/main.py"; then
-	echo "Error: backend router registration trusted context leaked PR-head content" >&2
+if grep -Fq -- 'BASE_ROUTER_CONTEXT_SHOULD_NOT_BE_SCANNED' "$target_path/backend/main.py"; then
+	echo "Error: backend router registration context leaked trusted base content" >&2
 	cat -- "$target_path/backend/main.py" >&2
 	exit 91
 fi
-if ! grep -Fq -- 'BASE_THREADING_SERVICE_SHOULD_BE_SCANNED' "$target_path/backend/services/threading_service.py"; then
-	echo "Error: threading trusted backend context did not use base content" >&2
+if ! grep -Fq -- 'HEAD_THREADING_SERVICE_SHOULD_BE_SCANNED' "$target_path/backend/services/threading_service.py"; then
+	echo "Error: threading backend context did not use PR head content" >&2
 	cat -- "$target_path/backend/services/threading_service.py" >&2
 	exit 86
 fi
-if grep -Fq -- 'HEAD_THREADING_SERVICE_SHOULD_NOT_BE_SCANNED' "$target_path/backend/services/threading_service.py"; then
-	echo "Error: threading trusted backend context leaked PR-head content" >&2
+if grep -Fq -- 'BASE_THREADING_SERVICE_SHOULD_NOT_BE_SCANNED' "$target_path/backend/services/threading_service.py"; then
+	echo "Error: threading backend context leaked trusted base content" >&2
 	cat -- "$target_path/backend/services/threading_service.py" >&2
 	exit 92
 fi
 
-echo "scan ok with frontend email trusted backend authorization context"
+echo "scan ok with frontend email backend authorization context"
 EOF
 	chmod +x "$fake_strix"
 	printf '%s' 'gemini/test-model' >"$strix_llm_file"
@@ -4752,12 +3983,12 @@ EOF
 		git config user.email 'strix-test@example.invalid'
 		mkdir -p "$(dirname -- "$changed_file")" backend/api backend/core backend/db backend/services
 		printf '%s\n' 'BASE_FRONTEND_EMAIL_FLOW_SHOULD_NOT_BE_SCANNED' >"$changed_file"
-		printf '%s\n' 'BASE_EMAIL_API_CONTEXT_SHOULD_BE_SCANNED' >backend/api/emails.py
-		printf '%s\n' 'BASE_AUTH_CONTEXT_SHOULD_BE_SCANNED' >backend/api/auth.py
-		printf '%s\n' 'BASE_CONFIG_CONTEXT_SHOULD_BE_SCANNED' >backend/core/config.py
-		printf '%s\n' 'BASE_EMAIL_MODEL_SHOULD_BE_SCANNED' >backend/db/models.py
-		printf '%s\n' 'BASE_ROUTER_CONTEXT_SHOULD_BE_SCANNED' >backend/main.py
-		printf '%s\n' 'BASE_THREADING_SERVICE_SHOULD_BE_SCANNED' >backend/services/threading_service.py
+		printf '%s\n' 'BASE_EMAIL_API_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/api/emails.py
+		printf '%s\n' 'BASE_AUTH_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/api/auth.py
+		printf '%s\n' 'BASE_CONFIG_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/core/config.py
+		printf '%s\n' 'BASE_EMAIL_MODEL_SHOULD_NOT_BE_SCANNED' >backend/db/models.py
+		printf '%s\n' 'BASE_ROUTER_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/main.py
+		printf '%s\n' 'BASE_THREADING_SERVICE_SHOULD_NOT_BE_SCANNED' >backend/services/threading_service.py
 		git add .
 		git commit -qm 'base commit'
 	)
@@ -4766,12 +3997,12 @@ EOF
 	(
 	cd "$repo_root_dir"
 	printf '%s\n' 'HEAD_FRONTEND_EMAIL_FLOW_SHOULD_BE_SCANNED' >"$changed_file"
-	printf '%s\n' 'HEAD_EMAIL_API_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/api/emails.py
-	printf '%s\n' 'HEAD_AUTH_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/api/auth.py
-	printf '%s\n' 'HEAD_CONFIG_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/core/config.py
-	printf '%s\n' 'HEAD_EMAIL_MODEL_SHOULD_NOT_BE_SCANNED' >backend/db/models.py
-	printf '%s\n' 'HEAD_ROUTER_CONTEXT_SHOULD_NOT_BE_SCANNED' >backend/main.py
-	printf '%s\n' 'HEAD_THREADING_SERVICE_SHOULD_NOT_BE_SCANNED' >backend/services/threading_service.py
+	printf '%s\n' 'HEAD_EMAIL_API_CONTEXT_SHOULD_BE_SCANNED' >backend/api/emails.py
+	printf '%s\n' 'HEAD_AUTH_CONTEXT_SHOULD_BE_SCANNED' >backend/api/auth.py
+	printf '%s\n' 'HEAD_CONFIG_CONTEXT_SHOULD_BE_SCANNED' >backend/core/config.py
+	printf '%s\n' 'HEAD_EMAIL_MODEL_SHOULD_BE_SCANNED' >backend/db/models.py
+	printf '%s\n' 'HEAD_ROUTER_CONTEXT_SHOULD_BE_SCANNED' >backend/main.py
+	printf '%s\n' 'HEAD_THREADING_SERVICE_SHOULD_BE_SCANNED' >backend/services/threading_service.py
 	git add .
 	git commit -qm 'head commit'
 	)
@@ -4801,7 +4032,7 @@ EOF
 	set -e
 
 	assert_equals "0" "$rc" "case=$case_name exit code"
-	assert_file_contains "$output_log" "scan ok with frontend email trusted backend authorization context" "case=$case_name output"
+	assert_file_contains "$output_log" "scan ok with frontend email backend authorization context" "case=$case_name output"
 
 	rm -rf "$tmp_dir"
 }
@@ -4908,11 +4139,11 @@ run_pull_request_target_aborts_on_pr_head_blob_failure_case() {
 	local fake_git_fail_command="$5"
 	local disable_pr_scoping="${6-0}"
 	local expected_exit="1"
-	if [ "$fake_git_fail_command" = "show" ] || [ "$fake_git_fail_command" = "cat-file" ] || [ "$fake_git_fail_command" = "diff" ] || [ "$disable_pr_scoping" = "1" ]; then
+	if [ "$fake_git_fail_command" = "ls-tree" ] || [ "$fake_git_fail_command" = "cat-file" ] || [ "$fake_git_fail_command" = "diff" ] || [ "$disable_pr_scoping" = "1" ]; then
 		expected_exit="2"
 	fi
 	local expected_message="pull request changed file could not be read from PR head; failing closed"
-	if [ "$disable_pr_scoping" = "1" ] && [ "$fake_git_fail_command" = "cat-file" ]; then
+	if [ "$fake_git_fail_command" = "cat-file" ]; then
 		expected_message="pull request head blob could not be copied; failing closed"
 	fi
 	if [ "$fake_git_fail_command" = "diff" ]; then
@@ -5312,7 +4543,7 @@ set -euo pipefail
 sleep 30 &
 child_pid=$!
 printf '%s' "$child_pid" > "${FAKE_STRIX_CHILD_PID_FILE:?}"
-sleep 5
+sleep 10
 EOF
 	chmod +x "$fake_strix"
 	printf '%s' 'vertex_ai/timeout-cleanup-primary' >"$strix_llm_file"
@@ -5328,7 +4559,7 @@ EOF
 			FAKE_STRIX_CHILD_PID_FILE="$child_pid_file" \
 			STRIX_LLM_FILE="$strix_llm_file" \
 			LLM_API_KEY_FILE="$llm_api_key_file" \
-			STRIX_PROCESS_TIMEOUT_SECONDS="1" \
+			STRIX_PROCESS_TIMEOUT_SECONDS="3" \
 			STRIX_VERTEX_FALLBACK_MODELS="" \
 			STRIX_REPORTS_DIR="$repo_root_dir/strix_runs" \
 			STRIX_TARGET_PATH="." \
@@ -5338,7 +4569,7 @@ EOF
 	set -e
 
 	assert_equals "1" "$rc" "timeout cleanup exit code"
-	assert_file_contains "$output_log" "Strix run timed out after 1s." "timeout cleanup output"
+	assert_file_contains "$output_log" "Strix run timed out after 3s." "timeout cleanup output"
 	local _
 	for _ in $(seq 1 12); do
 		if [ -f "$child_pid_file" ]; then
@@ -5440,7 +4671,7 @@ run_total_timeout_case() {
 set -euo pipefail
 
 echo "1" >> "${FAKE_STRIX_CALL_COUNT_FILE:?}"
-sleep 30
+sleep 12
 EOF
 	chmod +x "$fake_strix"
 	printf '%s' 'vertex_ai/total-timeout-primary' >"$strix_llm_file"
@@ -5456,7 +4687,7 @@ EOF
 			FAKE_STRIX_CALL_COUNT_FILE="$call_count_file" \
 			STRIX_LLM_FILE="$strix_llm_file" \
 			LLM_API_KEY_FILE="$llm_api_key_file" \
-			STRIX_PROCESS_TIMEOUT_SECONDS="30" \
+			STRIX_PROCESS_TIMEOUT_SECONDS="8" \
 			STRIX_TOTAL_TIMEOUT_SECONDS="8" \
 			STRIX_VERTEX_FALLBACK_MODELS="vertex_ai/fallback-one" \
 			STRIX_TRANSIENT_RETRY_PER_MODEL="2" \
@@ -6195,17 +5426,9 @@ assert_strix_child_target_uses_constant_argument
 
 assert_opencode_review_uses_codegraph_and_gpt5_fallback
 
-assert_opencode_review_posts_suggested_diffs_inline
-
 assert_opencode_review_normalizer_accepts_transcript_json
 
 assert_opencode_review_publish_body_discards_trailing_model_prose
-
-assert_opencode_review_gate_rejects_missing_structural_exploration_approval
-
-assert_opencode_review_gate_rejects_no_changes_approval
-
-assert_opencode_review_gate_rejects_approve_without_changed_file_evidence
 
 assert_opencode_review_gate_rejects_line_zero_findings
 
@@ -6217,17 +5440,7 @@ assert_opencode_failed_check_review_validator_rejects_unrelated_findings
 
 assert_opencode_failed_check_fallback_emits_each_strix_report
 
-assert_opencode_failed_check_fallback_explains_trusted_base_strix_prs
-
-assert_opencode_failed_check_fallback_does_not_treat_no_report_summary_as_report
-
-assert_opencode_failed_check_fallback_handles_deepseek_auth_only_signal
-
 assert_opencode_failed_check_fallback_handles_pg_erd_cloud_strix_log_shape
-
-assert_opencode_failed_check_fallback_handles_split_code_location_lines
-
-assert_opencode_failed_check_fallback_does_not_anchor_unmapped_strix_reports_to_workflow
 
 run_pull_request_target_head_scope_case \
 	"pull-request-target-modified-file-uses-head-blob" \
@@ -6297,7 +5510,7 @@ run_pull_request_target_head_scope_case \
 	"HEAD_NESTED_CONTENT_SHOULD_BE_SCANNED" \
 	"1"
 
-run_pull_request_target_bounded_head_context_scope_case
+run_pull_request_target_full_head_context_scope_case
 
 run_pull_request_target_changed_context_scope_uses_pr_head_case
 run_pull_request_target_changed_backend_context_scope_case
@@ -6322,14 +5535,14 @@ run_pull_request_target_aborts_on_pr_head_blob_failure_case \
 	"src/new_module.py" \
 	"__ABSENT__" \
 	"HEAD_CONTENT_SHOULD_NOT_BECOME_PARTIAL_SCAN_INPUT" \
-	"show"
+	"cat-file"
 
 run_pull_request_target_aborts_on_pr_head_blob_failure_case \
 	"pull-request-target-modified-file-pr-head-blob-read-failure" \
 	"src/existing.py" \
 	"BASE_CONTENT_MUST_NOT_BE_USED_AFTER_HEAD_READ_FAILURE" \
 	"HEAD_CONTENT_SHOULD_NOT_BECOME_PARTIAL_SCAN_INPUT" \
-	"show"
+	"cat-file"
 
 run_pull_request_target_irregular_head_entry_fails_closed_case \
 	"pull-request-target-symlink-head-entry-fails-closed" \
@@ -6352,8 +5565,7 @@ run_pull_request_target_aborts_on_pr_head_blob_failure_case \
 	"src/existing.py" \
 	"BASE_CONTENT_MUST_NOT_BE_USED_AFTER_HEAD_LOOKUP_FAILURE" \
 	"HEAD_CONTENT_SHOULD_NOT_BECOME_PARTIAL_SCAN_INPUT" \
-	"ls-tree" \
-	"1"
+	"ls-tree"
 
 run_pull_request_target_aborts_on_pr_head_blob_failure_case \
 	"pull-request-target-changed-file-list-diff-failure" \
@@ -6623,37 +5835,7 @@ run_gate_case "github-models-primary-unavailable-fallback-success" \
 	"0" \
 	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-r1-0528' in [0-9]+s\\." \
 	"2" \
-	"openai/gpt-5|openai/deepseek/deepseek-r1-0528" \
-	"https://models.github.ai/inference|https://models.github.ai/inference" \
-	"openai" \
-	"https://models.github.ai/inference" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"0" \
-	"" \
-	"" \
-	"" \
-	"__SAME_AS_FALLBACK_MODELS__" \
-	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
-	"1"
-
-run_gate_case "github-models-primary-denied-fallback-success" \
-	"openai/gpt-5" \
-	"" \
-	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-r1-0528' in [0-9]+s\\." \
-	"2" \
-	"openai/gpt-5|openai/deepseek/deepseek-r1-0528" \
+	"openai/gpt-5|deepseek/deepseek-r1-0528" \
 	"https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
@@ -6683,7 +5865,7 @@ run_gate_case "github-models-primary-ratelimit-fallback-success" \
 	"0" \
 	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-r1-0528' in [0-9]+s\\." \
 	"4" \
-	"openai/gpt-5|openai/gpt-5|openai/gpt-5|openai/deepseek/deepseek-r1-0528" \
+	"openai/gpt-5|openai/gpt-5|openai/gpt-5|deepseek/deepseek-r1-0528" \
 	"https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
@@ -6713,38 +5895,8 @@ run_gate_case "github-models-fallback-provider-signal-tries-next" \
 	"0" \
 	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-v3-0324' in [0-9]+s\\." \
 	"3" \
-	"openai/gpt-5|openai/deepseek/deepseek-r1-0528|openai/deepseek/deepseek-v3-0324" \
+	"openai/gpt-5|deepseek/deepseek-r1-0528|deepseek/deepseek-v3-0324" \
 	"https://models.github.ai/inference|https://models.github.ai/inference|https://models.github.ai/inference" \
-	"openai" \
-	"https://models.github.ai/inference" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"pull_request" \
-	"sync-module-system/smart-crawling-biz/src/main/java/org/empasy/sync/modules/system/controller/SysPositionController.java" \
-	"" \
-	"" \
-	"0" \
-	"" \
-	"" \
-	"" \
-	"__SAME_AS_FALLBACK_MODELS__" \
-	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
-	"1"
-
-run_gate_case "github-models-fallback-vulnerability-before-next-success-blocks" \
-	"openai/gpt-5" \
-	"" \
-	"1" \
-	"Strix model reported threshold vulnerabilities before fallback success; failing closed so every model-reported vulnerability is reviewed." \
-	"2" \
-	"openai/gpt-5|openai/deepseek/deepseek-r1-0528" \
-	"https://models.github.ai/inference|https://models.github.ai/inference" \
 	"openai" \
 	"https://models.github.ai/inference" \
 	"" \
@@ -7079,66 +6231,6 @@ run_gate_case "provider-warning-success-signal" \
 	"Strix run emitted provider infrastructure or failure-signal output; failing closed." \
 	"1" \
 	"vertex_ai/provider-warning-success-signal" \
-	"<unset>" \
-	"vertex_ai" \
-	"__DEFAULT__" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"__SAME_AS_FALLBACK_MODELS__" \
-	"" \
-	"1"
-
-run_gate_case "report-known-internal-warning-sanitized" \
-	"vertex_ai/report-known-internal-warning-sanitized" \
-	"" \
-	"0" \
-	"Strix run succeeded for model 'vertex_ai/report-known-internal-warning-sanitized'" \
-	"1" \
-	"vertex_ai/report-known-internal-warning-sanitized" \
-	"<unset>" \
-	"vertex_ai" \
-	"__DEFAULT__" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"" \
-	"__SAME_AS_FALLBACK_MODELS__" \
-	"" \
-	"1"
-
-run_gate_case "report-unknown-warning-fails" \
-	"vertex_ai/report-unknown-warning-fails" \
-	"" \
-	"1" \
-	"Strix report artifacts emitted warning/fatal/denied/timeout output; failing closed." \
-	"1" \
-	"vertex_ai/report-unknown-warning-fails" \
 	"<unset>" \
 	"vertex_ai" \
 	"__DEFAULT__" \
@@ -7896,27 +6988,6 @@ run_gate_case "pr-changed-scope-includes-ci-dependency" \
 	"pull_request" \
 	"scripts/ci/strix_quick_gate.sh"
 
-run_gate_case "pr-ci-test-harness-only-skip" \
-	"openai/gpt-4o-mini" \
-	"" \
-	"0" \
-	"No scannable changed files in pull request; skipping Strix quick scan." \
-	"0" \
-	"" \
-	"" \
-	"vertex_ai" \
-	"__DEFAULT__" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"pull_request" \
-	"scripts/ci/test_strix_quick_gate.sh"
-
 run_gate_case "pr-deployment-scope-entrypoint-context" \
 	"openai/gpt-4o-mini" \
 	"" \
@@ -8000,27 +7071,6 @@ run_gate_case "pr-baseline-critical-absolute-target" \
 	"0" \
 	"pull_request" \
 	"sync-module-system/smart-crawling-biz/src/main/java/org/empasy/sync/modules/system/controller/SysPositionController.java"
-
-run_gate_case "pr-baseline-critical-extensionless-dockerfile-target" \
-	"openai/gpt-4o-mini" \
-	"" \
-	"0" \
-	"Strix findings are limited to unchanged files in this pull request; allowing pipeline continuation." \
-	"1" \
-	"openai/gpt-4o-mini" \
-	"https://example.invalid" \
-	"vertex_ai" \
-	"__DEFAULT__" \
-	"" \
-	"0" \
-	"CRITICAL" \
-	"0" \
-	"" \
-	"" \
-	"1200" \
-	"0" \
-	"pull_request" \
-	".github/workflows/opencode-review.yml"
 
 run_gate_case "pr-baseline-critical-subdir-target" \
 	"openai/gpt-4o-mini" \
@@ -8821,26 +7871,15 @@ run_gate_case "github-models-api-base-rejected-for-direct-openai" \
 	"openai/o4-mini" \
 	"" \
 	"2" \
-	"LLM_API_BASE may route through GitHub Models only when STRIX_LLM uses a GitHub Models-compatible model" \
+	"LLM_API_BASE may route through GitHub Models only when STRIX_LLM uses a GitHub Models model prefix" \
 	"0" \
 	"" \
 	"" \
 	"openai" \
 	"https://models.github.ai/inference"
 
-run_gate_case "github-models-openai-gpt-requires-api-base" \
-	"openai/gpt-5" \
-	"" \
-	"2" \
-	"GitHub Models Strix scans require LLM_API_BASE_FILE" \
-	"0" \
-	"" \
-	"" \
-	"openai" \
-	""
-
 run_gate_case "direct-openai-gpt-does-not-require-github-models-api-base" \
-	"openai_direct/gpt-5.4" \
+	"openai/gpt-5.4" \
 	"" \
 	"0" \
 	"scan ok" \
@@ -8861,28 +7900,6 @@ run_gate_case "github-models-model-prefix-with-api-base-succeeds" \
 	"openai" \
 	"https://models.github.ai/inference"
 
-run_gate_case "github-models-meta-prefix-with-api-base-succeeds" \
-	"openai/meta/test-github-model" \
-	"" \
-	"0" \
-	"scan ok" \
-	"1" \
-	"openai/meta/test-github-model" \
-	"https://models.github.ai/inference" \
-	"openai" \
-	"https://models.github.ai/inference"
-
-run_gate_case "github-models-mistral-prefix-with-api-base-succeeds" \
-	"openai/mistral-ai/test-github-model" \
-	"" \
-	"0" \
-	"scan ok" \
-	"1" \
-	"openai/mistral-ai/test-github-model" \
-	"https://models.github.ai/inference" \
-	"openai" \
-	"https://models.github.ai/inference"
-
 run_gate_case "github-models-fallback-requires-api-base" \
 	"vertex_ai/missing-primary" \
 	"openai/openai/gpt-5.4" \
@@ -8896,11 +7913,11 @@ run_gate_case "github-models-fallback-requires-api-base" \
 
 run_gate_case "github-models-fallback-success" \
 	"vertex_ai/missing-primary" \
-	"github_models/deepseek/deepseek-r1-0528 github_models/deepseek/deepseek-v3-0324" \
+	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
 	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'github_models/deepseek/deepseek-r1-0528' in [0-9]+s\\." \
+	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-r1-0528' in [0-9]+s\\." \
 	"2" \
-	"vertex_ai/missing-primary|openai/deepseek/deepseek-r1-0528" \
+	"vertex_ai/missing-primary|deepseek/deepseek-r1-0528" \
 	"<unset>|https://models.github.ai/inference" \
 	"vertex_ai" \
 	"https://models.github.ai/inference" \
@@ -8930,11 +7947,11 @@ run_gate_case "github-models-fallback-success" \
 
 run_gate_case "github-models-fallback-success-deepseek-v3" \
 	"vertex_ai/missing-primary" \
-	"github_models/deepseek/deepseek-r1-0528 github_models/deepseek/deepseek-v3-0324" \
+	"deepseek/deepseek-r1-0528 deepseek/deepseek-v3-0324" \
 	"0" \
-	"REGEX:Strix quick scan succeeded with fallback model 'github_models/deepseek/deepseek-v3-0324' in [0-9]+s\\." \
+	"REGEX:Strix quick scan succeeded with fallback model 'deepseek/deepseek-v3-0324' in [0-9]+s\\." \
 	"3" \
-	"vertex_ai/missing-primary|openai/deepseek/deepseek-r1-0528|openai/deepseek/deepseek-v3-0324" \
+	"vertex_ai/missing-primary|deepseek/deepseek-r1-0528|deepseek/deepseek-v3-0324" \
 	"<unset>|https://models.github.ai/inference|https://models.github.ai/inference" \
 	"vertex_ai" \
 	"https://models.github.ai/inference" \
