@@ -62,10 +62,14 @@ test.describe('ScopeWeave Planner', () => {
   test('renders seeded rows and summary metrics', async ({ page }) => {
     await expect(page.getByRole('button', { name: '최상위 작업 추가' })).toBeVisible();
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+    await expect(page).toHaveTitle('ScopeWeave Planner');
     await expect(page.getByTestId('project-name-input')).toHaveValue(/ScopeWeave/i);
     await expect(page.getByTestId('summary-total-days')).not.toHaveText('0일');
     await expect(page.getByTestId('summary-planned-progress')).toContainText('%');
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
+
+    await page.getByTestId('project-name-input').fill('전사 전환 계획');
+    await expect(page).toHaveTitle('전사 전환 계획 - ScopeWeave Planner');
   });
 
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
@@ -409,6 +413,12 @@ test.describe('ScopeWeave Planner', () => {
     const originalOwner = await targetRow.locator('.owner-badge').innerText();
     await targetRow.getByRole('button', { name: '편집' }).click();
     await expect(page.locator('.editor-panel')).toBeVisible();
+
+    await expect(page.getByTestId('editor-category-large')).toHaveAttribute('placeholder', '예: 공통');
+    await expect(page.getByTestId('editor-category-medium')).toHaveAttribute('placeholder', '예: 기획');
+    await expect(page.getByTestId('editor-document-name')).toHaveAttribute('placeholder', '예: 요구사항정의서');
+    await expect(page.getByTestId('editor-owner')).toHaveAttribute('placeholder', '예: 홍길동');
+    await expect(page.getByTestId('editor-support-team')).toHaveAttribute('placeholder', '예: 인프라팀');
 
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
     await page.getByRole('button', { name: '취소' }).click();

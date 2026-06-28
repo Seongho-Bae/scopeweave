@@ -46,3 +46,7 @@
 ## 2026-06-23 - Prevent DOM XSS false positives by using strict string interpolation
 **Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
 **Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
+
+## 2026-06-26 - Placeholder text and document titles
+**Learning:** Empty text inputs without placeholders fail to provide examples, and static document titles do not help screen-reader or multi-tab users identify the active project.
+**Action:** Add helpful `placeholder` attributes to form fields and build dynamic document titles from `DEFAULT_PROJECT_NAME` so app naming stays centralized.
