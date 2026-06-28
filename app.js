@@ -6,6 +6,7 @@ const OWNER_COLORS = [
   '#5e35b1', '#c0ca33', '#00acc1', '#fb8c00', '#546e7a',
   '#43a047', '#e53935', '#6a1b9a', '#039be5', '#5d4037'
 ];
+const koNumberFormatter = new Intl.NumberFormat('ko-KR');
 
 const ACTUAL_PROGRESS_OPTIONS = [
   '미착수(0%)',
@@ -2160,7 +2161,6 @@ function formatDecimal(value, digits) {
   return Number(value || 0).toFixed(digits);
 }
 
-const koNumberFormatter = new Intl.NumberFormat('ko-KR');
 function formatNumber(value) {
   return koNumberFormatter.format(Number(value || 0));
 }
