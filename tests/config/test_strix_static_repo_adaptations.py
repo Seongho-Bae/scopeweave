@@ -89,9 +89,9 @@ def test_opencode_review_workflow_has_runner_hardening() -> None:
 
     assert 'timeout-minutes: 25' in workflow_source
     assert 'timeout-minutes: 60' in workflow_source
-
-
-
+    assert 'step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411' in workflow_source
+    assert 'egress-policy: audit' in workflow_source
+    assert 'disable-file-monitoring: true' in workflow_source
 
 
 def test_kubernetes_deployment_uses_non_root_versioned_runtime() -> None:
