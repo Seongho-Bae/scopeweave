@@ -41,7 +41,7 @@ def test_strix_tracks_all_reported_vulnerability_severities() -> None:
 
     assert 'branches: [main, develop, master]' in workflow_source
     assert 'STRIX_FAIL_ON_MIN_SEVERITY: MEDIUM' in workflow_source
-    assert 'STRIX_FAIL_ON_MIN_SEVERITY="${STRIX_FAIL_ON_MIN_SEVERITY:-LOW}"' in gate_source
+    assert 'STRIX_FAIL_ON_MIN_SEVERITY="${STRIX_FAIL_ON_MIN_SEVERITY:-MEDIUM}"' in gate_source
     assert 'include every model-reported vulnerability' in opencode_source
     assert 'One Strix model vulnerability report requires one distinct finding' in opencode_source
 
@@ -87,8 +87,11 @@ def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> Non
 def test_opencode_review_workflow_has_runner_hardening() -> None:
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
-    assert 'timeout-minutes: 120' in workflow_source
-    assert 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' in workflow_source
+    assert 'group: scopeweave-local-opencode-review-' in workflow_source
+    assert 'group: opencode-review-${{ github.event_name }}' not in workflow_source
+    assert 'timeout-minutes: 25' in workflow_source
+    assert 'timeout-minutes: 60' in workflow_source
+    assert 'step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411' in workflow_source
     assert 'egress-policy: audit' in workflow_source
     assert 'disable-file-monitoring: true' in workflow_source
 
