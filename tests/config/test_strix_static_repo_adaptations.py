@@ -43,7 +43,7 @@ def test_strix_tracks_all_reported_vulnerability_severities() -> None:
     assert 'STRIX_FAIL_ON_MIN_SEVERITY: MEDIUM' in workflow_source
     assert 'STRIX_FAIL_ON_MIN_SEVERITY="${STRIX_FAIL_ON_MIN_SEVERITY:-MEDIUM}"' in gate_source
     assert 'include every model-reported vulnerability' in opencode_source
-    assert "One Strix model vulnerability report requires one distinct finding" in opencode_source
+    assert 'One Strix model vulnerability report requires one distinct finding' in opencode_source
 
 
 def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> None:
@@ -87,6 +87,8 @@ def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> Non
 def test_opencode_review_workflow_has_runner_hardening() -> None:
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
+    assert 'group: scopeweave-local-opencode-review-' in workflow_source
+    assert 'group: opencode-review-${{ github.event_name }}' not in workflow_source
     assert 'timeout-minutes: 25' in workflow_source
     assert 'timeout-minutes: 60' in workflow_source
     assert 'step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411' in workflow_source
