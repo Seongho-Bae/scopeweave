@@ -33,6 +33,8 @@ const ACTUAL_PROGRESS_MAP = Object.assign(Object.create(null), {
   'PM확인(100%)': 100
 });
 
+const koNumberFormatter = new Intl.NumberFormat('ko-KR');
+
 const EDITABLE_FIELDS = [
   'phase',
   'activity',
@@ -2160,7 +2162,6 @@ function formatDecimal(value, digits) {
   return Number(value || 0).toFixed(digits);
 }
 
-const koNumberFormatter = new Intl.NumberFormat('ko-KR');
 function formatNumber(value) {
   return koNumberFormatter.format(Number(value || 0));
 }
