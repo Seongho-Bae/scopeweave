@@ -1598,7 +1598,7 @@ function validateImportedTasks(tasks) {
 }
 
 function validateCsvCell(value, fieldName) {
-  if (typeof value === 'string' && /^\s*[=+\-@]/.test(value)) {
+  if (typeof value === 'string' && CSV_FORMULA_PREFIX_PATTERN.test(value)) {
     value = "'" + value;
   }
   if (!value) return value;

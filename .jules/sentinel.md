@@ -45,7 +45,7 @@
 ## 2026-06-24 - Fix CSV Formula Injection during import
 **Vulnerability:** A CSV formula injection vulnerability was found during CSV import parsing.
 **Learning:** Data exported from the planner, or payloads imported, might contain formulas that execute when the CSV is opened in Excel.
-**Prevention:** Add input validation against formula starting characters during CSV import parsing to block malicious files.
+**Prevention:** Neutralize formula-starting CSV import cells by prefixing an apostrophe before storing them, and keep export-side formula escaping in place.
 
 ## 2026-06-24 - Validate HTML tags in Editor Drafts
 **Vulnerability:** The application was not rejecting HTML tag characters in the inline editor, which could introduce cross-site scripting (XSS) vectors or payload issues during data export (e.g. CSV).

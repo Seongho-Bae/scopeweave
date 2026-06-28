@@ -384,6 +384,13 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('tbody')).not.toContainText('onerror');
   });
 
+  test('neutralizes formula-prefixed imported CSV cells', async ({ page }) => {
+    await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', '"=HYPERLINK(""http://evil.test"",""Click"")",,"@SUM(1,1)",검증,,,담당자A,,,2026-03-01,2026-03-02,,,미착수(0%),,,'].join('\n'));
+
+    await expect(page.locator('tbody')).toContainText('\'=HYPERLINK("http://evil.test","Click")');
+    await expect(page.locator('tbody')).toContainText("'@SUM(1,1)");
+  });
+
   test('rejects overlong imported CSV cells without truncating', async ({ page }) => {
     const overlongTaskName = 'A'.repeat(1001);
 
@@ -416,6 +423,18 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('.editor-panel')).toBeHidden();
     await expect(targetRow).not.toContainText('임시담당자');
     await expect(targetRow.locator('.owner-badge')).toHaveText(originalOwner);
+  });
+
+  test('exposes editor action keyboard shortcuts', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+
+    const saveButton = page.locator('.editor-panel').getByRole('button', { name: '저장' });
+    const cancelButton = page.locator('.editor-panel').getByRole('button', { name: '취소' });
+
+    await expect(saveButton).toHaveAttribute('title', '저장 (Enter)');
+    await expect(saveButton).toHaveAttribute('aria-keyshortcuts', 'Enter');
+    await expect(cancelButton).toHaveAttribute('title', '취소 (Esc)');
+    await expect(cancelButton).toHaveAttribute('aria-keyshortcuts', 'Escape');
   });
 
   test('can trigger CSV export download', async ({ page }, testInfo) => {
