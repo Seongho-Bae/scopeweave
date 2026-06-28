@@ -556,12 +556,14 @@ function renderEditorRow(anchorId) {
   saveButton.className = 'primary-button';
   saveButton.textContent = '저장';
   saveButton.title = '저장 (Enter)';
+  saveButton.setAttribute('aria-keyshortcuts', 'Enter');
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
   cancelButton.className = 'secondary-button';
   cancelButton.dataset.action = 'cancel-editor';
   cancelButton.textContent = '취소';
   cancelButton.title = '취소 (Esc)';
+  cancelButton.setAttribute('aria-keyshortcuts', 'Escape');
   // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
   cancelButton.addEventListener('click', () => closeEditor());
   const errors = document.createElement('div');
