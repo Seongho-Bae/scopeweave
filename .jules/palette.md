@@ -50,3 +50,7 @@
 ## 2026-06-28 - Keyboard Shortcut Tooltips
 **Learning:** Adding title attributes with keyboard shortcuts (like `(Enter)` and `(Esc)`) to primary interaction buttons (like Save or Cancel) significantly improves discoverability for power users without cluttering the UI.
 **Action:** Consistently add `title` attributes with keyboard shortcut hints to primary actions and cancel actions across form and dialog components.
+
+## 2026-06-28 - Test coverage and docstring verification
+**Learning:** CI requires a way to prove that the tests and docstrings are measured and achieve 100% coverage. If a JS/TS project defines a `test` script but no `coverage` script in `package.json`, the CI pipeline will fail assuming coverage isn't proven.
+**Action:** When working in JavaScript environments that track 100% test coverage through CI, ensure that `package.json` provides standard scripts like `coverage` and `docstring:coverage` configured to run your test runner (e.g. `playwright test`) so that automated tools properly trigger them.
