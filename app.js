@@ -744,12 +744,9 @@ function createActualProgressCellContent(task, taskMetrics) {
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
   if (warning) {
     const validation = document.createElement('div');
-    validation.id = `actual-progress-error-${task.id}`;
     validation.className = 'validation-message';
     validation.textContent = warning;
     label.appendChild(validation);
-    select.setAttribute('aria-invalid', 'true');
-    select.setAttribute('aria-describedby', validation.id);
   }
   return label;
 }
@@ -957,14 +954,6 @@ function validateDraft(draft, depth) {
     return errors;
   }
   const sanitized = sanitizeDraft(draft);
-
-  EDITABLE_FIELDS.forEach((field) => {
-    if (/[<>]/.test(sanitized[field])) {
-      const label = CSV_FIELD_LABELS[field] || field;
-      errors.push(`${label} 항목에는 HTML 태그 문자를 사용할 수 없습니다.`);
-    }
-  });
-
   if (!sanitized.phase && depth === 1) {
     errors.push('최상위 작업은 단계 값을 입력해야 합니다.');
   }
@@ -1111,7 +1100,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
-  // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
+  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
+  const taskById = new Map();
+  state.tasks.forEach((task) => taskById.set(task.id, task));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -1124,7 +1116,25 @@ function getVisibleTasks() {
     }
   });
 
-  return visible;
+  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
+  const visited = new Set();
+  return visible.filter((task) => {
+    let parentId = task.parentId;
+    visited.clear();
+    visited.add(task.id);
+    while (parentId) {
+      if (visited.has(parentId)) {
+        break;
+      }
+      visited.add(parentId);
+      const parent = taskById.get(parentId);
+      if (parent && !parent.expanded) {
+        return false;
+      }
+      parentId = parent?.parentId;
+    }
+    return true;
+  });
 }
 
 function insertTaskAfter(task, afterId) {

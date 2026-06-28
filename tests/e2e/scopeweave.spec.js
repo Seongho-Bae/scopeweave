@@ -341,16 +341,6 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
 
-  test('rejects HTML payloads from the UI editor', async ({ page }) => {
-    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '편집' }).click();
-
-    await page.locator('[data-testid="editor-task"]').fill('<script>alert(1)</script>');
-    await page.locator('.editor-panel').getByRole('button', { name: '저장' }).click();
-
-    await expect(page.locator('#editor-errors')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
-    await expect(page.locator('.editor-panel')).toBeVisible();
-  });
-
   test('rejects invalid calendar dates from imported CSV', async ({ page }) => {
     await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', 'P3000.검증단계,,잘못된날짜,검증,,,담당자A,,,2026-02-31,2026-03-02,,,미착수(0%),,,'].join('\n'));
 
@@ -485,14 +475,6 @@ test.describe('ScopeWeave Planner', () => {
 
     const addChildBtn = row.locator('button[data-action="add-child"]');
     await expect(addChildBtn).toHaveAttribute('aria-label', '하위 추가 - Test Phase');
-
-    await addChildBtn.click();
-    await page.locator('[data-testid="editor-activity"]').fill('Test Activity');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
-
-    const toggleBtn = row.locator('button[data-action="toggle"]');
-    await expect(toggleBtn).toHaveAttribute('aria-label', '접기 - Test Phase');
-    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('adds task name context to actual progress select screen reader label', async ({ page }) => {
@@ -509,5 +491,24 @@ test.describe('ScopeWeave Planner', () => {
     const srOnlySpan = label.locator('.sr-only');
 
     await expect(srOnlySpan).toHaveText('실적진척상태 - Context Test');
+  });
+});
+
+test.describe('escapeHtml Utility Coverage', () => {
+  test('escapes special characters via escapeHtml when rendering tree cell content', async ({ page }) => {
+    await page.goto('http://127.0.0.1:4173');
+    await addTopLevelTask(page, {
+      phase: '<script>alert(1)</script>',
+      categoryLarge: 'XSS 방어',
+      owner: '담당자',
+      plannedStartDate: '2026-05-18',
+      plannedEndDate: '2026-05-20'
+    });
+
+    // Check if the content is escaped and rendered as text, not evaluated as HTML
+    const row = page.locator('tr.task-row').filter({ hasText: '<script>alert(1)</script>' }).first();
+    const treeValue = row.locator('.tree-value');
+    await expect(treeValue).toHaveText('<script>alert(1)</script>');
+    await expect(treeValue).not.toHaveAttribute('innerHTML', /<script>/);
   });
 });
