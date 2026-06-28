@@ -943,7 +943,7 @@ function sanitizeDraft(draft) {
   const sanitized = {};
   EDITABLE_FIELDS.forEach((field) => {
     // 🛡️ Sentinel: Enforce string coercion before trim() to prevent DoS via type confusion
-    sanitized[field] = escapeHtml(String(draft?.[field] || "").trim().slice(0, 1000));
+    sanitized[field] = String(draft?.[field] || '').trim().slice(0, 1000);
   });
   // 🛡️ Sentinel: Strictly validate against allowed options to prevent injection
   if (!sanitized.actualProgressStatus || !ACTUAL_PROGRESS_OPTIONS.includes(sanitized.actualProgressStatus)) {
@@ -1244,43 +1244,13 @@ function findTask(taskId) {
   return state.tasks.find((task) => task.id === taskId) || null;
 }
 
-async function encryptData(data) {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"]
-  );
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encodedData = encoder.encode(JSON.stringify(data));
-  const encryptedContent = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: iv },
-    key,
-    encodedData
-  );
-
-  const exportedKey = await crypto.subtle.exportKey("jwk", key);
-  return {
-    iv: Array.from(iv),
-    key: exportedKey,
-    data: Array.from(new Uint8Array(encryptedContent))
-  };
-}
-
-async function decryptData(encryptedPayload) {
-  if (!encryptedPayload || !encryptedPayload.iv || !encryptedPayload.key || !encryptedPayload.data) return null;
-  const key = await crypto.subtle.importKey("jwk", encryptedPayload.key, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
-  const decryptedContent = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(encryptedPayload.iv) }, key, new Uint8Array(encryptedPayload.data));
-  return JSON.parse(new TextDecoder().decode(decryptedContent));
-}
-
 function persistState() {
   const payload = {
     projectName: state.projectName,
     baseDate: state.baseDate,
     tasks: state.tasks.map((task) => ({ ...task }))
   };
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {

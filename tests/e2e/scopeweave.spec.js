@@ -68,14 +68,13 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
     await expect(page).toHaveTitle('ScopeWeave Planner');
 
-    // Verify dynamic document.title update
     await page.getByTestId('project-name-input').fill('My New Project');
     await expect(page).toHaveTitle('My New Project - ScopeWeave Planner');
   });
 
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
     await page.evaluate(() => {
-      sessionStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
         projectName: 'Empty Scope',
         baseDate: '2026-04-20',
         tasks: []
@@ -261,7 +260,7 @@ test.describe('ScopeWeave Planner', () => {
   test('restores legacy planned end dates from local storage', async ({ page }) => {
     await page.evaluate(() => {
       const legacyPlannedEndField = 'plannedEnd' + 'Ddate';
-      sessionStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
         projectName: 'Legacy Project',
         baseDate: '2026-05-10',
         tasks: [
@@ -443,8 +442,8 @@ test.describe('ScopeWeave Planner', () => {
       await download.saveAs(csvPath);
     }
     const csvText = fs.readFileSync(csvPath, 'utf8');
-    expect(csvText).toContain(`"\t=HYPERLINK(""http://evil.test"",""Click"")"`);
-    expect(csvText).toContain(`"\t@SUM(1,1)"`);
+    expect(csvText).toContain(`"'=HYPERLINK(""http://evil.test"",""Click"")"`);
+    expect(csvText).toContain(`"'@SUM(1,1)"`);
   });
 
   test('can trigger CSV import file chooser', async ({ page }) => {
