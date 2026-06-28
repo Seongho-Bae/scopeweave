@@ -433,9 +433,11 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const actionStack = document.createElement('div');
   actionStack.className = 'action-stack';
 
+  const taskName = task.task || task.activity || task.phase || '작업';
+
   if (hasChildren) {
     const toggleButton = document.createElement('button');
-    const toggleLabel = task.expanded ? '접기' : '펼치기';
+    const toggleLabel = `${taskName} ${task.expanded ? '접기' : '펼치기'}`;
     toggleButton.type = 'button';
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
@@ -454,17 +456,17 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   }
 
   const isLeaf = task.depth >= 3;
-  const addChildButton = createActionButton('하위 추가', '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
+  const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
   addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
   }
 
-  const editButton = createActionButton('편집', '✎', 'edit', '편집');
+  const editButton = createActionButton(`${taskName} 편집`, '✎', 'edit', `${taskName} 편집`);
   editButton.setAttribute('aria-haspopup', 'dialog');
 
-  const deleteButton = createActionButton('삭제', '🗑', 'delete', '삭제');
+  const deleteButton = createActionButton(`${taskName} 삭제`, '🗑', 'delete', `${taskName} 삭제`);
 
   actionStack.append(
     addChildButton,
@@ -729,7 +731,8 @@ function createActualProgressCellContent(task, taskMetrics) {
   label.htmlFor = fieldId;
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
-  srOnly.textContent = '실적진척상태';
+  const taskName = task.task || task.activity || task.phase || '작업';
+  srOnly.textContent = `${taskName} 실적진척상태`;
   const select = document.createElement('select');
   select.id = fieldId;
   select.dataset.inlineProgress = task.id;
@@ -745,9 +748,12 @@ function createActualProgressCellContent(task, taskMetrics) {
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
   if (warning) {
     const validation = document.createElement('div');
+    validation.id = `actual-progress-error-${task.id}`;
     validation.className = 'validation-message';
     validation.textContent = warning;
     label.appendChild(validation);
+    select.setAttribute('aria-invalid', 'true');
+    select.setAttribute('aria-describedby', validation.id);
   }
   return label;
 }
@@ -955,6 +961,14 @@ function validateDraft(draft, depth) {
     return errors;
   }
   const sanitized = sanitizeDraft(draft);
+
+  EDITABLE_FIELDS.forEach((field) => {
+    if (/[<>]/.test(sanitized[field])) {
+      const label = CSV_FIELD_LABELS[field] || field;
+      errors.push(`${label} 항목에는 HTML 태그 문자를 사용할 수 없습니다.`);
+    }
+  });
+
   if (!sanitized.phase && depth === 1) {
     errors.push('최상위 작업은 단계 값을 입력해야 합니다.');
   }
@@ -1101,10 +1115,7 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
-  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
-  const taskById = new Map();
-  state.tasks.forEach((task) => taskById.set(task.id, task));
-
+  // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -1117,25 +1128,7 @@ function getVisibleTasks() {
     }
   });
 
-  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
-  const visited = new Set();
-  return visible.filter((task) => {
-    let parentId = task.parentId;
-    visited.clear();
-    visited.add(task.id);
-    while (parentId) {
-      if (visited.has(parentId)) {
-        break;
-      }
-      visited.add(parentId);
-      const parent = taskById.get(parentId);
-      if (parent && !parent.expanded) {
-        return false;
-      }
-      parentId = parent?.parentId;
-    }
-    return true;
-  });
+  return visible;
 }
 
 function insertTaskAfter(task, afterId) {
