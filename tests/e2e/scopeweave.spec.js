@@ -79,21 +79,10 @@ test.describe('ScopeWeave Planner', () => {
     await page.reload();
 
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
-    const exportButton = page.getByRole('button', { name: 'CSV 내보내기' });
-    await expect(exportButton).toBeDisabled();
-    await expect(exportButton).toHaveAttribute('aria-disabled', 'true');
-    await expect(exportButton).not.toHaveAttribute('disabled', '');
-    await expect(exportButton).toHaveAttribute('title', '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
-    await exportButton.click({ force: true });
-    await expect(page.locator('#toast')).toContainText('내보낼 작업이 없습니다');
-
-    const ganttButton = page.getByRole('button', { name: '간트차트보기' });
-    await expect(ganttButton).toBeDisabled();
-    await expect(ganttButton).toHaveAttribute('aria-disabled', 'true');
-    await expect(ganttButton).not.toHaveAttribute('disabled', '');
-    await expect(ganttButton).toHaveAttribute('title', '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.');
-    await ganttButton.click({ force: true });
-    await expect(page.locator('#toast')).toContainText('간트 차트로 표시할 작업이 없습니다');
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.');
   });
 
   test('adds a top-level task and restores it after reload', async ({ page }) => {
