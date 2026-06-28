@@ -2096,7 +2096,7 @@ function dateStringToUtcMs(value) {
   if (dateToUtcMsCache.has(value)) {
     return dateToUtcMsCache.get(value);
   }
-  // ⚡ Bolt: Zero-allocation date parsing to avoid array GC in tight rendering loops
+  // ⚡ Bolt: Avoid split/map array allocation in tight rendering loops
   const year = Number(value.substring(0, 4));
   const month = Number(value.substring(5, 7));
   const day = Number(value.substring(8, 10));

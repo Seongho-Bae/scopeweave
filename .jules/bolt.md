@@ -34,4 +34,4 @@
 
 ## 2026-06-25 - [Optimize date parsing and prevent cache thrashing]
 **Learning:** Using `split('-').map(Number)` in a tight date-parsing loop (`dateStringToUtcMs`) allocates new arrays and throws them away, causing massive garbage collection pressure. Additionally, recalculating the same date ranges in loops (like inside `calculatePlannedProgressRatio`) wastes CPU, and small caches (size < 500) cause cache thrashing for larger datasets.
-**Action:** Always use zero-allocation parsing like `substring` for tight loop strings. Reuse already computed durations inside iteration loops instead of recalculating them from dates. Size your caches appropriately (e.g. 10000) when expecting a large volume of parsing.
+**Action:** Avoid `split().map()` array allocation in tight loop strings by using direct substring parsing. Reuse already computed durations inside iteration loops instead of recalculating them from dates. Size your caches appropriately (e.g. 10000) when expecting a large volume of parsing.
