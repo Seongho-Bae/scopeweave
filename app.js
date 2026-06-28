@@ -1999,9 +1999,11 @@ function createGanttBarElement(startDate, endDate, weekdays, type, task) {
   bar.style.left = `${startIndex * 36}px`;
   bar.style.width = `${(normalizedEndIndex - startIndex + 1) * 36}px`;
 
+  const normalizedStartDate = weekdays[startIndex].date;
+  const normalizedEndDate = weekdays[normalizedEndIndex].date;
   const taskName = task.task || task.activity || task.phase || '작업';
   const typeLabel = type === 'plan' ? '계획' : '실적';
-  const tooltipText = `${taskName} ${typeLabel} (${startDate} ~ ${endDate})`;
+  const tooltipText = `${taskName} ${typeLabel} (${normalizedStartDate} ~ ${normalizedEndDate})`;
 
   bar.title = tooltipText;
   bar.setAttribute('aria-label', tooltipText);
