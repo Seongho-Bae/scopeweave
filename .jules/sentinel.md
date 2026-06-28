@@ -50,3 +50,8 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-28 - Removed Math.random fallback for task IDs
+**Vulnerability:** The ID generation function `createId` retained a `Math.random()` fallback for environments without the `crypto` API.
+**Learning:** `Math.random()` is predictable and introduces security risks when used to generate identifiers. It should not be used as a fallback.
+**Prevention:** Completely remove the `Math.random()` fallback. If `crypto` is unavailable, throw an error to fail securely rather than generating a weak ID.
