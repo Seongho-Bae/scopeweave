@@ -50,8 +50,3 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
-
-## 2026-06-27 - Test CI Adaptations Update
-**Vulnerability:** Failing CI tests due to outdated mocked dependency versions or execution timeout parameters in workflow files.
-**Learning:** CI test workflows (`test_strix_static_repo_adaptations.py`) have hardcoded references verifying specific configurations (`strix-agent` versions, max timeout configs).
-**Prevention:** If `requirements-strix-ci-hashes.txt` or `opencode-review.yml` config values change, remember to also run and update the corresponding assertions in `tests/config/test_strix_static_repo_adaptations.py`.
