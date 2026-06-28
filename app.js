@@ -75,6 +75,7 @@ const CSV_HEADERS = [
   '__depth'
 ];
 const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
+const DATE_CACHE_LIMIT = 10000;
 
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
@@ -1080,7 +1081,6 @@ function calculatePlannedProgressRatio(baseDate, startDate, endDate, durationDay
   if (compareDateStrings(baseDate, endDate) >= 0) {
     return 1;
   }
-  // ⚡ Bolt: Reuse passed durationDays if available to avoid redundant Date parsing and calculations
   const total = durationDays !== undefined ? durationDays : calculateDurationDays(startDate, endDate);
   if (total <= 0) {
     return 1;
@@ -2075,8 +2075,7 @@ function isValidDateString(value) {
     return false;
   }
   const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
-  // ⚡ Bolt: Increase cache limits to prevent cache thrashing in large loops
-  if (validDateCache.size < 10000) {
+  if (validDateCache.size < DATE_CACHE_LIMIT) {
     validDateCache.set(value, isValid);
   }
   return isValid;
@@ -2089,13 +2088,11 @@ function dateStringToUtcMs(value) {
   if (dateToUtcMsCache.has(value)) {
     return dateToUtcMsCache.get(value);
   }
-  // ⚡ Bolt: Avoid split/map array allocation in tight rendering loops
   const year = Number(value.substring(0, 4));
   const month = Number(value.substring(5, 7));
   const day = Number(value.substring(8, 10));
   const ms = Date.UTC(year, month - 1, day);
-  // ⚡ Bolt: Increase cache limits to prevent cache thrashing in large loops
-  if (dateToUtcMsCache.size < 10000) {
+  if (dateToUtcMsCache.size < DATE_CACHE_LIMIT) {
     dateToUtcMsCache.set(value, ms);
   }
   return ms;
