@@ -49,6 +49,21 @@ const EDITABLE_FIELDS = [
   'actualEndDate'
 ];
 
+const EDITOR_FIELD_TEST_IDS = Object.freeze(Object.assign(Object.create(null), {
+  phase: 'editor-phase',
+  activity: 'editor-activity',
+  task: 'editor-task',
+  categoryLarge: 'editor-category-large',
+  categoryMedium: 'editor-category-medium',
+  documentName: 'editor-document-name',
+  owner: 'editor-owner',
+  supportTeam: 'editor-support-team',
+  plannedStartDate: 'editor-planned-start',
+  plannedEndDate: 'editor-planned-end',
+  actualStartDate: 'editor-actual-start',
+  actualEndDate: 'editor-actual-end'
+}));
+
 const CSV_HEADERS = [
   '단계',
   'Activity',
@@ -575,21 +590,6 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = Object.assign(Object.create(null), {
-    phase: 'editor-phase',
-    activity: 'editor-activity',
-    task: 'editor-task',
-    categoryLarge: 'editor-category-large',
-    categoryMedium: 'editor-category-medium',
-    documentName: 'editor-document-name',
-    owner: 'editor-owner',
-    supportTeam: 'editor-support-team',
-    plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
-    actualStartDate: 'editor-actual-start',
-    actualEndDate: 'editor-actual-end'
-  });
-
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
   const fieldId = `editor-input-${field}-${Date.now()}`;
@@ -608,7 +608,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   }
   const input = document.createElement('input');
   input.id = fieldId;
-  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
+  input.setAttribute('data-testid', EDITOR_FIELD_TEST_IDS[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
   if (type === 'text') {
