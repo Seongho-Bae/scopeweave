@@ -1239,8 +1239,42 @@ function getTaskSubtreeRange(taskId) {
   return { startIndex, endIndex };
 }
 
+// ⚡ Bolt: MRU index cache for findTask to avoid O(N) array search on every dragover event (firing 60 times/sec).
+const _findTaskIndexCache = [
+  { id: null, index: -1 },
+  { id: null, index: -1 }
+];
+
 function findTask(taskId) {
-  return state.tasks.find((task) => task.id === taskId) || null;
+  for (let i = 0; i < 2; i++) {
+    const cache = _findTaskIndexCache[i];
+    if (cache.id === taskId) {
+      const task = state.tasks[cache.index];
+      if (task && task.id === taskId) {
+        if (i === 1) {
+          const tempId = _findTaskIndexCache[0].id;
+          const tempIdx = _findTaskIndexCache[0].index;
+          _findTaskIndexCache[0].id = cache.id;
+          _findTaskIndexCache[0].index = cache.index;
+          _findTaskIndexCache[1].id = tempId;
+          _findTaskIndexCache[1].index = tempIdx;
+        }
+        return task;
+      }
+    }
+  }
+
+  const index = state.tasks.findIndex((task) => task.id === taskId);
+  const task = index !== -1 ? state.tasks[index] : null;
+
+  if (index !== -1) {
+    _findTaskIndexCache[1].id = _findTaskIndexCache[0].id;
+    _findTaskIndexCache[1].index = _findTaskIndexCache[0].index;
+    _findTaskIndexCache[0].id = taskId;
+    _findTaskIndexCache[0].index = index;
+  }
+
+  return task;
 }
 
 function persistState() {
