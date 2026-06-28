@@ -6,9 +6,9 @@
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test": "playwright test",
-    "coverage": "playwright test",
-    "docstring:coverage": "playwright test"
+    "test": "npx playwright test",
+    "coverage": "npx playwright test",
+    "docstring:coverage": "npx playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0"
