@@ -1817,7 +1817,7 @@ function renderGantt() {
     return;
   }
 
-  // ⚡ Bolt: Use direct string comparison for minDate/maxDate calculation since plannedTasks already filter for valid dates.
+  // Valid YYYY-MM-DD strings sort chronologically, avoiding repeated validation in Gantt hot paths.
   const minDate = plannedTasks.reduce((min, task) => (task.plannedStartDate < min ? task.plannedStartDate : min), plannedTasks[0].plannedStartDate);
   const maxDate = plannedTasks.reduce((max, task) => (task.plannedEndDate > max ? task.plannedEndDate : max), plannedTasks[0].plannedEndDate);
   const weekdays = buildWeekdayTimeline(minDate, maxDate);
@@ -1941,7 +1941,6 @@ function buildWeekdayTimeline(minDate, maxDate) {
   const days = [];
   let cursor = getMonday(minDate);
   const endBoundary = getFriday(maxDate);
-  // ⚡ Bolt: Use direct string comparison for cursor loop since both are generated valid dates.
   while (cursor <= endBoundary) {
     if (!isWeekend(cursor)) {
       days.push({
@@ -1980,8 +1979,6 @@ function createGanttBarElement(startDate, endDate, weekdays, type) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
     return null;
   }
-  // ⚡ Bolt: Use direct string comparison instead of compareDateStrings to avoid
-  // redundant isValidDateString() checks and cache exhaustion during heavy loop iterations.
   const startIndex = weekdays.findIndex((day) => day.date >= startDate);
   // ⚡ Bolt: Replace O(N) array clone+reverse with reverse loop to avoid O(T*D) memory allocations in Gantt render
   let normalizedEndIndex = -1;
