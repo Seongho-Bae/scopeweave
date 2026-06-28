@@ -475,6 +475,14 @@ test.describe('ScopeWeave Planner', () => {
 
     const addChildBtn = row.locator('button[data-action="add-child"]');
     await expect(addChildBtn).toHaveAttribute('aria-label', '하위 추가 - Test Phase');
+
+    await addChildBtn.click();
+    await page.locator('[data-testid="editor-activity"]').fill('Test Activity');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const toggleBtn = row.locator('button[data-action="toggle"]');
+    await expect(toggleBtn).toHaveAttribute('aria-label', '접기 - Test Phase');
+    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('adds task name context to actual progress select screen reader label', async ({ page }) => {
