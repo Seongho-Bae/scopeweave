@@ -54,14 +54,13 @@ reason about the same supply-chain surface.
 
 The default Strix route uses GitHub Models. Configure the
 `STRIX_GITHUB_MODELS_TOKEN` repository or organization secret with a
-GitHub Models PAT when quota needs to come from a user/org allowance; if
-that secret is absent, the workflow falls back to the workflow-scoped
-`github.token`.
+GitHub Models PAT. The workflow fails closed when that secret is absent;
+it does not fall back to the workflow-scoped `github.token`.
 
-- primary model: `openai/openai/gpt-5` by default, overrideable with the
-  `STRIX_GITHUB_MODELS_MODEL` repository or organization variable
-- fallback model: `openai/openai/gpt-4.1` when the effective primary model is
-  not already `openai/openai/gpt-4.1`
+- primary model: `openai/gpt-5` by default, overrideable for manual
+  evidence runs with the `workflow_dispatch` `strix_llm` input
+- fallback models: `deepseek/deepseek-r1-0528` and
+  `deepseek/deepseek-v3-0324` for the GitHub Models route
 - API base: `https://models.github.ai/inference`
 - required workflow permission: `models: read`
 
@@ -71,10 +70,10 @@ workflow's default contract.
 
 Behavior:
 
-- `pull_request`: use the current PR-scoped repository diff and the
-  GitHub Models route.
-- `push` / `schedule`: fail closed if GitHub's workflow token is not
-  available.
+- `pull_request_target`: use the current PR-scoped repository diff and the
+  GitHub Models route; fail closed if the required secret is unavailable.
+- `push` / `schedule`: use the default GitHub Models route and fail closed
+  if the required secret is unavailable.
 - Provider infrastructure failures remain failed evidence; a clean run
   must complete the scan and publish a report artifact.
 

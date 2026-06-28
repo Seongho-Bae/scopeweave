@@ -241,6 +241,10 @@ button {
   transition: background var(--transition);
 }
 
+.task-row {
+  cursor: pointer;
+}
+
 .task-row.depth-1 td { background: #ffffff; }
 .task-row.depth-2 td { background: #f8fafc; }
 .task-row.depth-3 td { background: #f1f5f9; }
@@ -321,7 +325,9 @@ button {
 }
 
 .primary-button:focus-visible,
-.secondary-button:focus-visible {
+.secondary-button:focus-visible,
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.5);
   outline-offset: 2px;
 }
@@ -419,6 +425,10 @@ button {
   letter-spacing: 0.05em;
 }
 
+.editor-field .required-indicator {
+  color: var(--danger);
+}
+
 .editor-field input:focus,
 .editor-field select:focus,
 select[data-inline-progress]:focus {
@@ -464,14 +474,20 @@ select[data-inline-progress]:focus {
   box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.3);
 }
 
-.primary-button:hover {
+.primary-button:hover:not(:disabled) {
   background: #1d4ed8;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);
   transform: translateY(-1px);
 }
 
-.primary-button:active {
+.primary-button:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .secondary-button {
@@ -481,13 +497,13 @@ select[data-inline-progress]:focus {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-.secondary-button:hover {
+.secondary-button:hover:not(:disabled) {
   background: #f8fafc;
   border-color: #94a3b8;
   transform: translateY(-1px);
 }
 
-.secondary-button:active {
+.secondary-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
@@ -718,6 +734,7 @@ select[data-inline-progress]:focus {
 .gantt-bar.plan { background: var(--gantt-plan); box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15); }
 .gantt-bar.actual { background: var(--gantt-actual); box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
 
+.table-empty,
 .gantt-empty {
   padding: 60px;
   text-align: center;
