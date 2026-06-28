@@ -653,7 +653,7 @@ function createTreeCellContent(value, depth) {
   const treeValue = document.createElement('div');
   treeValue.className = `tree-value indent-${depth}`;
   if (value) {
-    treeValue.textContent = value;
+    treeValue.textContent = escapeHtml(value);
   } else {
     treeValue.appendChild(createEmptyCell());
   }
