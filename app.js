@@ -1201,8 +1201,15 @@ function createOwnerColorMap() {
 }
 
 function getLastRootTaskId() {
-  const roots = state.tasks.filter((task) => !task.parentId);
-  return roots.length > 0 ? getLastDescendantId(roots[roots.length - 1].id) : null;
+  // ⚡ Bolt: Replace O(N) filter with O(1) reverse loop to avoid array allocation when finding the last root task
+  let lastRoot = null;
+  for (let i = state.tasks.length - 1; i >= 0; i -= 1) {
+    if (!state.tasks[i].parentId) {
+      lastRoot = state.tasks[i];
+      break;
+    }
+  }
+  return lastRoot ? getLastDescendantId(lastRoot.id) : null;
 }
 
 function getLastDescendantId(taskId) {
