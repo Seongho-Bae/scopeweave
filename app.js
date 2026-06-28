@@ -268,8 +268,8 @@ function bindEvents() {
     }
 
     // ⚡ Bolt Optimization: Use O(1) map lookup instead of O(N) array search
-    const draggedTask = (state.dragTaskCache ? state.dragTaskCache.get(state.dragTaskId) : null) || findTask(state.dragTaskId);
-    const targetTask = (state.dragTaskCache ? state.dragTaskCache.get(row.dataset.taskId) : null) || findTask(row.dataset.taskId);
+    const draggedTask = (state.dragTaskCache ? state.dragTaskCache.get(String(state.dragTaskId)) : null) || findTask(state.dragTaskId);
+    const targetTask = (state.dragTaskCache ? state.dragTaskCache.get(String(row.dataset.taskId)) : null) || findTask(row.dataset.taskId);
     if (!draggedTask || !targetTask || !canReorderWithinLevel(draggedTask, targetTask)) {
       return;
     }
@@ -297,8 +297,8 @@ function bindEvents() {
 
     event.preventDefault();
     // ⚡ Bolt Optimization: Use O(1) map lookup instead of O(N) array search
-    const targetTask = (state.dragTaskCache ? state.dragTaskCache.get(row.dataset.taskId) : null) || findTask(row.dataset.taskId);
-    const draggedTask = (state.dragTaskCache ? state.dragTaskCache.get(state.dragTaskId) : null) || findTask(state.dragTaskId);
+    const targetTask = (state.dragTaskCache ? state.dragTaskCache.get(String(row.dataset.taskId)) : null) || findTask(row.dataset.taskId);
+    const draggedTask = (state.dragTaskCache ? state.dragTaskCache.get(String(state.dragTaskId)) : null) || findTask(state.dragTaskId);
     if (draggedTask && targetTask && canReorderWithinLevel(draggedTask, targetTask)) {
       const rect = row.getBoundingClientRect();
       const placeAfter = event.clientY >= rect.top + rect.height / 2;
