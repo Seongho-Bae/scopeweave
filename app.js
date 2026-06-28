@@ -1291,14 +1291,14 @@ async function loadSeedTasks() {
   const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch('./wbs.json', { cache: 'no-store', signal: controller.signal });
-    clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
     return await response.json();
   } catch {
-    clearTimeout(timeoutId);
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
