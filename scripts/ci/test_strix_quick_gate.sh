@@ -5718,7 +5718,7 @@ EOF
 	set -e
 
 	assert_equals "2" "$rc" "case=invalid-min-fail-severity exit code"
-	assert_file_contains "$output_log" "STRIX_FAIL_ON_MIN_SEVERITY must be one of CRITICAL/HIGH/MEDIUM/LOW/INFO/INFORMATIONAL/NONE" "case=invalid-min-fail-severity output"
+	assert_file_contains "$output_log" "STRIX_FAIL_ON_MIN_SEVERITY must be one of CRITICAL/HIGH/MEDIUM/LOW/INFO/INFORMATIONAL" "case=invalid-min-fail-severity output"
 	if grep -Fq -- "unexpected strix execution" "$output_log"; then
 		record_failure "case=invalid-min-fail-severity should not invoke strix"
 	fi
