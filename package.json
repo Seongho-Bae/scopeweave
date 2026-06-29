@@ -5,7 +5,9 @@
   "description": "Production-grade pure HTML/CSS/JS WBS planner",
   "scripts": {
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "coverage": "playwright test",
+    "docstring:coverage": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0"
