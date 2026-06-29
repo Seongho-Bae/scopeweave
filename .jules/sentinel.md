@@ -50,3 +50,7 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+## 2026-06-25 - Remove weak Math.random() fallback
+**Vulnerability:** Weak randomness when generating task IDs due to `Math.random()` fallback.
+**Learning:** Even though `crypto.getRandomValues()` was available as a fallback for `crypto.randomUUID()`, the code still contained a third fallback using `Math.random()`. `Math.random()` is not cryptographically secure and can generate predictable IDs.
+**Prevention:** Remove `Math.random()` completely and enforce the use of `crypto.getRandomValues()` when `crypto.randomUUID()` is not available, or throw an error if no secure random generation is supported.
