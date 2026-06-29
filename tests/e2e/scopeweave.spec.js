@@ -411,7 +411,9 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('.editor-panel')).toBeVisible();
 
     await expect(page.locator('.editor-panel').getByRole('button', { name: '저장', exact: true })).toHaveAttribute('title', '저장 (Enter)');
+    await expect(page.locator('.editor-panel').getByRole('button', { name: '저장', exact: true })).toHaveAttribute('aria-keyshortcuts', 'Enter');
     await expect(page.locator('.editor-panel').getByRole('button', { name: '취소', exact: true })).toHaveAttribute('title', '취소 (Esc)');
+    await expect(page.locator('.editor-panel').getByRole('button', { name: '취소', exact: true })).toHaveAttribute('aria-keyshortcuts', 'Escape');
 
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
     await page.getByRole('button', { name: '취소' }).click();
