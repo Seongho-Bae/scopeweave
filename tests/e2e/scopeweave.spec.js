@@ -109,6 +109,10 @@ test.describe('ScopeWeave Planner', () => {
 
     const childRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '프로젝트준비 하위' });
     await expect(childRow).toHaveCount(1);
+    const parentToggle = page.locator('tbody tr[data-task-id]').first().locator('button[data-action="toggle"]');
+    await expect(parentToggle).toHaveAttribute('aria-label', '접기 - P0000.준비단계');
+    await expect(parentToggle).toHaveAttribute('title', '접기 - P0000.준비단계');
+
     await childRow.getByRole('button', { name: '하위 추가' }).click();
     await page.locator('[data-testid="editor-task"]').fill('세부업무');
     await page.getByRole('button', { name: '저장', exact: true }).click();
