@@ -723,7 +723,7 @@ jobs:
 
       - name: Run OpenCode PR Review (GPT-5)
         id: opencode_review_primary
-        timeout-minutes: 25
+        timeout-minutes: 180
         env:
           STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -851,7 +851,7 @@ jobs:
       - name: Run OpenCode PR Review fallback (DeepSeek R1)
         id: opencode_review_fallback
         if: steps.opencode_review_primary.outputs.review_status != 'success'
-        timeout-minutes: 25
+        timeout-minutes: 180
         env:
           STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -977,7 +977,7 @@ jobs:
       - name: Run OpenCode PR Review fallback (DeepSeek V3)
         id: opencode_review_second_fallback
         if: steps.opencode_review_primary.outputs.review_status != 'success' && steps.opencode_review_fallback.outputs.review_status != 'success'
-        timeout-minutes: 25
+        timeout-minutes: 180
         env:
           STRIX_GITHUB_MODELS_TOKEN: ${{ secrets.STRIX_GITHUB_MODELS_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

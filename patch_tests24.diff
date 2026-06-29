@@ -1,0 +1,10 @@
+--- tests/config/test_strix_static_repo_adaptations.py
++++ tests/config/test_strix_static_repo_adaptations.py
+@@ -87,6 +87,7 @@
+ def test_opencode_review_workflow_has_runner_hardening() -> None:
+     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
+
++    assert 'timeout-minutes: 180' in workflow_source
+
+
+ def test_kubernetes_deployment_uses_non_root_versioned_runtime() -> None:

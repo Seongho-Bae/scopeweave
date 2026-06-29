@@ -84,13 +84,13 @@ def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> Non
     assert "Low severity issue still needs tracking" in result.stdout
 
 
-
 def test_opencode_review_workflow_has_runner_hardening() -> None:
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
+
+
+
     assert 'timeout-minutes: 180' in workflow_source
-
-
 
 def test_kubernetes_deployment_uses_non_root_versioned_runtime() -> None:
     deployment_source = K8S_DEPLOYMENT.read_text(encoding="utf-8")
