@@ -2052,7 +2052,7 @@ function sanitizeCsvFormulaValue(value) {
   return CSV_FORMULA_PREFIX_PATTERN.test(normalized) ? `'${normalized}` : normalized;
 }
 
-function createId(seed = Date.now()) {
+function createId() {
   // Security enhancement: Prefer crypto.randomUUID for stronger randomness
   if (typeof crypto !== 'undefined') {
     if (crypto.randomUUID) {
@@ -2065,7 +2065,7 @@ function createId(seed = Date.now()) {
       return `task-${arr[0].toString(16)}-${arr[1].toString(16)}`;
     }
   }
-  return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
+  throw new Error('Secure random number generation is not supported in this environment.');
 }
 
 // ⚡ Bolt: Memoize date parsing and validation to reduce GC pressure and expensive Date allocations in tight render loops
