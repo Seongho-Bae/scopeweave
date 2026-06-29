@@ -50,3 +50,8 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-28 - Prevent CSV DDE Injection via Pipe Character
+**Vulnerability:** The application was vulnerable to CSV Formula Injection (also known as Dynamic Data Exchange or DDE injection) because it did not sanitize cell values starting with the pipe (`|`) character before exporting them to a CSV file.
+**Learning:** While common spreadsheet software uses characters like `=`, `+`, `-`, and `@` to evaluate formulas, the pipe character (`|`) can also be used to execute arbitrary commands on a user's system (e.g. `|'cmd' /C calc'!A0`) when the exported CSV is opened.
+**Prevention:** Always include the pipe (`|`) character alongside `=+\-@` in the formula prefix regular expression (e.g., `/^\s*[=+\-@|]/`) to neutralize DDE command execution payloads during CSV generation.

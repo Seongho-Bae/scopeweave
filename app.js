@@ -74,7 +74,7 @@ const CSV_HEADERS = [
   '__parentId',
   '__depth'
 ];
-const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
+const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@|]/;
 
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
