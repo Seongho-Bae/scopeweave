@@ -114,6 +114,25 @@ const state = {
   previousFocus: null
 };
 
+
+// ⚡ Bolt: Cache task IDs to indices for O(1) lookups instead of O(N) array scans
+let taskIdToIndexCache = null;
+
+function invalidateTaskIndexCache() {
+  taskIdToIndexCache = null;
+}
+
+function getTaskIndexById(taskId) {
+  if (!taskIdToIndexCache) {
+    taskIdToIndexCache = new Map();
+    for (let i = 0; i < state.tasks.length; i++) {
+      taskIdToIndexCache.set(state.tasks[i].id, i);
+    }
+  }
+  const index = taskIdToIndexCache.get(taskId);
+  return index !== undefined ? index : -1;
+}
+
 const elements = {
   projectNameInput: document.getElementById('project-name'),
   baseDateInput: document.getElementById('base-date'),
@@ -150,6 +169,7 @@ async function bootstrap() {
   } else {
     const seedData = await loadSeedTasks();
     state.tasks = normalizeImportedTasks(seedData);
+    invalidateTaskIndexCache();
   }
 
   renderAll();
@@ -311,6 +331,7 @@ function renderAll() {
   const metrics = computeTaskMetrics();
 
   elements.projectNameInput.value = state.projectName;
+  document.title = state.projectName === DEFAULT_PROJECT_NAME ? DEFAULT_PROJECT_NAME : `${state.projectName} - ${DEFAULT_PROJECT_NAME}`;
   elements.baseDateInput.value = state.baseDate;
   elements.totalDays.textContent = `${formatNumber(metrics.totalDays)}일`;
   elements.plannedProgress.textContent = formatPercent(metrics.totalWeightedPlannedRatio * 100, 2);
@@ -879,7 +900,7 @@ function saveEditor() {
   }
 
   if (state.editor.mode === 'edit' && state.editor.targetId) {
-    const index = state.tasks.findIndex((task) => task.id === state.editor.targetId);
+    const index = getTaskIndexById(state.editor.targetId);
     if (index >= 0) {
       state.tasks[index] = {
         ...state.tasks[index],
@@ -1131,14 +1152,17 @@ function getVisibleTasks() {
 function insertTaskAfter(task, afterId) {
   if (!afterId) {
     state.tasks.unshift(task);
+    invalidateTaskIndexCache();
     return;
   }
-  const index = state.tasks.findIndex((candidate) => candidate.id === afterId);
+  const index = getTaskIndexById(afterId);
   if (index === -1) {
     state.tasks.push(task);
+    invalidateTaskIndexCache();
     return;
   }
   state.tasks.splice(index + 1, 0, task);
+  invalidateTaskIndexCache();
 }
 
 function deleteTaskAndDescendants(taskId) {
@@ -1169,6 +1193,7 @@ function deleteTaskAndDescendants(taskId) {
     }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
+  invalidateTaskIndexCache();
 }
 
 function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
@@ -1179,12 +1204,14 @@ function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
   }
   const draggedBlock = state.tasks.slice(draggedRange.startIndex, draggedRange.endIndex + 1);
   state.tasks.splice(draggedRange.startIndex, draggedBlock.length);
+  invalidateTaskIndexCache();
 
   const refreshedTargetRange = getTaskSubtreeRange(targetId);
   const insertionIndex = refreshedTargetRange
     ? (placeAfter ? refreshedTargetRange.endIndex + 1 : refreshedTargetRange.startIndex)
     : state.tasks.length;
   state.tasks.splice(insertionIndex, 0, ...draggedBlock);
+  invalidateTaskIndexCache();
 }
 
 function canReorderWithinLevel(draggedTask, targetTask) {
@@ -1207,7 +1234,7 @@ function getLastRootTaskId() {
 }
 
 function getLastDescendantId(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return taskId;
   }
@@ -1223,7 +1250,7 @@ function getLastDescendantId(taskId) {
 }
 
 function getTaskSubtreeRange(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return null;
   }
@@ -1241,7 +1268,8 @@ function getTaskSubtreeRange(taskId) {
 }
 
 function findTask(taskId) {
-  return state.tasks.find((task) => task.id === taskId) || null;
+  const index = getTaskIndexById(taskId);
+  return index !== -1 ? state.tasks[index] : null;
 }
 
 function persistState() {
@@ -1274,6 +1302,7 @@ function hydrateState(savedState) {
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
     : [];
+  invalidateTaskIndexCache();
 }
 
 function normalizeStoredTask(task) {
@@ -1372,45 +1401,51 @@ function validateImportedTask(task, index) {
   }
 }
 
+const createNormalizedExternalRecord = (task, defaults = {}) => ({
+  ...createEmptyTaskDraft(),
+  ...defaults,
+  phase: task.phase || defaults.phase || '',
+  activity: task.activity || defaults.activity || '',
+  task: task.task || defaults.task || '',
+  categoryLarge: task.categoryLarge || '',
+  categoryMedium: task.categoryMedium || '',
+  documentName: task.documentName || '',
+  owner: task.owner || '',
+  supportTeam: task.supportTeam || '',
+  plannedStartDate: task.plannedStartDate || '',
+  plannedEndDate: getPlannedEndDateValue(task),
+  actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
+  actualStartDate: task.actualStartDate || '',
+  actualEndDate: task.actualEndDate || ''
+});
+
+function getPhaseKey(task, index) {
+  return task.phase || `__phase-${index}`;
+}
+
+function getActivityKey(task, index) {
+  return `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
+}
+
+function ensureSyntheticNode(map, key, idPrefix, index, pushCallback) {
+  if (!map.has(key)) {
+    const id = createId(`${idPrefix}-${index}`);
+    pushCallback(id);
+    map.set(key, id);
+  }
+  return map.get(key);
+}
+
 function buildHierarchicalTasksFromFlatSource(sourceTasks) {
   const normalized = [];
   const phaseMap = new Map();
   const activityMap = new Map();
-  const getPhaseKey = (task, index) => task.phase || `__phase-${index}`;
-  const getActivityKey = (task, index) => `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
-
-  const normalizeExternalRecord = (task, defaults = {}) => ({
-    ...createEmptyTaskDraft(),
-    ...defaults,
-    phase: task.phase || defaults.phase || '',
-    activity: task.activity || defaults.activity || '',
-    task: task.task || defaults.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || ''
-  });
-
-  const registerPhase = (phaseKey, phaseId) => {
-    phaseMap.set(phaseKey, phaseId);
-  };
-
-  const registerActivity = (activityKey, activityId) => {
-    activityMap.set(activityKey, activityId);
-  };
 
   const ensureSyntheticPhase = (task, index) => {
     const phaseKey = getPhaseKey(task, index);
-    if (!phaseMap.has(phaseKey)) {
-      const phaseId = createId(`phase-${index}`);
+    return ensureSyntheticNode(phaseMap, phaseKey, 'phase', index, (phaseId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase }),
+        ...createNormalizedExternalRecord({ phase: task.phase }),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1418,17 +1453,14 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerPhase(phaseKey, phaseId);
-    }
-    return phaseMap.get(phaseKey);
+    });
   };
 
   const ensureSyntheticActivity = (task, index, parentPhaseId) => {
     const key = getActivityKey(task, index);
-    if (!activityMap.has(key)) {
-      const activityId = createId(`activity-${index}`);
+    return ensureSyntheticNode(activityMap, key, 'activity', index, (activityId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase, activity: task.activity }),
+        ...createNormalizedExternalRecord({ phase: task.phase, activity: task.activity }),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1436,9 +1468,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerActivity(key, activityId);
-    }
-    return activityMap.get(key);
+    });
   };
 
   sourceTasks.forEach((task, index) => {
@@ -1449,7 +1479,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasPhase && !hasActivity && !hasTask) {
       const phaseId = createId(`phase-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1457,7 +1487,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerPhase(getPhaseKey(task, index), phaseId);
+      phaseMap.set(getPhaseKey(task, index), phaseId);
       return;
     }
 
@@ -1466,7 +1496,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasActivity && !hasTask) {
       const activityId = createId(`activity-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1474,13 +1504,13 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerActivity(getActivityKey(task, index), activityId);
+      activityMap.set(getActivityKey(task, index), activityId);
       return;
     }
 
     const parentActivityId = hasTask ? ensureSyntheticActivity(task, index, parentPhaseId) : parentPhaseId;
     normalized.push({
-      ...normalizeExternalRecord(task),
+      ...createNormalizedExternalRecord(task),
       id: createId(`leaf-${index}`),
       parentId: hasTask ? parentActivityId : parentPhaseId,
       depth: hasTask ? 3 : hasActivity ? 2 : 1,
@@ -1556,6 +1586,7 @@ async function handleCsvImport(event) {
     const text = await file.text();
     const imported = parseCsv(text);
     state.tasks = validateImportedTasks(normalizeImportedTasks(imported));
+    invalidateTaskIndexCache();
     closeEditor();
     persistState();
     renderAll();
@@ -2166,7 +2197,10 @@ function formatDecimal(value, digits) {
 }
 
 function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
+  if (!formatNumber.formatter) {
+    formatNumber.formatter = new Intl.NumberFormat('ko-KR');
+  }
+  return formatNumber.formatter.format(Number(value || 0));
 }
 
 const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
@@ -2186,4 +2220,9 @@ function toKebab(value) {
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/_/g, '-')
     .toLowerCase();
+}
+
+// Export for testing
+if (typeof window !== 'undefined') {
+  window.validateDraft = validateDraft;
 }
