@@ -1918,8 +1918,9 @@ function createGanttChartTable(weeks, weekdays, totalWidth) {
     track.className = 'gantt-day-track';
     track.style.width = `${totalWidth}px`;
 
-    const planBar = createGanttBarElement(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
-    const actualBar = createGanttBarElement(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
+    const taskName = task.task || task.activity || task.phase || '작업';
+    const planBar = createGanttBarElement(taskName, task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
+    const actualBar = createGanttBarElement(taskName, task.actualStartDate, task.actualEndDate, weekdays, 'actual');
     if (planBar) {
       track.appendChild(planBar);
     }
@@ -1974,7 +1975,7 @@ function groupTimelineByWeek(days) {
   return groups;
 }
 
-function createGanttBarElement(startDate, endDate, weekdays, type) {
+function createGanttBarElement(taskName, startDate, endDate, weekdays, type) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
     return null;
   }
@@ -1998,6 +1999,7 @@ function createGanttBarElement(startDate, endDate, weekdays, type) {
   bar.className = `gantt-bar ${type}`;
   bar.style.left = `${startIndex * 36}px`;
   bar.style.width = `${(normalizedEndIndex - startIndex + 1) * 36}px`;
+  bar.title = `${taskName} (${type === 'plan' ? '계획' : '실적'}: ${startDate} ~ ${endDate})`;
   return bar;
 }
 

@@ -253,7 +253,8 @@ button {
   background-image: linear-gradient(rgba(0, 0, 0, 0.015), rgba(0, 0, 0, 0.015));
 }
 
-.task-row:hover td {
+.task-row:hover td,
+.task-row:focus-within td {
   background-color: var(--blue-hover) !important;
   background-image: none;
 }
