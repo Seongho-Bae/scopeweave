@@ -226,7 +226,7 @@ function bindEvents() {
       return;
     }
 
-    if (!event.target.closest('input, select, button, label')) {
+    if (!event.target.closest('input, select, button, label, .drag-handle')) {
       openEditor({ mode: 'edit', targetId: taskId });
     }
   });
@@ -476,6 +476,12 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     actionStack.appendChild(placeholder);
   }
 
+  const dragHandle = document.createElement('div');
+  dragHandle.className = 'drag-handle';
+  dragHandle.setAttribute('aria-hidden', 'true');
+  dragHandle.title = '드래그하여 순서 변경';
+  dragHandle.textContent = '⋮⋮';
+
   const isLeaf = task.depth >= 3;
   const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
   addChildButton.disabled = isLeaf;
@@ -490,6 +496,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const deleteButton = createActionButton(`${taskName} 삭제`, '🗑', 'delete', `${taskName} 삭제`);
 
   actionStack.append(
+    dragHandle,
     addChildButton,
     editButton,
     deleteButton
