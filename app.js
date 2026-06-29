@@ -2183,9 +2183,3 @@ function toKebab(value) {
     .replace(/_/g, '-')
     .toLowerCase();
 }
-
-// Expose for testing
-if (typeof window !== 'undefined') {
-  window.state = state;
-  window.getTaskSubtreeRange = getTaskSubtreeRange;
-}
