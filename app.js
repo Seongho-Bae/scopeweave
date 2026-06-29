@@ -1393,49 +1393,30 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     actualEndDate: task.actualEndDate || ''
   });
 
-  const registerPhase = (phaseKey, phaseId) => {
-    phaseMap.set(phaseKey, phaseId);
-  };
-
-  const registerActivity = (activityKey, activityId) => {
-    activityMap.set(activityKey, activityId);
-  };
-
-  const ensureSyntheticPhase = (task, index) => {
-    const phaseKey = getPhaseKey(task, index);
-    if (!phaseMap.has(phaseKey)) {
-      const phaseId = createId(`phase-${index}`);
+  const ensureSyntheticEntity = (map, key, idPrefix, index, parentId, depth, recordData) => {
+    if (!map.has(key)) {
+      const entityId = createId(`${idPrefix}-${index}`);
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase }),
-        id: phaseId,
-        parentId: null,
-        depth: 1,
+        ...normalizeExternalRecord(recordData),
+        id: entityId,
+        parentId,
+        depth,
         expanded: true,
         pendingDelete: false,
         isSynthetic: true
       });
-      registerPhase(phaseKey, phaseId);
+      map.set(key, entityId);
     }
-    return phaseMap.get(phaseKey);
+    return map.get(key);
   };
 
-  const ensureSyntheticActivity = (task, index, parentPhaseId) => {
-    const key = getActivityKey(task, index);
-    if (!activityMap.has(key)) {
-      const activityId = createId(`activity-${index}`);
-      normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase, activity: task.activity }),
-        id: activityId,
-        parentId: parentPhaseId,
-        depth: 2,
-        expanded: true,
-        pendingDelete: false,
-        isSynthetic: true
-      });
-      registerActivity(key, activityId);
-    }
-    return activityMap.get(key);
-  };
+  const ensureSyntheticPhase = (task, index) => ensureSyntheticEntity(
+    phaseMap, getPhaseKey(task, index), 'phase', index, null, 1, { phase: task.phase }
+  );
+
+  const ensureSyntheticActivity = (task, index, parentPhaseId) => ensureSyntheticEntity(
+    activityMap, getActivityKey(task, index), 'activity', index, parentPhaseId, 2, { phase: task.phase, activity: task.activity }
+  );
 
   sourceTasks.forEach((task, index) => {
     const hasPhase = Boolean(task.phase);
@@ -1453,7 +1434,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerPhase(getPhaseKey(task, index), phaseId);
+      phaseMap.set(getPhaseKey(task, index), phaseId);
       return;
     }
 
@@ -1470,7 +1451,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerActivity(getActivityKey(task, index), activityId);
+      activityMap.set(getActivityKey(task, index), activityId);
       return;
     }
 
