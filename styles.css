@@ -10,7 +10,7 @@
   --text-muted: #64748b;
   --blue-soft: #f0fdfa;
   --blue-hover: #e0f2fe;
-  --danger: #ef4444;
+  --danger: #dc2626;
   --status-before: #475569;
   --status-active: #059669;
   --status-done: #0f172a;
@@ -413,7 +413,7 @@ select:focus-visible {
 }
 
 .empty-cell {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .editor-row td {
@@ -522,7 +522,7 @@ select[data-inline-progress]:focus {
 
 .secondary-button:hover:not(:disabled) {
   background: #f8fafc;
-  border-color: #94a3b8;
+  border-color: #64748b;
   transform: translateY(-1px);
 }
 

@@ -46,6 +46,10 @@
 ## 2026-06-23 - Prevent DOM XSS false positives by using strict string interpolation
 **Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
 **Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
+## 2026-06-24 - Improve contrast and add keyboard shortcut hints
+**Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit from explicit tooltip hints for shortcuts.
+**Action:** Check contrast ratios for muted/warning text and include `aria-keyshortcuts` for buttons with keyboard shortcuts, with `title` as an optional pointer for mouse users.
+
 ## 2026-06-29 - Add drag handle for task reordering
 **Learning:** Hidden interactions (like drag-and-dropping rows without a visible handle) are poorly discoverable and can lead to accidental activation of other row actions. Also, warning colors often fail accessibility contrast ratios against light background tones if not checked.
 **Action:** Always provide visual affordances (like drag handles) for complex interactions like drag-and-drop, and verify color contrast ratios for dynamically generated badges or warnings.
