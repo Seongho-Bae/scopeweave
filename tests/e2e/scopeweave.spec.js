@@ -301,6 +301,48 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedPayload[0]).toHaveProperty('plannedEnd' + 'Ddate', '2026-05-20');
   });
 
+  test('filters prototype pollution keys from saved local storage', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', `{
+        "projectName": "  Prototype Project  ",
+        "baseDate": "2026-05-10",
+        "tasks": [{
+          "id": "prototype-1",
+          "parentId": null,
+          "depth": 1,
+          "expanded": true,
+          "phase": "P9000.보안",
+          "activity": "",
+          "task": "프로토타입 검증",
+          "categoryLarge": "보안",
+          "categoryMedium": "",
+          "documentName": "",
+          "owner": "담당자",
+          "supportTeam": "",
+          "plannedStartDate": "2026-05-01",
+          "plannedEndDate": "2026-05-20",
+          "actualProgressStatus": "미착수(0%)",
+          "actualStartDate": "",
+          "actualEndDate": "",
+          "__proto__": {"polluted": true},
+          "constructor": {"prototype": {"polluted": true}},
+          "prototype": {"polluted": true}
+        }]
+      }`);
+    });
+    await page.reload();
+
+    await expect(page.getByTestId('project-name-input')).toHaveValue('Prototype Project');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(1);
+
+    await page.getByTestId('project-name-input').fill('Prototype Project Saved');
+    const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scopeweave:planner-state:v1')));
+    const savedTask = savedState.tasks[0];
+    expect(Object.prototype.hasOwnProperty.call(savedTask, '__proto__')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(savedTask, 'constructor')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(savedTask, 'prototype')).toBe(false);
+  });
+
   test('counts same-day work as one day for totals and weights', async ({ page }) => {
     await addTopLevelTask(page, {
       phase: 'P2000.검증단계',
@@ -600,6 +642,22 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+
+  test('neutralizes spreadsheet formulas during CSV import', async ({ page }) => {
+    const csvText = [
+      '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,실적진척상태,계획시작일,계획종료일,실적시작일,실적종료일',
+      '"=HYPERLINK(""http://evil.test"",""Click"")",@SUM(1,1),+cmd,보안,,산출물,담당자A,지원팀A,미착수(0%),2026-05-18,2026-05-20,,'
+    ].join('\n');
+
+    await importCsv(page, csvText);
+
+    const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scopeweave:planner-state:v1')));
+    const [savedTask] = savedState.tasks;
+    expect(savedTask.phase).toBe('\'=HYPERLINK("http://evil.test","Click")');
+    expect(savedTask.activity).toBe("'@SUM(1,1)");
+    expect(savedTask.task).toBe("'+cmd");
+  });
+
   test('buildWeekdayTimeline handles normal, same, reversed, and weekend dates', async ({ page }) => {
     await page.goto('./');
     const appJsCode = require('fs').readFileSync('app.js', 'utf-8');

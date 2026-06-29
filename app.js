@@ -75,6 +75,7 @@ const CSV_HEADERS = [
   '__depth'
 ];
 const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
+const UNSAFE_JSON_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
@@ -90,6 +91,21 @@ const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   actualProgressStatus: '실적진척상태',
   actualStartDate: '실적시작일',
   actualEndDate: '실적종료일'
+}));
+
+const EDITOR_FIELD_TEST_IDS = Object.freeze(Object.assign(Object.create(null), {
+  phase: 'editor-phase',
+  activity: 'editor-activity',
+  task: 'editor-task',
+  categoryLarge: 'editor-category-large',
+  categoryMedium: 'editor-category-medium',
+  documentName: 'editor-document-name',
+  owner: 'editor-owner',
+  supportTeam: 'editor-support-team',
+  plannedStartDate: 'editor-planned-start',
+  plannedEndDate: 'editor-planned-end',
+  actualStartDate: 'editor-actual-start',
+  actualEndDate: 'editor-actual-end'
 }));
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
@@ -605,21 +621,6 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = {
-    phase: 'editor-phase',
-    activity: 'editor-activity',
-    task: 'editor-task',
-    categoryLarge: 'editor-category-large',
-    categoryMedium: 'editor-category-medium',
-    documentName: 'editor-document-name',
-    owner: 'editor-owner',
-    supportTeam: 'editor-support-team',
-    plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
-    actualStartDate: 'editor-actual-start',
-    actualEndDate: 'editor-actual-end'
-  };
-
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
   const fieldId = `editor-input-${field}-${Date.now()}`;
@@ -638,7 +639,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   }
   const input = document.createElement('input');
   input.id = fieldId;
-  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
+  input.setAttribute('data-testid', EDITOR_FIELD_TEST_IDS[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
   if (type === 'text') {
@@ -1297,14 +1298,14 @@ function persistState() {
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? parseSafeJson(raw) : null;
   } catch {
     return null;
   }
 }
 
 function hydrateState(savedState) {
-  state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
+  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, 1000);
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
@@ -1329,10 +1330,14 @@ async function loadSeedTasks() {
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
-    return await response.json();
+    return parseSafeJson(await response.text());
   } catch {
     return [];
   }
+}
+
+function parseSafeJson(text) {
+  return JSON.parse(text, (key, value) => (UNSAFE_JSON_KEYS.has(key) ? undefined : value));
 }
 
 function getPlannedEndDateValue(task) {
@@ -1642,7 +1647,7 @@ function validateCsvCell(value, fieldName) {
   if (/[<>]/.test(normalized)) {
     throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
   }
-  return normalized;
+  return sanitizeCsvFormulaValue(normalized);
 }
 
 function validateCsvInternalValue(value, fieldName) {
