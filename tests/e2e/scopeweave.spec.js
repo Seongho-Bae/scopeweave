@@ -62,11 +62,11 @@ test.describe('ScopeWeave Planner', () => {
   test('renders seeded rows and summary metrics', async ({ page }) => {
     await expect(page.getByRole('button', { name: '최상위 작업 추가' })).toBeVisible();
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
-    await expect(page).toHaveTitle('ScopeWeave Planner');
     await expect(page.getByTestId('project-name-input')).toHaveValue(/ScopeWeave/i);
     await expect(page.getByTestId('summary-total-days')).not.toHaveText('0일');
     await expect(page.getByTestId('summary-planned-progress')).toContainText('%');
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
+    await expect(page).toHaveTitle('ScopeWeave Planner');
 
     await page.getByTestId('project-name-input').fill('My New Project');
     await expect(page).toHaveTitle('My New Project - ScopeWeave Planner');
