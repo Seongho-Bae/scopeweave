@@ -306,6 +306,7 @@ function bindEvents() {
   });
 }
 
+const cachedHasChildrenSet = new Set();
 function renderAll() {
   const metrics = computeTaskMetrics();
 
@@ -327,14 +328,14 @@ function renderAll() {
   elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
-  const hasChildrenSet = new Set();
+  cachedHasChildrenSet.clear();
   state.tasks.forEach(task => {
-    if (task.parentId) hasChildrenSet.add(task.parentId);
+    if (task.parentId) cachedHasChildrenSet.add(task.parentId);
   });
 
   visibleTasks.forEach((task, index) => {
     const taskMetrics = metrics.byTask.get(task.id);
-    const hasChildren = hasChildrenSet.has(task.id);
+    const hasChildren = cachedHasChildrenSet.has(task.id);
     rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren));
     if (state.editor.mode && state.editor.mode === 'edit' && state.editor.targetId === task.id) {
       rows.push(renderEditorRow(task.id));
@@ -1107,20 +1108,22 @@ function getDateRangeWarning(startDate, endDate, message) {
   return '';
 }
 
+const cachedHiddenParentIds = new Set();
+
 function getVisibleTasks() {
   const visible = [];
-  const hiddenParentIds = new Set();
+  cachedHiddenParentIds.clear();
 
   // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
   state.tasks.forEach((task) => {
-    if (hiddenParentIds.has(task.parentId)) {
-      hiddenParentIds.add(task.id);
+    if (cachedHiddenParentIds.has(task.parentId)) {
+      cachedHiddenParentIds.add(task.id);
       return;
     }
 
     visible.push(task);
     if (!task.expanded) {
-      hiddenParentIds.add(task.id);
+      cachedHiddenParentIds.add(task.id);
     }
   });
 
