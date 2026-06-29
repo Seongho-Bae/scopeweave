@@ -43,3 +43,7 @@
 ## 2026-06-29 - Task Lookup Optimization
 **Learning:** O(N) array scans (like `findIndex`) inside descendant traversal functions cause CPU bottlenecks on large DOM trees.
 **Action:** Replace `findIndex` loops with a lazily-initialized O(1) Map cache mapping task IDs to indices, explicitly invalidating it on array structure changes.
+
+## 2026-06-30 - Redundant O(N) object cloning before JSON serialization
+**Learning:** Performing a shallow clone on a large array of objects (e.g. `tasks.map(t => ({...t}))`) just before passing it to `JSON.stringify` creates a massive amount of unnecessary object allocations and causes significant garbage collection overhead, especially in hot paths like autosave. `JSON.stringify` naturally iterates properties without mutating them, making manual cloning redundant unless specific properties need filtering out.
+**Action:** Remove redundant array iterations and object spreading when serializing state to JSON. Pass the objects directly.

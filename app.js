@@ -1279,10 +1279,11 @@ function findTask(taskId) {
 }
 
 function persistState() {
+  // ⚡ Bolt: Remove redundant O(N) object cloning before JSON.stringify to prevent massive memory allocations on every keystroke
   const payload = {
     projectName: state.projectName,
     baseDate: state.baseDate,
-    tasks: state.tasks.map((task) => ({ ...task }))
+    tasks: state.tasks
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
