@@ -642,6 +642,37 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+  test('buildWeekdayTimeline handles normal, same, reversed, and weekend dates', async ({ page }) => {
+    await page.goto('./');
+    const appJsCode = require('fs').readFileSync('app.js', 'utf-8');
+    await page.evaluate((code) => {
+      const func = new Function('minDate', 'maxDate', code + '\nreturn buildWeekdayTimeline(minDate, maxDate);');
+      window.__buildWeekdayTimeline = func;
+    }, appJsCode);
+
+    // Normal date range
+    const normal = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-01', '2026-05-15'));
+    expect(normal.length).toBeGreaterThan(0);
+    expect(normal[0].date).toBe('2026-04-27'); // Starts on preceding Monday
+    expect(normal[normal.length - 1].date).toBe('2026-05-15'); // Ends on Friday
+
+    // Same date
+    const same = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-01', '2026-05-01'));
+    expect(same.length).toBe(5);
+    expect(same[0].date).toBe('2026-04-27');
+    expect(same[same.length - 1].date).toBe('2026-05-01');
+
+    // Reversed date range
+    const reversed = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-15', '2026-05-01'));
+    expect(reversed).toEqual([]);
+
+    // Weekend date
+    const weekend = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-02', '2026-05-03'));
+    expect(weekend.length).toBe(5);
+    expect(weekend[0].date).toBe('2026-04-27');
+    expect(weekend[weekend.length - 1].date).toBe('2026-05-01'); // Returns the preceding week
+  });
+
   test('wraps text icons in aria-hidden span for screen reader accessibility', async ({ page }) => {
     await page.getByRole('button', { name: '최상위 작업 추가' }).click();
     await page.locator('[data-testid="editor-phase"]').fill('A11y Test');
