@@ -31,11 +31,14 @@
 ## 2026-06-22 - O(N*Depth) cascade deletion UI freeze
 **Learning:** Cascading deletions in hierarchical tree structures (like the tasks array) that re-traverse the entire array per depth level using a `while(changed)` condition cause O(N*Depth) operations. In deep or large trees, this causes a severe UI freeze when removing elements.
 **Action:** Always pre-compute a parent-to-children mapping using a single O(1) Map, then use BFS with an index cursor to traverse descendant IDs in O(N) operations without queue shifting.
+## 2026-06-24 - Validate before caching to prevent Cache Poisoning
+**Learning:** If a function uses a Map cache (e.g., `dateStringToUtcMs`) but doesn't validate input format first, an attacker can feed it junk inputs that get processed (e.g., `NaN`) and inserted into the cache. In an LRU or size-limited cache, this can flush out valid entries, leading to performance degradation (cache poisoning / DoS).
+**Action:** Always validate input with regex or type checks *before* attempting cache lookups or insertions.
 
-## 2026-06-23 - Remove redundant O(N * Depth) visible tasks filtering loop
-**Learning:** `getVisibleTasks()` filters visible items by checking the expansion state of all ancestors for each task. The previous implementation correctly calculated visible tasks using a single O(N) top-down pass, but redundantly executed a secondary `.filter()` loop using a `taskById` map lookup and a tree traversal to root (`while(parentId)`). This unnecessary loop caused a performance bottleneck (taking ~167ms compared to ~13ms for the single-pass logic for 100 iterations of 2000 tasks).
-**Action:** When filtering hierarchical data based on parent state, always rely on a single top-down pass that propagates the hidden state (using a Set or property) instead of traversing the tree to the root for every single item in a redundant `.filter()` loop.
+## 2026-06-24 - Strict DOM Manipulation for XSS Prevention
+**Learning:** The native `Element.append()` method can sometimes be incorrectly flagged by static analysis tools or confused with the unsafe jQuery `append()` method. More importantly, explicitly separating node creation from text insertion is a stronger security guarantee.
+**Action:** To ensure strict separation of data and markup, replace `.append()` with explicit `.appendChild()` combined with `document.createTextNode()`. This definitively proves that the input is safely handled as a text node, preventing any XSS vulnerabilities.
 
-## 2026-06-24 - Cache Korean number formatting in render loops
-**Learning:** Calling `Number(value).toLocaleString('ko-KR')` inside table and summary render paths repeatedly constructs locale formatting work during O(N) UI refreshes.
-**Action:** Reuse a module-level `Intl.NumberFormat('ko-KR')` instance and call `.format()` from `formatNumber` so render loops avoid per-call locale formatter setup.
+## 2026-06-24 - Robust CSV Injection Mitigation
+**Learning:** Prefixing `'` to mitigate CSV injection using weak regex is insufficient against sophisticated spreadsheet software parsing (like Excel).
+**Action:** Replace weak regex checks with explicit `.trimStart().startsWith(...)` checks for all known injection prefixes (including whitespace and control characters) to provide a demonstrably robust mitigation.

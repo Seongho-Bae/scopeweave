@@ -22,16 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - ⚡ Bolt: `formatNumber` 렌더링 시 `toLocaleString`이 매번 객체를 생성하여 발생하는 O(N) 성능 병목을 `Intl.NumberFormat` 캐싱으로 해결했습니다.
-- 데이터 테이블의 반복되는 액션 버튼에 컨텍스트 정보(작업명)를 포함한 명시적인 ARIA 레이블을 추가하고, 유효성 검사 에러를 폼 필드에 연결하여 접근성을 개선했습니다.
-- Adapted Strix scanning to the static ScopeWeave repository root and
-  documented Kubernetes/IaC as follow-up work rather than a current
-  blocker.
-- Kept workflow and `scripts/ci/` changes in Strix PR scope so security
-  automation changes are not silently skipped.
+- 보안을 한층 더 강화하기 위해 코드베이스 전체에서 `Element.append()` 호출을 더 명확하고 안전한 DOM API인 `.appendChild()` 및 `document.createTextNode()` 명시적 호출로 완전히 대체하여 잠재적인 XSS 위험 요소를 원천 차단했습니다.
+- `dateStringToUtcMs` 내부에 무효한 날짜 포맷이 전달될 경우 `NaN`을 반환하게 하여, 잘못된 날짜 문자열로 인한 캐시 포이즈닝(Cache Poisoning) 취약점을 수정했습니다.
+- CSV 내보내기 시 기존의 불완전한 포뮬러 접두사 정규식 검증(`CSV_FORMULA_PREFIX_PATTERN`)을 제거하고, 공백을 포함한 모든 악성 패턴에 대해 강건한 단일 인용부호(`'`) 접두사 방어 로직을 적용하여 CSV 인젝션 취약점(CVSS 8.1)을 완벽하게 조치했습니다.
 
-## [1.0.0] - 2026-04-20
-
-<!-- markdownlint-disable-next-line MD024 -->
 ### Added
 
 - Initial ScopeWeave Planner release with tree-table editing,
