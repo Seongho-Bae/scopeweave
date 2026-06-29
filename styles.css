@@ -390,7 +390,7 @@ select:focus-visible {
 }
 
 .empty-cell {
-  color: var(--text-muted);
+  color: #64748b;
 }
 
 .editor-row td {
@@ -499,7 +499,7 @@ select[data-inline-progress]:focus {
 
 .secondary-button:hover:not(:disabled) {
   background: #f8fafc;
-  border-color: #94a3b8;
+  border-color: #64748b;
   transform: translateY(-1px);
 }
 

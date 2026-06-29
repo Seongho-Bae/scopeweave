@@ -41,18 +41,3 @@
 **Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.randomUUID()` was unavailable.
 **Learning:** `Math.random()` is not cryptographically secure and can generate predictable sequences, leading to potential ID collisions or predictable IDs that could be abused in certain contexts. While this is primarily an issue in non-secure contexts (HTTP), using `crypto.getRandomValues()` as a fallback provides a cryptographically secure random number generator when `randomUUID()` is missing but `getRandomValues()` is supported.
 **Prevention:** Always use cryptographically secure methods like `crypto.getRandomValues()` to generate random strings when `crypto.randomUUID()` is not an option. Avoid relying on `Math.random()` for any form of unique identifier or security-related token generation.
-
-## 2026-06-24 - Fix CSV Formula Injection during import
-**Vulnerability:** A CSV formula injection vulnerability was found during CSV import parsing.
-**Learning:** Data exported from the planner, or payloads imported, might contain formulas that execute when the CSV is opened in Excel.
-**Prevention:** Neutralize formula-starting CSV import cells by prefixing an apostrophe before storing them, and keep export-side formula escaping in place.
-
-## 2026-06-24 - Validate HTML tags in Editor Drafts
-**Vulnerability:** The application was not rejecting HTML tag characters in the inline editor, which could introduce cross-site scripting (XSS) vectors or payload issues during data export (e.g. CSV).
-**Learning:** Even if data is rendered securely via `textContent`, accepting malicious HTML characters during input creates inconsistencies with import checks and introduces supply-chain risks when exported.
-**Prevention:** Add input validation within `validateDraft` to reject `<` and `>` characters in `EDITABLE_FIELDS`, ensuring consistency with `validateCsvCell` logic and stopping malicious injection at the input layer.
-
-## 2026-06-24 - Document architectural limitations regarding missing authentication
-**Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
-**Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
-**Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
