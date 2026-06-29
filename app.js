@@ -329,6 +329,7 @@ function renderAll() {
   const metrics = computeTaskMetrics();
 
   elements.projectNameInput.value = state.projectName;
+  document.title = state.projectName === DEFAULT_PROJECT_NAME ? DEFAULT_PROJECT_NAME : `${state.projectName} - ${DEFAULT_PROJECT_NAME}`;
   elements.baseDateInput.value = state.baseDate;
   elements.totalDays.textContent = `${formatNumber(metrics.totalDays)}일`;
   elements.plannedProgress.textContent = formatPercent(metrics.totalWeightedPlannedRatio * 100, 2);

@@ -66,6 +66,10 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-total-days')).not.toHaveText('0일');
     await expect(page.getByTestId('summary-planned-progress')).toContainText('%');
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
+    await expect(page).toHaveTitle('ScopeWeave Planner');
+
+    await page.getByTestId('project-name-input').fill('My New Project');
+    await expect(page).toHaveTitle('My New Project - ScopeWeave Planner');
   });
 
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
@@ -79,9 +83,9 @@ test.describe('ScopeWeave Planner', () => {
     await page.reload();
 
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
-    await expect(page.getByRole('button', { name: '간트차트보기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('title', '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.');
   });
 
@@ -115,7 +119,7 @@ test.describe('ScopeWeave Planner', () => {
 
     const leafRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '세부업무' });
     await expect(leafRow).toHaveCount(1);
-    await expect(leafRow.getByRole('button', { name: '하위 추가' })).toBeDisabled();
+    await expect(leafRow.getByRole('button', { name: '하위 추가' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('opens gantt modal and renders chart bars with correct inline styles', async ({ page }) => {
