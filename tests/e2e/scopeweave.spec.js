@@ -3,12 +3,16 @@ const fs = require('fs');
 
 const addTopLevelTask = async (page, values) => {
   await page.getByRole('button', { name: '최상위 작업 추가' }).click();
-  await page.locator('[data-testid="editor-phase"]').fill(values.phase);
-  await page.locator('[data-testid="editor-category-large"]').fill(values.categoryLarge);
-  await page.locator('[data-testid="editor-owner"]').fill(values.owner);
-  await page.locator('[data-testid="editor-planned-start"]').fill(values.plannedStartDate);
-  await page.locator('[data-testid="editor-planned-end"]').fill(values.plannedEndDate);
-  await page.getByRole('button', { name: '저장', exact: true }).click();
+
+  if (values.phase) await page.locator('[data-testid="editor-phase"]').fill(values.phase);
+  if (values.categoryLarge) await page.locator('[data-testid="editor-category-large"]').fill(values.categoryLarge);
+  if (values.owner) await page.locator('[data-testid="editor-owner"]').fill(values.owner);
+  if (values.plannedStartDate) await page.locator('[data-testid="editor-planned-start"]').fill(values.plannedStartDate);
+  if (values.plannedEndDate) await page.locator('[data-testid="editor-planned-end"]').fill(values.plannedEndDate);
+
+  // Always force click because tests rely on triggering specific UI flows
+  const saveButton = page.getByRole('button', { name: '저장', exact: true });
+  await saveButton.click({ force: true });
 };
 
 const readHierarchySnapshot = async (page) => page.locator('tbody tr[data-task-id]').evaluateAll((rows) => rows.map((row) => ({
@@ -319,7 +323,9 @@ test.describe('ScopeWeave Planner', () => {
     await page.locator('[data-testid="editor-owner"]').fill('담당자A');
     await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-20');
     await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-19');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const saveButton = page.getByRole('button', { name: '저장', exact: true });
+    await expect(saveButton).toBeDisabled();
 
     await expect(page.locator('#editor-errors')).toContainText('계획종료일은 계획시작일보다 빠를 수 없습니다');
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
@@ -334,7 +340,9 @@ test.describe('ScopeWeave Planner', () => {
     });
 
     await page.locator('[data-testid="editor-planned-start"]').fill('2026-02-31');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const saveButton = page.getByRole('button', { name: '저장', exact: true });
+    await expect(saveButton).toBeDisabled();
 
     await expect(page.locator('#editor-errors')).toContainText('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다');
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
@@ -345,7 +353,9 @@ test.describe('ScopeWeave Planner', () => {
     await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '편집' }).click();
 
     await page.locator('[data-testid="editor-task"]').fill('<script>alert(1)</script>');
-    await page.locator('.editor-panel').getByRole('button', { name: '저장' }).click();
+
+    const saveButton = page.locator('.editor-panel').getByRole('button', { name: '저장' });
+    await expect(saveButton).toBeDisabled();
 
     await expect(page.locator('#editor-errors')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
     await expect(page.locator('.editor-panel')).toBeVisible();
@@ -467,5 +477,46 @@ test.describe('ScopeWeave Planner', () => {
     const addChildBtnSpan = row.locator('button[data-action="add-child"] span');
     await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
     await expect(addChildBtnSpan).toHaveText('＋');
+  });
+
+  test('validates form on mobile viewport correctly', async ({ page }) => {
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('P3000.모바일검증');
+    await page.locator('[data-testid="editor-category-large"]').fill('모바일검증');
+    await page.locator('[data-testid="editor-owner"]').fill('담당자M');
+
+    // Test invalid dates
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-20');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-19');
+
+    // Save button should be disabled
+    const saveButton = page.getByRole('button', { name: '저장', exact: true });
+    await expect(saveButton).toBeDisabled();
+
+    // The invalid field should have aria-invalid attribute
+    const plannedEndInput = page.locator('[data-testid="editor-planned-end"]');
+    await expect(plannedEndInput).toHaveAttribute('aria-invalid', 'true');
+
+    // Error message should be visible
+    await expect(page.locator('#editor-errors')).toContainText('계획종료일은 계획시작일보다 빠를 수 없습니다');
+
+    // Correct the date
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-25');
+
+    // Save button should be enabled now
+    await expect(saveButton).toBeEnabled();
+
+    // Save the task
+    await saveButton.click();
+
+    // Check if task is saved
+    const rows = page.locator('tbody tr[data-task-id]');
+    // Note: depending on the test order or parallel execution, there might be more tasks
+    // Let's check that the specific task we just added exists
+    const newTaskRow = rows.filter({ hasText: 'P3000.모바일검증' });
+    await expect(newTaskRow).toHaveCount(1);
   });
 });

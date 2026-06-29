@@ -621,6 +621,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
     input.required = true;
     input.setAttribute('aria-required', 'true');
   }
+
   if (placeholder) {
     input.placeholder = placeholder;
   }
@@ -760,6 +761,32 @@ function renderEditorValidation() {
   const errorElement = document.getElementById('editor-errors');
   if (errorElement) {
     errorElement.textContent = errors.join(' ');
+  }
+
+  const form = document.querySelector('form[data-editor-form="true"]');
+  if (form) {
+    const saveButton = form.querySelector('button[type="submit"]');
+    if (saveButton) {
+      if (errors.length > 0) {
+        saveButton.disabled = true;
+        saveButton.title = '입력값을 올바르게 수정해야 저장할 수 있습니다.';
+      } else {
+        saveButton.disabled = false;
+        saveButton.title = '';
+      }
+    }
+
+    const inputs = form.querySelectorAll('input');
+    inputs.forEach(input => {
+      const fieldName = CSV_FIELD_LABELS[input.dataset.editorField] || input.dataset.editorField;
+      if (fieldName && errors.some(error => error.includes(fieldName))) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', 'editor-errors');
+      } else {
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+      }
+    });
   }
 }
 
