@@ -928,6 +928,26 @@ function createEmptyTaskDraft() {
   };
 }
 
+function normalizeExternalRecord(task, defaults = {}) {
+  return {
+    ...createEmptyTaskDraft(),
+    ...defaults,
+    phase: task.phase || defaults.phase || '',
+    activity: task.activity || defaults.activity || '',
+    task: task.task || defaults.task || '',
+    categoryLarge: task.categoryLarge || '',
+    categoryMedium: task.categoryMedium || '',
+    documentName: task.documentName || '',
+    owner: task.owner || '',
+    supportTeam: task.supportTeam || '',
+    plannedStartDate: task.plannedStartDate || '',
+    plannedEndDate: getPlannedEndDateValue(task),
+    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
+    actualStartDate: task.actualStartDate || '',
+    actualEndDate: task.actualEndDate || ''
+  };
+}
+
 function createChildDraft(task) {
   const draft = sanitizeDraft({ ...task });
   if (task.depth === 1) {
@@ -1320,23 +1340,11 @@ function normalizeImportedTasks(sourceTasks) {
     return buildHierarchicalTasksFromFlatSource(sourceTasks);
   }
   return sourceTasks.map((task, index) => ({
+    ...normalizeExternalRecord(task),
     id: task.__id || createId(index + 1),
     parentId: task.__parentId || null,
     depth: Number(task.__depth) || inferDepth(task),
     expanded: true,
-    phase: task.phase || '',
-    activity: task.activity || '',
-    task: task.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || '',
     pendingDelete: false,
     isSynthetic: Boolean(task.isSynthetic)
   }));
@@ -1374,24 +1382,6 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
   const activityMap = new Map();
   const getPhaseKey = (task, index) => task.phase || `__phase-${index}`;
   const getActivityKey = (task, index) => `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
-
-  const normalizeExternalRecord = (task, defaults = {}) => ({
-    ...createEmptyTaskDraft(),
-    ...defaults,
-    phase: task.phase || defaults.phase || '',
-    activity: task.activity || defaults.activity || '',
-    task: task.task || defaults.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || ''
-  });
 
   const registerPhase = (phaseKey, phaseId) => {
     phaseMap.set(phaseKey, phaseId);
