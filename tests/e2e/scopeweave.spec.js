@@ -68,6 +68,20 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
   });
 
+  test('adds row context to repeated inline controls', async ({ page }) => {
+    const phaseRow = page.locator('tbody tr[data-task-id].depth-1').first();
+    await expect(phaseRow.getByRole('button', { name: '접기 - P0000.준비단계' })).toHaveAttribute('title', '접기 - P0000.준비단계');
+    await expect(phaseRow.getByRole('button', { name: '하위 추가 - P0000.준비단계' })).toHaveAttribute('title', '하위 추가 - P0000.준비단계');
+    await expect(phaseRow.getByRole('button', { name: '편집 - P0000.준비단계' })).toHaveAttribute('title', '편집 - P0000.준비단계');
+    await expect(phaseRow.getByRole('button', { name: '삭제 - P0000.준비단계' })).toHaveAttribute('title', '삭제 - P0000.준비단계');
+    await expect(phaseRow.getByLabel('실적진척상태 - P0000.준비단계')).toBeVisible();
+
+    const taskRow = page.locator('tbody tr[data-task-id].depth-3').filter({ hasText: '사업수행계획' });
+    await expect(taskRow.getByRole('button', { name: '하위 추가 - 사업수행계획' })).toBeDisabled();
+    await expect(taskRow.getByRole('button', { name: '하위 추가 - 사업수행계획' })).toHaveAttribute('title', '최대 3단계까지만 추가할 수 있습니다.');
+    await expect(taskRow.getByLabel('실적진척상태 - 사업수행계획')).toBeVisible();
+  });
+
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
@@ -338,6 +352,16 @@ test.describe('ScopeWeave Planner', () => {
 
     await expect(page.locator('#editor-errors')).toContainText('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다');
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects HTML payloads from the UI editor', async ({ page }) => {
+    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '편집' }).click();
+
+    await page.locator('[data-testid="editor-task"]').fill('<script>alert(1)</script>');
+    await page.locator('.editor-panel').getByRole('button', { name: '저장' }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
 
