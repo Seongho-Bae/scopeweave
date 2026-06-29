@@ -713,4 +713,19 @@ test.describe('ScopeWeave Planner', () => {
     await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
     await expect(addChildBtnSpan).toHaveText('＋');
   });
+
+  test('mitigates XSS in createTextCellContent via textNode', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const wrapper = window.createTextCellContent('<img src=x onerror=alert(1)>', '날짜 오류');
+      document.body.appendChild(wrapper);
+      return {
+        imageCount: wrapper.querySelectorAll('img').length,
+        text: wrapper.textContent
+      };
+    });
+
+    expect(result.imageCount).toBe(0);
+    expect(result.text).toContain('<img src=x onerror=alert(1)>');
+    expect(result.text).toContain('날짜 오류');
+  });
 });

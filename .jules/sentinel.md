@@ -51,6 +51,16 @@
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
 
+## 2026-06-25 - Prevent DoS via type confusion in trim() and Prototype Injection in Lookup Maps
+**Vulnerability:** Missing string coercion before calling `.trim()` exposed the app to Denial of Service via type confusion, and `testIdMap` was vulnerable to prototype injection.
+**Learning:** In purely client-side static apps, relying on untyped `.trim()` calls on user input must be guarded by strict string coercion. Also, even locally scoped maps can be abused if untrusted keys are passed.
+**Prevention:** Rigorously enforce `String(value ?? '').trim()` during data sanitization so nullish values stay empty, and use frozen `Object.assign(Object.create(null), { ... })` constants for lookup maps.
+
+## 2026-06-25 - Prevent DOM-based XSS in createTextCellContent
+**Vulnerability:** The `createTextCellContent` function appended user-controlled input directly to the DOM using `wrapper.append(value)` when a warning parameter was present. This allowed arbitrary JavaScript execution (DOM XSS).
+**Learning:** Using `append()` with unsanitized strings directly into a DOM node is dangerous if the input can contain HTML payloads, as it will be interpreted as DOM content.
+**Prevention:** Always use `document.createTextNode(value)` before appending untrusted data, or use `.textContent` to safely render strings as text content instead of executable HTML.
+
 ## 2026-06-24 - Prevent Prototype Injection in testIdMap
 **Vulnerability:** The local variable `testIdMap` inside `renderEditorField` was instantiated as a literal object, exposing prototype properties. If the `field` variable could be manipulated to a standard prototype property like `__proto__`, it could lead to unexpected behavior and bypasses.
 **Learning:** Even locally scoped dictionaries should be protected against prototype injection if they map dynamic string keys to values.

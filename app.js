@@ -192,7 +192,7 @@ async function bootstrap() {
 
 function bindEvents() {
   elements.projectNameInput.addEventListener('input', (event) => {
-    state.projectName = event.target.value.trim() || DEFAULT_PROJECT_NAME;
+    state.projectName = String(event.target.value).trim() || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
   });
@@ -701,7 +701,7 @@ function createTextCellContent(value, warning = '') {
     return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  wrapper.append(value);
+  wrapper.appendChild(document.createTextNode(value));
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
@@ -1728,7 +1728,7 @@ function parseCsv(text) {
     }
   });
 
-  return rows.slice(1).filter((cells) => cells.some((cell) => cell.trim() !== '')).map((cells) => ({
+  return rows.slice(1).filter((cells) => cells.some((cell) => String(cell ?? '').trim() !== '')).map((cells) => ({
     phase: validateCsvCell(readCsvCell(cells, headerMap, '단계'), 'phase'),
     activity: validateCsvCell(readCsvCell(cells, headerMap, 'Activity'), 'activity'),
     task: validateCsvCell(readCsvCell(cells, headerMap, 'Task'), 'task'),
@@ -1750,7 +1750,7 @@ function parseCsv(text) {
 
 function readCsvCell(cells, headerMap, name) {
   const index = headerMap.get(name);
-  return index === undefined ? '' : (cells[index] || '').trim();
+  return index === undefined ? '' : String(cells[index] ?? '').trim();
 }
 
 async function connectJsonSync() {
