@@ -51,7 +51,7 @@ jobs:
           GH_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          APPROVAL_WAIT_ATTEMPTS: "150"
+          APPROVAL_WAIT_ATTEMPTS: "300"
           APPROVAL_WAIT_SLEEP_SECONDS: "30"
         run: |
           set -euo pipefail
