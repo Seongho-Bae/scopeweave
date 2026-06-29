@@ -113,6 +113,25 @@ const state = {
   previousFocus: null
 };
 
+
+// ⚡ Bolt: Cache task IDs to indices for O(1) lookups instead of O(N) array scans
+let taskIdToIndexCache = null;
+
+function invalidateTaskIndexCache() {
+  taskIdToIndexCache = null;
+}
+
+function getTaskIndexById(taskId) {
+  if (!taskIdToIndexCache) {
+    taskIdToIndexCache = new Map();
+    for (let i = 0; i < state.tasks.length; i++) {
+      taskIdToIndexCache.set(state.tasks[i].id, i);
+    }
+  }
+  const index = taskIdToIndexCache.get(taskId);
+  return index !== undefined ? index : -1;
+}
+
 const elements = {
   projectNameInput: document.getElementById('project-name'),
   baseDateInput: document.getElementById('base-date'),
@@ -149,6 +168,7 @@ async function bootstrap() {
   } else {
     const seedData = await loadSeedTasks();
     state.tasks = normalizeImportedTasks(seedData);
+    invalidateTaskIndexCache();
   }
 
   renderAll();
@@ -879,7 +899,7 @@ function saveEditor() {
   }
 
   if (state.editor.mode === 'edit' && state.editor.targetId) {
-    const index = state.tasks.findIndex((task) => task.id === state.editor.targetId);
+    const index = getTaskIndexById(state.editor.targetId);
     if (index >= 0) {
       state.tasks[index] = {
         ...state.tasks[index],
@@ -1131,14 +1151,17 @@ function getVisibleTasks() {
 function insertTaskAfter(task, afterId) {
   if (!afterId) {
     state.tasks.unshift(task);
+    invalidateTaskIndexCache();
     return;
   }
-  const index = state.tasks.findIndex((candidate) => candidate.id === afterId);
+  const index = getTaskIndexById(afterId);
   if (index === -1) {
     state.tasks.push(task);
+    invalidateTaskIndexCache();
     return;
   }
   state.tasks.splice(index + 1, 0, task);
+  invalidateTaskIndexCache();
 }
 
 function deleteTaskAndDescendants(taskId) {
@@ -1169,6 +1192,7 @@ function deleteTaskAndDescendants(taskId) {
     }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
+  invalidateTaskIndexCache();
 }
 
 function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
@@ -1179,12 +1203,14 @@ function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
   }
   const draggedBlock = state.tasks.slice(draggedRange.startIndex, draggedRange.endIndex + 1);
   state.tasks.splice(draggedRange.startIndex, draggedBlock.length);
+  invalidateTaskIndexCache();
 
   const refreshedTargetRange = getTaskSubtreeRange(targetId);
   const insertionIndex = refreshedTargetRange
     ? (placeAfter ? refreshedTargetRange.endIndex + 1 : refreshedTargetRange.startIndex)
     : state.tasks.length;
   state.tasks.splice(insertionIndex, 0, ...draggedBlock);
+  invalidateTaskIndexCache();
 }
 
 function canReorderWithinLevel(draggedTask, targetTask) {
@@ -1207,7 +1233,7 @@ function getLastRootTaskId() {
 }
 
 function getLastDescendantId(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return taskId;
   }
@@ -1223,7 +1249,7 @@ function getLastDescendantId(taskId) {
 }
 
 function getTaskSubtreeRange(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return null;
   }
@@ -1241,7 +1267,8 @@ function getTaskSubtreeRange(taskId) {
 }
 
 function findTask(taskId) {
-  return state.tasks.find((task) => task.id === taskId) || null;
+  const index = getTaskIndexById(taskId);
+  return index !== -1 ? state.tasks[index] : null;
 }
 
 function persistState() {
@@ -1274,6 +1301,7 @@ function hydrateState(savedState) {
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
     : [];
+  invalidateTaskIndexCache();
 }
 
 function normalizeStoredTask(task) {
@@ -1553,6 +1581,7 @@ async function handleCsvImport(event) {
     const text = await file.text();
     const imported = parseCsv(text);
     state.tasks = validateImportedTasks(normalizeImportedTasks(imported));
+    invalidateTaskIndexCache();
     closeEditor();
     persistState();
     renderAll();
