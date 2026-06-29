@@ -155,17 +155,18 @@ async function bootstrap() {
 }
 
 function bindEvents() {
-  elements.projectNameInput.addEventListener('input', (event) => {
+  // ⚡ Bolt: Debounce input handlers to prevent O(N) full re-renders on rapid keystrokes
+  elements.projectNameInput.addEventListener('input', debounce((event) => {
     state.projectName = event.target.value.trim() || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
-  });
+  }, 150));
 
-  elements.baseDateInput.addEventListener('input', (event) => {
+  elements.baseDateInput.addEventListener('input', debounce((event) => {
     state.baseDate = event.target.value || formatLocalDateInput(new Date());
     persistState();
     renderAll();
-  });
+  }, 150));
 
   elements.addRootButton.addEventListener('click', () => openEditor({ mode: 'create', parentId: null, depth: 1, insertAfterId: getLastRootTaskId() }));
   elements.exportCsvButton.addEventListener('click', exportCsv);
@@ -211,14 +212,14 @@ function bindEvents() {
     }
   });
 
-  elements.tableBody.addEventListener('input', (event) => {
+  elements.tableBody.addEventListener('input', debounce((event) => {
     const field = event.target.dataset.editorField;
     if (!field || !state.editor.draft) {
       return;
     }
     state.editor.draft[field] = event.target.value;
     renderEditorValidation();
-  });
+  }, 150));
 
   elements.tableBody.addEventListener('change', (event) => {
     if (event.target.dataset.inlineProgress) {
@@ -2181,4 +2182,16 @@ function toKebab(value) {
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/_/g, '-')
     .toLowerCase();
+}
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
