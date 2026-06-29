@@ -94,19 +94,21 @@ const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
+const DEFAULT_EDITOR_STATE = {
+  mode: null,
+  targetId: null,
+  parentId: null,
+  depth: 1,
+  insertAfterId: null,
+  draft: null,
+  errors: []
+};
+
 const state = {
   projectName: DEFAULT_PROJECT_NAME,
   baseDate: formatLocalDateInput(new Date()),
   tasks: [],
-  editor: {
-    mode: null,
-    targetId: null,
-    parentId: null,
-    depth: 1,
-    insertAfterId: null,
-    draft: null,
-    errors: []
-  },
+  editor: { ...DEFAULT_EDITOR_STATE, errors: [] },
   jsonSyncHandle: null,
   dragTaskId: null,
   toastTimer: null,
@@ -853,15 +855,7 @@ function openEditor({ mode, targetId = null, parentId = null, depth = 1, insertA
 }
 
 function closeEditor() {
-  state.editor = {
-    mode: null,
-    targetId: null,
-    parentId: null,
-    depth: 1,
-    insertAfterId: null,
-    draft: null,
-    errors: []
-  };
+  state.editor = { ...DEFAULT_EDITOR_STATE, errors: [] };
   renderAll();
 
   if (state.previousFocus) {
