@@ -12,9 +12,9 @@ const addTopLevelTask = async (page, values) => {
 };
 
 const readHierarchySnapshot = async (page) => page.locator('tbody tr[data-task-id]').evaluateAll((rows) => rows.map((row) => ({
-  phase: row.children[1]?.innerText.trim() || '',
-  activity: row.children[2]?.innerText.trim() || '',
-  task: row.children[3]?.innerText.trim() || ''
+  phase: row.children[1]?.innerText.replace(/-\s*값 없음/g, '-').trim() || '',
+  activity: row.children[2]?.innerText.replace(/-\s*값 없음/g, '-').trim() || '',
+  task: row.children[3]?.innerText.replace(/-\s*값 없음/g, '-').trim() || ''
 })));
 
 const importCsv = async (page, csvText) => {
@@ -599,6 +599,11 @@ test.describe('ScopeWeave Planner', () => {
     expect(snapshot).toHaveLength(3);
     expect(snapshot[0].phase).toBe('P4000.이행단계');
     expect(snapshot[1].activity).toBe('-');
+
+    const activityCell = page.locator('tbody tr[data-task-id]').nth(1).locator('td').nth(2);
+    await expect(activityCell.locator('.empty-cell > span[aria-hidden="true"]')).toHaveText('-');
+    await expect(activityCell.locator('.empty-cell > .sr-only')).toHaveText('값 없음');
+
     expect(snapshot[2].task).toBe('고아Task');
   });
 

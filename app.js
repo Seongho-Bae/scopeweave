@@ -712,7 +712,16 @@ function createTextCellContent(value, warning = '') {
 function createEmptyCell() {
   const emptyCell = document.createElement('span');
   emptyCell.className = 'empty-cell';
-  emptyCell.textContent = '-';
+
+  const visibleDash = document.createElement('span');
+  visibleDash.setAttribute('aria-hidden', 'true');
+  visibleDash.textContent = '-';
+
+  const srOnly = document.createElement('span');
+  srOnly.className = 'sr-only';
+  srOnly.textContent = '값 없음';
+
+  emptyCell.append(visibleDash, srOnly);
   return emptyCell;
 }
 
