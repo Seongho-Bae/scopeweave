@@ -1249,7 +1249,11 @@ function persistState() {
     baseDate: state.baseDate,
     tasks: state.tasks.map((task) => ({ ...task }))
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.error('State persistence failed:', error);
+  }
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {
@@ -1287,14 +1291,18 @@ function normalizeStoredTask(task) {
 }
 
 async function loadSeedTasks() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch('./wbs.json', { cache: 'no-store' });
+    const response = await fetch('./wbs.json', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
     return await response.json();
   } catch {
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

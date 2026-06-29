@@ -50,3 +50,7 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+## 2026-06-29 - Network Timeouts and Secure Storage Handling
+**Vulnerability:** External fetch requests lacked timeouts, leading to potential Denial of Service (DoS) via resource exhaustion or hanging UI if a response stalled. Additionally, unhandled local storage operations could throw exceptions (e.g., `QuotaExceededError`) that halt execution and corrupt application state.
+**Learning:** All network boundaries and client-side storage mechanisms require defensive programming to ensure the application fails securely without crashing or freezing.
+**Prevention:** Always attach an `AbortController` timeout to `fetch` calls and wrap local storage operations in `try...catch` blocks to swallow and log errors securely.
