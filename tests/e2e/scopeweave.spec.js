@@ -355,6 +355,95 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
 
+  test('validateDraft pure function logic', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const result = await page.evaluate(() => {
+      if (typeof window.validateDraft !== 'function') return { error: 'Not exported' };
+
+      const tests = [];
+      const debug = [];
+
+      // Test missing draft
+      tests.push(window.validateDraft(null, 1).length === 0);
+
+      // Test HTML injection
+      const htmlErrors = window.validateDraft({ phase: '<script>' }, 1);
+      // Depending on mapping it could be Phase or 단계, check for both or just generic HTML message
+      tests.push(htmlErrors.some(e => e.includes('HTML 태그 문자를 사용할 수 없습니다.')));
+      if (!htmlErrors.some(e => e.includes('HTML 태그 문자를 사용할 수 없습니다.'))) debug.push('HTML injection failed: ' + JSON.stringify(htmlErrors));
+
+      // Test required depth 1
+      const depth1Errors = window.validateDraft({ phase: '' }, 1);
+      tests.push(depth1Errors.includes('최상위 작업은 단계 값을 입력해야 합니다.'));
+      if (!depth1Errors.includes('최상위 작업은 단계 값을 입력해야 합니다.')) debug.push('Depth 1 failed: ' + JSON.stringify(depth1Errors));
+
+      // Test required depth 2
+      const depth2Errors = window.validateDraft({ phase: 'P1', activity: '' }, 2);
+      tests.push(depth2Errors.includes('2단계 작업은 Activity 값을 입력해야 합니다.'));
+      if (!depth2Errors.includes('2단계 작업은 Activity 값을 입력해야 합니다.')) debug.push('Depth 2 failed: ' + JSON.stringify(depth2Errors));
+
+      // Test required depth 3
+      const depth3Errors = window.validateDraft({ phase: 'P1', activity: 'A1', task: '' }, 3);
+      tests.push(depth3Errors.includes('3단계 작업은 Task 값을 입력해야 합니다.'));
+      if (!depth3Errors.includes('3단계 작업은 Task 값을 입력해야 합니다.')) debug.push('Depth 3 failed: ' + JSON.stringify(depth3Errors));
+
+      // Test date validation
+      const dateErrors = window.validateDraft({ plannedStartDate: 'invalid-date' }, 1);
+      tests.push(dateErrors.includes('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.'));
+      if (!dateErrors.includes('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.')) debug.push('Date valid failed: ' + JSON.stringify(dateErrors));
+
+      const rangeErrors = window.validateDraft({ plannedStartDate: '2026-05-20', plannedEndDate: '2026-05-18' }, 1);
+      tests.push(rangeErrors.includes('계획종료일은 계획시작일보다 빠를 수 없습니다.'));
+      if (!rangeErrors.includes('계획종료일은 계획시작일보다 빠를 수 없습니다.')) debug.push('Date range failed: ' + JSON.stringify(rangeErrors));
+
+      return tests.every(t => t === true) ? 'PASS' : 'FAIL: ' + debug.join(' | ');
+    });
+
+    expect(result).toBe('PASS');
+  });
+
+  test('rejects saving a top-level task with HTML tags in the phase field', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('Test Phase <script>');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects saving a top-level task without a phase', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('최상위 작업은 단계 값을 입력해야 합니다.');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects saving a depth 2 task without an activity', async ({ page }) => {
+    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('[data-testid="editor-activity"]').fill('');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('2단계 작업은 Activity 값을 입력해야 합니다.');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects saving a depth 3 task without a task value', async ({ page }) => {
+    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('[data-testid="editor-activity"]').fill('Test Activity');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const activityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: /^Test Activity$/ }) });
+    await activityRow.getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('[data-testid="editor-task"]').fill('');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('3단계 작업은 Task 값을 입력해야 합니다.');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
   test('rejects invalid calendar dates from imported CSV', async ({ page }) => {
     await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', 'P3000.검증단계,,잘못된날짜,검증,,,담당자A,,,2026-02-31,2026-03-02,,,미착수(0%),,,'].join('\n'));
 
