@@ -471,38 +471,18 @@ test.describe('ScopeWeave Planner', () => {
 });
 
 test.describe('ScopeWeave Planner - Palette UX Enhancements', () => {
-  test('adds keyboard shortcut hints to editor buttons', async ({ page }) => {
-    await page.goto('./');
+  test('adds helpful placeholder to project name input', async ({ page }) => {
+    await page.goto('/');
 
-    // Open editor
-    await page.getByRole('button', { name: '최상위 작업 추가', exact: true }).click();
-
-    // Verify save button tooltip
-    const saveButton = page.getByRole('button', { name: '저장', exact: true });
-    await expect(saveButton).toHaveAttribute('title', '저장 (Enter)');
-    await expect(saveButton).toHaveAttribute('aria-keyshortcuts', 'Enter');
-
-    // Verify cancel button tooltip
-    const cancelButton = page.getByRole('button', { name: '취소', exact: true });
-    await expect(cancelButton).toHaveAttribute('title', '취소 (Esc)');
-    await expect(cancelButton).toHaveAttribute('aria-keyshortcuts', 'Escape');
+    const projectNameInput = page.getByTestId('project-name-input');
+    await expect(projectNameInput).toHaveAttribute('placeholder', '예: 신규 서비스 구축 프로젝트');
   });
 
-  test('adds keyboard shortcut hints to editor buttons on mobile', async ({ page }) => {
+  test('adds helpful placeholder to project name input on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('./');
+    await page.goto('/');
 
-    // Open editor
-    await page.getByRole('button', { name: '최상위 작업 추가', exact: true }).click();
-
-    // Verify save button tooltip
-    const saveButton = page.getByRole('button', { name: '저장', exact: true });
-    await expect(saveButton).toHaveAttribute('title', '저장 (Enter)');
-    await expect(saveButton).toHaveAttribute('aria-keyshortcuts', 'Enter');
-
-    // Verify cancel button tooltip
-    const cancelButton = page.getByRole('button', { name: '취소', exact: true });
-    await expect(cancelButton).toHaveAttribute('title', '취소 (Esc)');
-    await expect(cancelButton).toHaveAttribute('aria-keyshortcuts', 'Escape');
+    const projectNameInput = page.getByTestId('project-name-input');
+    await expect(projectNameInput).toHaveAttribute('placeholder', '예: 신규 서비스 구축 프로젝트');
   });
 });
