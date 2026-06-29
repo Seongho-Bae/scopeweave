@@ -40,6 +40,13 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
+## 2026-06-23 - Contextual ARIA labels and Input-Error Linking
+**Learning:** Repetitive UI elements like "Edit" or "Delete" buttons in a data table need contextual `aria-label`s (e.g., "Requirement Analysis Edit") to be meaningful for screen readers. Additionally, when dynamic validation messages appear alongside an input element, setting `aria-invalid="true"` and `aria-describedby="[error-id]"` is critical so screen readers explicitly announce the validation text upon focusing the invalid field.
+**Action:** When working on data table actions, inject the row's primary contextual name (like Task Name) into button `aria-label`s. When dynamically rendering validation warnings near form elements, assign a unique `id` to the warning and use `aria-invalid` and `aria-describedby` on the input to link them.
+## 2026-06-23 - Prevent DOM XSS false positives by using strict string interpolation
+**Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
+**Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
+
 ## 2026-06-24 - Improve contrast and add keyboard shortcut hints
-**Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit greatly from explicit tooltip hints for shortcuts.
-**Action:** Always check contrast ratios for muted/warning text and include `title` attributes for buttons with keyboard shortcuts.
+**Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit from explicit tooltip hints for shortcuts.
+**Action:** Check contrast ratios for muted/warning text and include `title` attributes for buttons with keyboard shortcuts.
