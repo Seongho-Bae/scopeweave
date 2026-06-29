@@ -310,7 +310,6 @@ function renderAll() {
   const metrics = computeTaskMetrics();
 
   elements.projectNameInput.value = state.projectName;
-  document.title = state.projectName === DEFAULT_PROJECT_NAME ? DEFAULT_PROJECT_NAME : `${state.projectName} - ${DEFAULT_PROJECT_NAME}`;
   elements.baseDateInput.value = state.baseDate;
   elements.totalDays.textContent = `${formatNumber(metrics.totalDays)}일`;
   elements.plannedProgress.textContent = formatPercent(metrics.totalWeightedPlannedRatio * 100, 2);
@@ -1288,18 +1287,17 @@ function normalizeStoredTask(task) {
 }
 
 async function loadSeedTasks() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const response = await fetch('./wbs.json', { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
     return await response.json();
   } catch {
     return [];
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 

@@ -51,7 +51,7 @@
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
 
-## 2026-06-27 - Add timeout to static asset fetches
-**Vulnerability:** The application loaded the same-origin seed file (`fetch('./wbs.json')`) without a timeout, which could cause startup to wait indefinitely if the network or static host stalled.
-**Learning:** Network-backed static asset fetches should have a timeout to prevent Denial of Service (DoS) risks where resources are indefinitely tied up waiting for a response that may never arrive.
+## 2026-06-27 - Add timeout to external API calls
+**Vulnerability:** The application made external network calls (`fetch('./wbs.json')`) without a timeout, which could cause the application to hang indefinitely if the network was unresponsive.
+**Learning:** Network requests should always have a timeout to prevent Denial of Service (DoS) risks where resources are indefinitely tied up waiting for a response that may never arrive.
 **Prevention:** Always use an `AbortController` with a timeout when making `fetch` calls to ensure the request is aborted if it takes too long.

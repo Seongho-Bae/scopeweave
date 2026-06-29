@@ -66,10 +66,6 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-total-days')).not.toHaveText('0일');
     await expect(page.getByTestId('summary-planned-progress')).toContainText('%');
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
-    await expect(page).toHaveTitle('ScopeWeave Planner');
-
-    await page.getByTestId('project-name-input').fill('My New Project');
-    await expect(page).toHaveTitle('My New Project - ScopeWeave Planner');
   });
 
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
