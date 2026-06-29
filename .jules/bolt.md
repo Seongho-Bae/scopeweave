@@ -35,19 +35,3 @@
 ## 2026-06-23 - Remove redundant O(N * Depth) visible tasks filtering loop
 **Learning:** `getVisibleTasks()` filters visible items by checking the expansion state of all ancestors for each task. The previous implementation correctly calculated visible tasks using a single O(N) top-down pass, but redundantly executed a secondary `.filter()` loop using a `taskById` map lookup and a tree traversal to root (`while(parentId)`). This unnecessary loop caused a performance bottleneck (taking ~167ms compared to ~13ms for the single-pass logic for 100 iterations of 2000 tasks).
 **Action:** When filtering hierarchical data based on parent state, always rely on a single top-down pass that propagates the hidden state (using a Set or property) instead of traversing the tree to the root for every single item in a redundant `.filter()` loop.
-
-## 2026-06-24 - Cache Intl.NumberFormat in render paths
-**Learning:** Calling `Number.prototype.toLocaleString()` during table rendering can instantiate locale formatting machinery repeatedly across many rows.
-**Action:** Cache a single `Intl.NumberFormat('ko-KR')` formatter inside `formatNumber()` and reuse it for numeric cell rendering.
-
-## 2026-06-25 - Optimize date parsing and prevent cache thrashing
-**Learning:** Using `split('-').map(Number)` in a tight date-parsing loop (`dateStringToUtcMs`) allocates new arrays and intermediate strings, causing garbage collection pressure. Additionally, recalculating the same date ranges in loops (like inside `calculatePlannedProgressRatio`) wastes CPU, and small caches (size < 500) cause cache thrashing for larger datasets.
-**Action:** Avoid `split().map()` array allocations in hot date parsing paths by reading fixed date segments directly. Reuse already computed durations inside iteration loops instead of recalculating them from dates. Size caches appropriately (e.g. 10000) when expecting a large volume of parsing.
-
-## 2026-06-29 - Task Lookup Optimization
-**Learning:** O(N) array scans (like `findIndex`) inside descendant traversal functions cause CPU bottlenecks on large DOM trees.
-**Action:** Replace `findIndex` loops with a lazily-initialized O(1) Map cache mapping task IDs to indices, explicitly invalidating it on array structure changes.
-
-## 2026-06-30 - Redundant O(N) object cloning before JSON serialization
-**Learning:** Performing a shallow clone on a large array of objects (e.g. `tasks.map(t => ({...t}))`) just before passing it to `JSON.stringify` creates a massive amount of unnecessary object allocations and causes significant garbage collection overhead, especially in hot paths like autosave. `JSON.stringify` naturally iterates properties without mutating them, making manual cloning redundant unless specific properties need filtering out.
-**Action:** Remove redundant array iterations and object spreading when serializing state to JSON. Pass the objects directly.

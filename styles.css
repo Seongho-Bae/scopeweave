@@ -10,7 +10,7 @@
   --text-muted: #64748b;
   --blue-soft: #f0fdfa;
   --blue-hover: #e0f2fe;
-  --danger: #dc2626;
+  --danger: #ef4444;
   --status-before: #475569;
   --status-active: #059669;
   --status-done: #0f172a;
@@ -278,36 +278,13 @@ button {
 }
 
 .col-actions {
-  min-width: 180px;
+  min-width: 150px;
 }
 
 .action-stack {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 32px;
-  color: var(--border-strong);
-  cursor: grab;
-  font-size: 1.1rem;
-  font-weight: bold;
-  letter-spacing: -2px;
-  transition: color var(--transition);
-  user-select: none;
-}
-
-.drag-handle:hover {
-  color: var(--text-muted);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
 }
 
 .toggle-button,
@@ -401,7 +378,7 @@ select:focus-visible {
 
 .warning-badge {
   background: #fef2f2;
-  color: #b91c1c;
+  color: var(--danger);
   border: 1px solid #fecaca;
 }
 
@@ -413,7 +390,7 @@ select:focus-visible {
 }
 
 .empty-cell {
-  color: var(--text-muted);
+  color: #94a3b8;
 }
 
 .editor-row td {
@@ -522,7 +499,7 @@ select[data-inline-progress]:focus {
 
 .secondary-button:hover:not(:disabled) {
   background: #f8fafc;
-  border-color: #64748b;
+  border-color: #94a3b8;
   transform: translateY(-1px);
 }
 
