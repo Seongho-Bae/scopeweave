@@ -2029,9 +2029,12 @@ function downloadFile(content, fileName, mimeType) {
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
+  // 🛡️ Sentinel: Prevent tabnabbing by adding rel attribute to dynamically created links
+  link.rel = 'noopener noreferrer';
+  // 🛡️ Sentinel: Prevent hypothetical DOM Clobbering by using prototype remove
   document.body.appendChild(link);
   link.click();
-  link.remove();
+  Element.prototype.remove.call(link);
   URL.revokeObjectURL(url);
 }
 

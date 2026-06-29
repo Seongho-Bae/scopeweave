@@ -468,4 +468,13 @@ test.describe('ScopeWeave Planner', () => {
     await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
     await expect(addChildBtnSpan).toHaveText('＋');
   });
+
+  test('generates secure download links', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'CSV 내보내기' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/wbs_export_\d{8}\.csv/);
+  });
 });

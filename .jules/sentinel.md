@@ -50,3 +50,12 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+## 2026-06-29 - Prevent DOM Clobbering via strict prototype invocation
+**Vulnerability:** Invoking `.remove()` directly on a locally created element is structurally safe in many immediate contexts but sets a dangerous precedent. Without consistently enforcing strict safe-extraction patterns like `Element.prototype.remove.call()`, developers may copy-paste the direct invocation pattern into areas where elements *are* susceptible to DOM Clobbering (such as when traversing user-controlled DOM trees).
+**Learning:** Security architectures in legacy browser environments benefit from applying strict rules consistently across the entire codebase to prevent "drift." Adopting `Element.prototype.remove.call(link)` globally, even for dynamically generated anchor tags during file downloads, solidifies the mitigation strategy against DOM Clobbering.
+**Prevention:** Replace all direct method invocations of potentially clobberable properties (e.g. `link.remove()`) with their `prototype` equivalents (e.g. `Element.prototype.remove.call(link)`) uniformly throughout the codebase.
+
+## 2026-06-29 - Tabnabbing mitigation for dynamically created links
+**Vulnerability:** Dynamically created anchor elements used for actions like downloading blob URLs might omit the `rel="noopener noreferrer"` attribute.
+**Learning:** Even if the `target` attribute is not explicitly set to `_blank` initially, adding `rel="noopener noreferrer"` to dynamically generated links acts as an added defense-in-depth measure, protecting the application in case the URL or the link's target context changes unexpectedly.
+**Prevention:** Apply `link.rel = 'noopener noreferrer';` to any dynamically created link elements to safeguard against reverse tabnabbing and unintended context sharing.
