@@ -1368,45 +1368,51 @@ function validateImportedTask(task, index) {
   }
 }
 
+const createNormalizedExternalRecord = (task, defaults = {}) => ({
+  ...createEmptyTaskDraft(),
+  ...defaults,
+  phase: task.phase || defaults.phase || '',
+  activity: task.activity || defaults.activity || '',
+  task: task.task || defaults.task || '',
+  categoryLarge: task.categoryLarge || '',
+  categoryMedium: task.categoryMedium || '',
+  documentName: task.documentName || '',
+  owner: task.owner || '',
+  supportTeam: task.supportTeam || '',
+  plannedStartDate: task.plannedStartDate || '',
+  plannedEndDate: getPlannedEndDateValue(task),
+  actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
+  actualStartDate: task.actualStartDate || '',
+  actualEndDate: task.actualEndDate || ''
+});
+
+function getPhaseKey(task, index) {
+  return task.phase || `__phase-${index}`;
+}
+
+function getActivityKey(task, index) {
+  return `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
+}
+
+function ensureSyntheticNode(map, key, idPrefix, index, pushCallback) {
+  if (!map.has(key)) {
+    const id = createId(`${idPrefix}-${index}`);
+    pushCallback(id);
+    map.set(key, id);
+  }
+  return map.get(key);
+}
+
 function buildHierarchicalTasksFromFlatSource(sourceTasks) {
   const normalized = [];
   const phaseMap = new Map();
   const activityMap = new Map();
-  const getPhaseKey = (task, index) => task.phase || `__phase-${index}`;
-  const getActivityKey = (task, index) => `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
-
-  const normalizeExternalRecord = (task, defaults = {}) => ({
-    ...createEmptyTaskDraft(),
-    ...defaults,
-    phase: task.phase || defaults.phase || '',
-    activity: task.activity || defaults.activity || '',
-    task: task.task || defaults.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || ''
-  });
-
-  const registerPhase = (phaseKey, phaseId) => {
-    phaseMap.set(phaseKey, phaseId);
-  };
-
-  const registerActivity = (activityKey, activityId) => {
-    activityMap.set(activityKey, activityId);
-  };
 
   const ensureSyntheticPhase = (task, index) => {
     const phaseKey = getPhaseKey(task, index);
-    if (!phaseMap.has(phaseKey)) {
-      const phaseId = createId(`phase-${index}`);
+    return ensureSyntheticNode(phaseMap, phaseKey, 'phase', index, (phaseId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase }),
+        ...createNormalizedExternalRecord({ phase: task.phase }),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1414,17 +1420,14 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerPhase(phaseKey, phaseId);
-    }
-    return phaseMap.get(phaseKey);
+    });
   };
 
   const ensureSyntheticActivity = (task, index, parentPhaseId) => {
     const key = getActivityKey(task, index);
-    if (!activityMap.has(key)) {
-      const activityId = createId(`activity-${index}`);
+    return ensureSyntheticNode(activityMap, key, 'activity', index, (activityId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase, activity: task.activity }),
+        ...createNormalizedExternalRecord({ phase: task.phase, activity: task.activity }),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1432,9 +1435,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerActivity(key, activityId);
-    }
-    return activityMap.get(key);
+    });
   };
 
   sourceTasks.forEach((task, index) => {
@@ -1445,7 +1446,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasPhase && !hasActivity && !hasTask) {
       const phaseId = createId(`phase-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1453,7 +1454,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerPhase(getPhaseKey(task, index), phaseId);
+      phaseMap.set(getPhaseKey(task, index), phaseId);
       return;
     }
 
@@ -1462,7 +1463,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasActivity && !hasTask) {
       const activityId = createId(`activity-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1470,13 +1471,13 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerActivity(getActivityKey(task, index), activityId);
+      activityMap.set(getActivityKey(task, index), activityId);
       return;
     }
 
     const parentActivityId = hasTask ? ensureSyntheticActivity(task, index, parentPhaseId) : parentPhaseId;
     normalized.push({
-      ...normalizeExternalRecord(task),
+      ...createNormalizedExternalRecord(task),
       id: createId(`leaf-${index}`),
       parentId: hasTask ? parentActivityId : parentPhaseId,
       depth: hasTask ? 3 : hasActivity ? 2 : 1,
