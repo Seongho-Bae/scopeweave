@@ -2001,7 +2001,9 @@ function createGanttBarElement(startDate, endDate, weekdays, type, task) {
 
   const taskName = task.task || task.activity || task.phase || '작업';
   const typeLabel = type === 'plan' ? '계획' : '실적';
-  const tooltipText = `${taskName} ${typeLabel} (${startDate} ~ ${endDate})`;
+  const visibleStartDate = weekdays[startIndex].date;
+  const visibleEndDate = weekdays[normalizedEndIndex].date;
+  const tooltipText = `${taskName} ${typeLabel} (${visibleStartDate} ~ ${visibleEndDate})`;
 
   bar.title = tooltipText;
   bar.setAttribute('aria-label', tooltipText);

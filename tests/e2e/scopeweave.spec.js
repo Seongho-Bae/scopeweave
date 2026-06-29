@@ -119,13 +119,25 @@ test.describe('ScopeWeave Planner', () => {
   });
 
   test('opens gantt modal and renders chart bars with correct inline styles', async ({ page }) => {
+    await addTopLevelTask(page, {
+      phase: '주말 보정 검증',
+      categoryLarge: '간트검증',
+      owner: '담당자A',
+      plannedStartDate: '2026-05-16',
+      plannedEndDate: '2026-05-24'
+    });
+
     await page.getByRole('button', { name: '간트차트보기' }).click();
     await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
-    await expect(page.locator('.gantt-bar.plan')).toHaveCount(2);
-    
+    await expect(page.locator('.gantt-bar.plan')).toHaveCount(3);
+
     const firstBar = page.locator('.gantt-bar.plan').first();
     await expect(firstBar).toHaveAttribute('style', /width:\s*\d+px/);
     await expect(firstBar).toHaveAttribute('style', /left:\s*\d+px/);
+
+    const adjustedBar = page.locator('.gantt-bar.plan[aria-label*="주말 보정 검증"]').first();
+    await expect(adjustedBar).toHaveAttribute('aria-label', /2026-05-18 ~ 2026-05-22/);
+    await expect(adjustedBar).toHaveAttribute('title', /2026-05-18 ~ 2026-05-22/);
   });
 
   test('does not create HTML elements from manual text in the gantt chart', async ({ page }) => {
