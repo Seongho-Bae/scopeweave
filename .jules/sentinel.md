@@ -41,3 +41,32 @@
 **Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.randomUUID()` was unavailable.
 **Learning:** `Math.random()` is not cryptographically secure and can generate predictable sequences, leading to potential ID collisions or predictable IDs that could be abused in certain contexts. While this is primarily an issue in non-secure contexts (HTTP), using `crypto.getRandomValues()` as a fallback provides a cryptographically secure random number generator when `randomUUID()` is missing but `getRandomValues()` is supported.
 **Prevention:** Always use cryptographically secure methods like `crypto.getRandomValues()` to generate random strings when `crypto.randomUUID()` is not an option. Avoid relying on `Math.random()` for any form of unique identifier or security-related token generation.
+## 2026-06-24 - Validate HTML tags in Editor Drafts
+**Vulnerability:** The application was not rejecting HTML tag characters in the inline editor, which could introduce cross-site scripting (XSS) vectors or payload issues during data export (e.g. CSV).
+**Learning:** Even if data is rendered securely via `textContent`, accepting malicious HTML characters during input creates inconsistencies with import checks and introduces supply-chain risks when exported.
+**Prevention:** Add input validation within `validateDraft` to reject `<` and `>` characters in `EDITABLE_FIELDS`, ensuring consistency with `validateCsvCell` logic and stopping malicious injection at the input layer.
+
+## 2026-06-24 - Document architectural limitations regarding missing authentication
+**Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
+**Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
+**Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-24 - Prevent Prototype Injection in testIdMap
+**Vulnerability:** The local variable `testIdMap` inside `renderEditorField` was instantiated as a literal object, exposing prototype properties. If the `field` variable could be manipulated to a standard prototype property like `__proto__`, it could lead to unexpected behavior and bypasses.
+**Learning:** Even locally scoped dictionaries should be protected against prototype injection if they map dynamic string keys to values.
+**Prevention:** Instantiate lookup maps with `Object.assign(Object.create(null), { ... })` when dynamic keys are used for lookups.
+
+## 2026-06-24 - Normalize localStorage projectName
+**Vulnerability:** The application loaded `projectName` directly from `localStorage` into state. Even when rendered through safe DOM APIs, unbounded untrusted strings from storage can cause inconsistent state and downstream export issues.
+**Learning:** All data loaded from `localStorage` should be treated as untrusted and normalized before assignment to application state.
+**Prevention:** Strictly coerce, trim, and length-limit user-controlled string values loaded from storage.
+
+## 2026-06-24 - Filter prototype pollution keys in JSON.parse
+**Vulnerability:** Parsed JSON from `localStorage` or seed files could retain keys such as `__proto__`, `constructor`, or `prototype` that become dangerous when later merged into objects.
+**Learning:** JSON input is untrusted even in a static app when it comes from local storage or external seed files.
+**Prevention:** Use a JSON reviver to filter prototype-pollution keys before parsed data enters application state.
+
+## 2026-06-29 - Neutralize CSV formulas during import
+**Vulnerability:** CSV import accepted spreadsheet formula prefixes such as `=`, `+`, `-`, and `@` into state, so a later export could preserve attacker-controlled formula payloads.
+**Learning:** CSV formula injection needs defense at both boundaries: exported cells and imported cells that may be re-exported later.
+**Prevention:** Normalize imported CSV cells with the same formula neutralization used by CSV export, and keep E2E coverage for import-to-storage formula payloads.

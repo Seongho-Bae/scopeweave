@@ -75,6 +75,7 @@ const CSV_HEADERS = [
   '__depth'
 ];
 const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
+const UNSAFE_JSON_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
@@ -90,6 +91,21 @@ const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   actualProgressStatus: '실적진척상태',
   actualStartDate: '실적시작일',
   actualEndDate: '실적종료일'
+}));
+
+const EDITOR_FIELD_TEST_IDS = Object.freeze(Object.assign(Object.create(null), {
+  phase: 'editor-phase',
+  activity: 'editor-activity',
+  task: 'editor-task',
+  categoryLarge: 'editor-category-large',
+  categoryMedium: 'editor-category-medium',
+  documentName: 'editor-document-name',
+  owner: 'editor-owner',
+  supportTeam: 'editor-support-team',
+  plannedStartDate: 'editor-planned-start',
+  plannedEndDate: 'editor-planned-end',
+  actualStartDate: 'editor-actual-start',
+  actualEndDate: 'editor-actual-end'
 }));
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
@@ -112,6 +128,25 @@ const state = {
   toastTimer: null,
   previousFocus: null
 };
+
+
+// ⚡ Bolt: Cache task IDs to indices for O(1) lookups instead of O(N) array scans
+let taskIdToIndexCache = null;
+
+function invalidateTaskIndexCache() {
+  taskIdToIndexCache = null;
+}
+
+function getTaskIndexById(taskId) {
+  if (!taskIdToIndexCache) {
+    taskIdToIndexCache = new Map();
+    for (let i = 0; i < state.tasks.length; i++) {
+      taskIdToIndexCache.set(state.tasks[i].id, i);
+    }
+  }
+  const index = taskIdToIndexCache.get(taskId);
+  return index !== undefined ? index : -1;
+}
 
 const elements = {
   projectNameInput: document.getElementById('project-name'),
@@ -149,6 +184,7 @@ async function bootstrap() {
   } else {
     const seedData = await loadSeedTasks();
     state.tasks = normalizeImportedTasks(seedData);
+    invalidateTaskIndexCache();
   }
 
   renderAll();
@@ -206,7 +242,7 @@ function bindEvents() {
       return;
     }
 
-    if (!event.target.closest('input, select, button, label')) {
+    if (!event.target.closest('input, select, button, label, .drag-handle')) {
       openEditor({ mode: 'edit', targetId: taskId });
     }
   });
@@ -310,6 +346,7 @@ function renderAll() {
   const metrics = computeTaskMetrics();
 
   elements.projectNameInput.value = state.projectName;
+  document.title = state.projectName === DEFAULT_PROJECT_NAME ? DEFAULT_PROJECT_NAME : `${state.projectName} - ${DEFAULT_PROJECT_NAME}`;
   elements.baseDateInput.value = state.baseDate;
   elements.totalDays.textContent = `${formatNumber(metrics.totalDays)}일`;
   elements.plannedProgress.textContent = formatPercent(metrics.totalWeightedPlannedRatio * 100, 2);
@@ -433,9 +470,11 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const actionStack = document.createElement('div');
   actionStack.className = 'action-stack';
 
+  const taskName = task.task || task.activity || task.phase || '작업';
+
   if (hasChildren) {
     const toggleButton = document.createElement('button');
-    const toggleLabel = task.expanded ? '접기' : '펼치기';
+    const toggleLabel = `${taskName} ${task.expanded ? '접기' : '펼치기'}`;
     toggleButton.type = 'button';
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
@@ -453,20 +492,27 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     actionStack.appendChild(placeholder);
   }
 
+  const dragHandle = document.createElement('div');
+  dragHandle.className = 'drag-handle';
+  dragHandle.setAttribute('aria-hidden', 'true');
+  dragHandle.title = '드래그하여 순서 변경';
+  dragHandle.textContent = '⋮⋮';
+
   const isLeaf = task.depth >= 3;
-  const addChildButton = createActionButton('하위 추가', '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : '하위 추가');
+  const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
   addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
   }
 
-  const editButton = createActionButton('편집', '✎', 'edit', '편집');
+  const editButton = createActionButton(`${taskName} 편집`, '✎', 'edit', `${taskName} 편집`);
   editButton.setAttribute('aria-haspopup', 'dialog');
 
-  const deleteButton = createActionButton('삭제', '🗑', 'delete', '삭제');
+  const deleteButton = createActionButton(`${taskName} 삭제`, '🗑', 'delete', `${taskName} 삭제`);
 
   actionStack.append(
+    dragHandle,
     addChildButton,
     editButton,
     deleteButton
@@ -553,11 +599,15 @@ function renderEditorRow(anchorId) {
   saveButton.type = 'submit';
   saveButton.className = 'primary-button';
   saveButton.textContent = '저장';
+  saveButton.title = '저장 (Enter)';
+  saveButton.setAttribute('aria-keyshortcuts', 'Enter');
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
   cancelButton.className = 'secondary-button';
   cancelButton.dataset.action = 'cancel-editor';
   cancelButton.textContent = '취소';
+  cancelButton.title = '취소 (Esc)';
+  cancelButton.setAttribute('aria-keyshortcuts', 'Escape');
   // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
   cancelButton.addEventListener('click', () => closeEditor());
   const errors = document.createElement('div');
@@ -575,21 +625,6 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = {
-    phase: 'editor-phase',
-    activity: 'editor-activity',
-    task: 'editor-task',
-    categoryLarge: 'editor-category-large',
-    categoryMedium: 'editor-category-medium',
-    documentName: 'editor-document-name',
-    owner: 'editor-owner',
-    supportTeam: 'editor-support-team',
-    plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
-    actualStartDate: 'editor-actual-start',
-    actualEndDate: 'editor-actual-end'
-  };
-
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
   const fieldId = `editor-input-${field}-${Date.now()}`;
@@ -608,7 +643,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   }
   const input = document.createElement('input');
   input.id = fieldId;
-  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
+  input.setAttribute('data-testid', EDITOR_FIELD_TEST_IDS[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
   if (type === 'text') {
@@ -725,7 +760,8 @@ function createActualProgressCellContent(task, taskMetrics) {
   label.htmlFor = fieldId;
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
-  srOnly.textContent = '실적진척상태';
+  const taskName = task.task || task.activity || task.phase || '작업';
+  srOnly.textContent = `${taskName} 실적진척상태`;
   const select = document.createElement('select');
   select.id = fieldId;
   select.dataset.inlineProgress = task.id;
@@ -741,9 +777,12 @@ function createActualProgressCellContent(task, taskMetrics) {
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
   if (warning) {
     const validation = document.createElement('div');
+    validation.id = `actual-progress-error-${task.id}`;
     validation.className = 'validation-message';
     validation.textContent = warning;
     label.appendChild(validation);
+    select.setAttribute('aria-invalid', 'true');
+    select.setAttribute('aria-describedby', validation.id);
   }
   return label;
 }
@@ -872,7 +911,7 @@ function saveEditor() {
   }
 
   if (state.editor.mode === 'edit' && state.editor.targetId) {
-    const index = state.tasks.findIndex((task) => task.id === state.editor.targetId);
+    const index = getTaskIndexById(state.editor.targetId);
     if (index >= 0) {
       state.tasks[index] = {
         ...state.tasks[index],
@@ -951,6 +990,14 @@ function validateDraft(draft, depth) {
     return errors;
   }
   const sanitized = sanitizeDraft(draft);
+
+  EDITABLE_FIELDS.forEach((field) => {
+    if (/[<>]/.test(sanitized[field])) {
+      const label = CSV_FIELD_LABELS[field] || field;
+      errors.push(`${label} 항목에는 HTML 태그 문자를 사용할 수 없습니다.`);
+    }
+  });
+
   if (!sanitized.phase && depth === 1) {
     errors.push('최상위 작업은 단계 값을 입력해야 합니다.');
   }
@@ -1066,7 +1113,7 @@ function calculatePlannedProgressRatio(baseDate, startDate, endDate, durationDay
   if (compareDateStrings(baseDate, endDate) >= 0) {
     return 1;
   }
-  // ⚡ Bolt: Reuse passed durationDays if available to avoid redundant Date parsing and calculations
+  // Bolt: Reuse passed durationDays if available to avoid redundant Date parsing and calculations.
   const total = durationDays !== undefined ? durationDays : calculateDurationDays(startDate, endDate);
   if (total <= 0) {
     return 1;
@@ -1098,10 +1145,7 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
-  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
-  const taskById = new Map();
-  state.tasks.forEach((task) => taskById.set(task.id, task));
-
+  // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -1114,38 +1158,23 @@ function getVisibleTasks() {
     }
   });
 
-  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
-  const visited = new Set();
-  return visible.filter((task) => {
-    let parentId = task.parentId;
-    visited.clear();
-    visited.add(task.id);
-    while (parentId) {
-      if (visited.has(parentId)) {
-        break;
-      }
-      visited.add(parentId);
-      const parent = taskById.get(parentId);
-      if (parent && !parent.expanded) {
-        return false;
-      }
-      parentId = parent?.parentId;
-    }
-    return true;
-  });
+  return visible;
 }
 
 function insertTaskAfter(task, afterId) {
   if (!afterId) {
     state.tasks.unshift(task);
+    invalidateTaskIndexCache();
     return;
   }
-  const index = state.tasks.findIndex((candidate) => candidate.id === afterId);
+  const index = getTaskIndexById(afterId);
   if (index === -1) {
     state.tasks.push(task);
+    invalidateTaskIndexCache();
     return;
   }
   state.tasks.splice(index + 1, 0, task);
+  invalidateTaskIndexCache();
 }
 
 function deleteTaskAndDescendants(taskId) {
@@ -1176,6 +1205,7 @@ function deleteTaskAndDescendants(taskId) {
     }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
+  invalidateTaskIndexCache();
 }
 
 function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
@@ -1186,12 +1216,14 @@ function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
   }
   const draggedBlock = state.tasks.slice(draggedRange.startIndex, draggedRange.endIndex + 1);
   state.tasks.splice(draggedRange.startIndex, draggedBlock.length);
+  invalidateTaskIndexCache();
 
   const refreshedTargetRange = getTaskSubtreeRange(targetId);
   const insertionIndex = refreshedTargetRange
     ? (placeAfter ? refreshedTargetRange.endIndex + 1 : refreshedTargetRange.startIndex)
     : state.tasks.length;
   state.tasks.splice(insertionIndex, 0, ...draggedBlock);
+  invalidateTaskIndexCache();
 }
 
 function canReorderWithinLevel(draggedTask, targetTask) {
@@ -1214,7 +1246,7 @@ function getLastRootTaskId() {
 }
 
 function getLastDescendantId(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return taskId;
   }
@@ -1230,7 +1262,7 @@ function getLastDescendantId(taskId) {
 }
 
 function getTaskSubtreeRange(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return null;
   }
@@ -1248,14 +1280,16 @@ function getTaskSubtreeRange(taskId) {
 }
 
 function findTask(taskId) {
-  return state.tasks.find((task) => task.id === taskId) || null;
+  const index = getTaskIndexById(taskId);
+  return index !== -1 ? state.tasks[index] : null;
 }
 
 function persistState() {
+  // ⚡ Bolt: Remove redundant O(N) object cloning before JSON.stringify to prevent massive memory allocations on every keystroke
   const payload = {
     projectName: state.projectName,
     baseDate: state.baseDate,
-    tasks: state.tasks.map((task) => ({ ...task }))
+    tasks: state.tasks
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
@@ -1269,18 +1303,19 @@ function persistState() {
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? parseSafeJson(raw) : null;
   } catch {
     return null;
   }
 }
 
 function hydrateState(savedState) {
-  state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
+  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, 1000);
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
     : [];
+  invalidateTaskIndexCache();
 }
 
 function normalizeStoredTask(task) {
@@ -1300,10 +1335,14 @@ async function loadSeedTasks() {
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
-    return await response.json();
+    return parseSafeJson(await response.text());
   } catch {
     return [];
   }
+}
+
+function parseSafeJson(text) {
+  return JSON.parse(text, (key, value) => (UNSAFE_JSON_KEYS.has(key) ? undefined : value));
 }
 
 function getPlannedEndDateValue(task) {
@@ -1375,45 +1414,51 @@ function validateImportedTask(task, index) {
   }
 }
 
+const createNormalizedExternalRecord = (task, defaults = {}) => ({
+  ...createEmptyTaskDraft(),
+  ...defaults,
+  phase: task.phase || defaults.phase || '',
+  activity: task.activity || defaults.activity || '',
+  task: task.task || defaults.task || '',
+  categoryLarge: task.categoryLarge || '',
+  categoryMedium: task.categoryMedium || '',
+  documentName: task.documentName || '',
+  owner: task.owner || '',
+  supportTeam: task.supportTeam || '',
+  plannedStartDate: task.plannedStartDate || '',
+  plannedEndDate: getPlannedEndDateValue(task),
+  actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
+  actualStartDate: task.actualStartDate || '',
+  actualEndDate: task.actualEndDate || ''
+});
+
+function getPhaseKey(task, index) {
+  return task.phase || `__phase-${index}`;
+}
+
+function getActivityKey(task, index) {
+  return `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
+}
+
+function ensureSyntheticNode(map, key, idPrefix, index, pushCallback) {
+  if (!map.has(key)) {
+    const id = createId(`${idPrefix}-${index}`);
+    pushCallback(id);
+    map.set(key, id);
+  }
+  return map.get(key);
+}
+
 function buildHierarchicalTasksFromFlatSource(sourceTasks) {
   const normalized = [];
   const phaseMap = new Map();
   const activityMap = new Map();
-  const getPhaseKey = (task, index) => task.phase || `__phase-${index}`;
-  const getActivityKey = (task, index) => `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
-
-  const normalizeExternalRecord = (task, defaults = {}) => ({
-    ...createEmptyTaskDraft(),
-    ...defaults,
-    phase: task.phase || defaults.phase || '',
-    activity: task.activity || defaults.activity || '',
-    task: task.task || defaults.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || ''
-  });
-
-  const registerPhase = (phaseKey, phaseId) => {
-    phaseMap.set(phaseKey, phaseId);
-  };
-
-  const registerActivity = (activityKey, activityId) => {
-    activityMap.set(activityKey, activityId);
-  };
 
   const ensureSyntheticPhase = (task, index) => {
     const phaseKey = getPhaseKey(task, index);
-    if (!phaseMap.has(phaseKey)) {
-      const phaseId = createId(`phase-${index}`);
+    return ensureSyntheticNode(phaseMap, phaseKey, 'phase', index, (phaseId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase }),
+        ...createNormalizedExternalRecord({ phase: task.phase }),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1421,17 +1466,14 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerPhase(phaseKey, phaseId);
-    }
-    return phaseMap.get(phaseKey);
+    });
   };
 
   const ensureSyntheticActivity = (task, index, parentPhaseId) => {
     const key = getActivityKey(task, index);
-    if (!activityMap.has(key)) {
-      const activityId = createId(`activity-${index}`);
+    return ensureSyntheticNode(activityMap, key, 'activity', index, (activityId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase, activity: task.activity }),
+        ...createNormalizedExternalRecord({ phase: task.phase, activity: task.activity }),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1439,9 +1481,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerActivity(key, activityId);
-    }
-    return activityMap.get(key);
+    });
   };
 
   sourceTasks.forEach((task, index) => {
@@ -1452,7 +1492,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasPhase && !hasActivity && !hasTask) {
       const phaseId = createId(`phase-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1460,7 +1500,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerPhase(getPhaseKey(task, index), phaseId);
+      phaseMap.set(getPhaseKey(task, index), phaseId);
       return;
     }
 
@@ -1469,7 +1509,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasActivity && !hasTask) {
       const activityId = createId(`activity-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1477,13 +1517,13 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerActivity(getActivityKey(task, index), activityId);
+      activityMap.set(getActivityKey(task, index), activityId);
       return;
     }
 
     const parentActivityId = hasTask ? ensureSyntheticActivity(task, index, parentPhaseId) : parentPhaseId;
     normalized.push({
-      ...normalizeExternalRecord(task),
+      ...createNormalizedExternalRecord(task),
       id: createId(`leaf-${index}`),
       parentId: hasTask ? parentActivityId : parentPhaseId,
       depth: hasTask ? 3 : hasActivity ? 2 : 1,
@@ -1559,6 +1599,7 @@ async function handleCsvImport(event) {
     const text = await file.text();
     const imported = parseCsv(text);
     state.tasks = validateImportedTasks(normalizeImportedTasks(imported));
+    invalidateTaskIndexCache();
     closeEditor();
     persistState();
     renderAll();
@@ -1611,7 +1652,7 @@ function validateCsvCell(value, fieldName) {
   if (/[<>]/.test(normalized)) {
     throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
   }
-  return normalized;
+  return sanitizeCsvFormulaValue(normalized);
 }
 
 function validateCsvInternalValue(value, fieldName) {
@@ -2082,7 +2123,7 @@ function isValidDateString(value) {
     return false;
   }
   const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
-  // ⚡ Bolt: Increase cache limits to prevent cache thrashing in large loops
+  // Bolt: Increase cache limits to prevent cache thrashing in large loops.
   if (validDateCache.size < 10000) {
     validDateCache.set(value, isValid);
   }
@@ -2096,12 +2137,12 @@ function dateStringToUtcMs(value) {
   if (dateToUtcMsCache.has(value)) {
     return dateToUtcMsCache.get(value);
   }
-  // ⚡ Bolt: Zero-allocation date parsing to avoid array GC in tight rendering loops
+  // Bolt: Avoid split().map() array allocations in tight rendering loops.
   const year = Number(value.substring(0, 4));
   const month = Number(value.substring(5, 7));
   const day = Number(value.substring(8, 10));
   const ms = Date.UTC(year, month - 1, day);
-  // ⚡ Bolt: Increase cache limits to prevent cache thrashing in large loops
+  // Bolt: Increase cache limits to prevent cache thrashing in large loops.
   if (dateToUtcMsCache.size < 10000) {
     dateToUtcMsCache.set(value, ms);
   }
@@ -2174,7 +2215,10 @@ function formatDecimal(value, digits) {
 }
 
 function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
+  if (!formatNumber.formatter) {
+    formatNumber.formatter = new Intl.NumberFormat('ko-KR');
+  }
+  return formatNumber.formatter.format(Number(value || 0));
 }
 
 const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
@@ -2194,4 +2238,9 @@ function toKebab(value) {
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/_/g, '-')
     .toLowerCase();
+}
+
+// Export for testing
+if (typeof window !== 'undefined') {
+  window.validateDraft = validateDraft;
 }

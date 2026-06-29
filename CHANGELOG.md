@@ -9,23 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Imported the upstream Strix quick-scan workflow, helper scripts, and
-  source-regression tests for this repository.
 - Added companion dependency-review and OSV workflows so Strix
   manifest-only findings can be verified against authoritative PR-head
   checks.
-- Added operator documentation for Strix workflow behavior and reusable
-  warning/deprecation root-cause triage guidance.
-- Added `requirements-strix-ci.txt` so Strix CI dependencies are pinned
-  and reviewable by companion SCA workflows.
+- Added workflow ownership regression coverage so central review
+  workflows stay inherited from `ContextualWisdomLab/.github`, not copied
+  into this repository.
 
 ### Changed
 
-- Adapted Strix scanning to the static ScopeWeave repository root and
-  documented Kubernetes/IaC as follow-up work rather than a current
-  blocker.
-- Kept workflow and `scripts/ci/` changes in Strix PR scope so security
-  automation changes are not silently skipped.
+- 데이터 테이블의 반복되는 액션 버튼에 컨텍스트 정보(작업명)를 포함한 명시적인 ARIA 레이블을 추가하고, 유효성 검사 에러를 폼 필드에 연결하여 접근성을 개선했습니다.
+- Centralized OpenCode Review, Strix Security Scan, PR Review Merge
+  Scheduler, failed-check explanation, and coverage evidence ownership in
+  `ContextualWisdomLab/.github`, removing repository-local workflow,
+  script, and requirements copies.
+- Documented Kubernetes/IaC as follow-up work rather than a current
+  blocker for this static app.
 
 ## [1.0.0] - 2026-04-20
 
