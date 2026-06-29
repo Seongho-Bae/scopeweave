@@ -23,8 +23,9 @@ and a weekly Gantt overlay.
 - Runtime stays static-host compatible for GitHub Pages.
 - Runtime dependencies are forbidden; CI/dev-only automation under
   `.github/`, `scripts/`, `tests/`, and `docs/` is allowed.
-- Strix security scanning is imported as a repository scan workflow,
-  not as a runtime blocker entity.
+- OpenCode Review, Strix Security Scan, and PR Review Merge Scheduler are
+  inherited from the organization-level required workflows in
+  `ContextualWisdomLab/.github`, not copied into this repository.
 
 ## Local development
 
@@ -39,11 +40,7 @@ Open `http://127.0.0.1:4173`.
 
 ```bash
 npm run test:e2e
-bash scripts/ci/test_strix_quick_gate.sh
-python3 -m pytest \
-  tests/config/test_strix_batch_size_source.py \
-  tests/config/test_strix_deleted_file_scope_source.py \
-  tests/config/test_strix_static_repo_adaptations.py
+python3 -m pytest tests/config
 ```
 
 ## Persistence model
@@ -56,31 +53,16 @@ python3 -m pytest \
   are excluded from external `wbs.json` sync so the saved JSON remains
   in the user-facing schema.
 
-## Strix security workflow
+## Security workflow
 
-- `.github/workflows/strix.yml` runs the upstream-derived Strix quick
-  scan against the repository root (`./`).
-- Pull requests without `STRIX_LLM` and `LLM_API_KEY` skip cleanly;
-  `push`/`schedule` runs fail closed if those required secrets are
-  missing.
-- If the configured Strix model resolves to Vertex AI and `GCP_SA_KEY`
-  is absent, pull requests now skip cleanly while `push`/`schedule`
-  continue to fail closed.
-- CI-only Python dependencies are pinned in `requirements-strix-ci.txt`
-  so companion supply-chain workflows can review the same dependency
-  surface that Strix installs.
-- Companion workflows `.github/workflows/dependency-review.yml` and
-  `.github/workflows/osvscanner.yml` provide the authoritative
-  manifest-only verification lane that the Strix gate expects.
-- The dependency-review lane no-ops successfully until repository-level
-  dependency graph support is enabled, instead of failing every PR on a
-  settings-only prerequisite.
-- Workflow and `scripts/ci/` changes remain inside the Strix scannable
-  PR scope for this repo; they are not silently skipped.
-- Kubernetes/IaC coverage is documented as follow-up work; this static
-  repo intentionally does not add deployment manifests just to satisfy
-  Strix.
+- Organization required workflows provide OpenCode Review, Strix Security
+  Scan, PR Review Merge Scheduler, failed-check explanation, and coverage
+  evidence.
+- Repository-local workflows remain for ScopeWeave-specific static delivery
+  and companion SCA lanes, including dependency review, OSV, Trivy,
+  Scorecard, and Pages.
+- Kubernetes/IaC coverage is documented as follow-up work; this static repo
+  intentionally does not add deployment manifests just to satisfy security
+  tooling.
 
-See `docs/user-guide.md` for operator guidance and
-`docs/operations/strix-workflow.md` for workflow behavior, secrets,
-artifacts, and adaptation notes.
+See `docs/user-guide.md` for operator guidance.
