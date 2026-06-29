@@ -125,6 +125,7 @@ const state = {
   },
   jsonSyncHandle: null,
   dragTaskId: null,
+  dragTaskCache: null,
   toastTimer: null,
   previousFocus: null
 };
@@ -284,6 +285,8 @@ function bindEvents() {
       return;
     }
 
+    // Cache task lookups for the drag-and-drop hot path.
+    state.dragTaskCache = new Map(state.tasks.map(t => [t.id, t]));
     state.dragTaskId = row.dataset.taskId;
     row.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
@@ -300,8 +303,8 @@ function bindEvents() {
       return;
     }
 
-    const draggedTask = findTask(state.dragTaskId);
-    const targetTask = findTask(row.dataset.taskId);
+    const draggedTask = (state.dragTaskCache ? state.dragTaskCache.get(state.dragTaskId) : null) || findTask(state.dragTaskId);
+    const targetTask = (state.dragTaskCache ? state.dragTaskCache.get(row.dataset.taskId) : null) || findTask(row.dataset.taskId);
     if (!draggedTask || !targetTask || !canReorderWithinLevel(draggedTask, targetTask)) {
       return;
     }
@@ -328,8 +331,8 @@ function bindEvents() {
     }
 
     event.preventDefault();
-    const targetTask = findTask(row.dataset.taskId);
-    const draggedTask = findTask(state.dragTaskId);
+    const targetTask = (state.dragTaskCache ? state.dragTaskCache.get(row.dataset.taskId) : null) || findTask(row.dataset.taskId);
+    const draggedTask = (state.dragTaskCache ? state.dragTaskCache.get(state.dragTaskId) : null) || findTask(state.dragTaskId);
     if (draggedTask && targetTask && canReorderWithinLevel(draggedTask, targetTask)) {
       const rect = row.getBoundingClientRect();
       const placeAfter = event.clientY >= rect.top + rect.height / 2;
@@ -2070,6 +2073,7 @@ function showToast(message) {
 
 function clearDragState() {
   state.dragTaskId = null;
+  state.dragTaskCache = null;
   elements.tableBody.querySelectorAll('.dragging').forEach((row) => row.classList.remove('dragging'));
   clearDropTargets();
 }

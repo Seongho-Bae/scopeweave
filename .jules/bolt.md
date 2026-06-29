@@ -44,6 +44,10 @@
 **Learning:** Using `split('-').map(Number)` in a tight date-parsing loop (`dateStringToUtcMs`) allocates new arrays and intermediate strings, causing garbage collection pressure. Additionally, recalculating the same date ranges in loops (like inside `calculatePlannedProgressRatio`) wastes CPU, and small caches (size < 500) cause cache thrashing for larger datasets.
 **Action:** Avoid `split().map()` array allocations in hot date parsing paths by reading fixed date segments directly. Reuse already computed durations inside iteration loops instead of recalculating them from dates. Size caches appropriately (e.g. 10000) when expecting a large volume of parsing.
 
+## 2026-06-25 - Fix O(N) array scan during drag-and-drop events
+**Learning:** During drag-and-drop, `dragover` events fire continuously at a high frequency. Calling an O(N) operation like `findTask` inside these events creates a severe performance bottleneck, causing UI stutter on large WBS lists.
+**Action:** Always map the target array to an O(1) Map inside `dragstart` (e.g. `state.dragTaskCache = new Map(...)`), perform cache lookups inside `dragover` and `drop`, and then set the cache to `null` inside `dragend`.
+
 ## 2026-06-29 - Task Lookup Optimization
 **Learning:** O(N) array scans (like `findIndex`) inside descendant traversal functions cause CPU bottlenecks on large DOM trees.
 **Action:** Replace `findIndex` loops with a lazily-initialized O(1) Map cache mapping task IDs to indices, explicitly invalidating it on array structure changes.
