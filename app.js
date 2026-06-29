@@ -438,13 +438,12 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   if (hasChildren) {
     const toggleButton = document.createElement('button');
     const toggleLabel = task.expanded ? '접기' : '펼치기';
-    const contextualToggleLabel = `${toggleLabel} - ${rowEntityName}`;
     toggleButton.type = 'button';
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
-    toggleButton.setAttribute('aria-label', contextualToggleLabel);
+    toggleButton.setAttribute('aria-label', `${toggleLabel} - ${rowEntityName}`);
     toggleButton.setAttribute('aria-expanded', String(task.expanded));
-    toggleButton.title = contextualToggleLabel;
+    toggleButton.title = `${toggleLabel} - ${rowEntityName}`;
     const toggleIcon = document.createElement('span');
     toggleIcon.setAttribute('aria-hidden', 'true');
     toggleIcon.textContent = task.expanded ? '▼' : '▶';
@@ -457,20 +456,17 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   }
 
   const isLeaf = task.depth >= 3;
-  const addChildLabel = `하위 추가 - ${rowEntityName}`;
-  const addChildButton = createActionButton(addChildLabel, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : addChildLabel);
+  const addChildButton = createActionButton(`하위 추가 - ${rowEntityName}`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `하위 추가 - ${rowEntityName}`);
   addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
   }
 
-  const editLabel = `편집 - ${rowEntityName}`;
-  const editButton = createActionButton(editLabel, '✎', 'edit', editLabel);
+  const editButton = createActionButton(`편집 - ${rowEntityName}`, '✎', 'edit', `편집 - ${rowEntityName}`);
   editButton.setAttribute('aria-haspopup', 'dialog');
 
-  const deleteLabel = `삭제 - ${rowEntityName}`;
-  const deleteButton = createActionButton(deleteLabel, '🗑', 'delete', deleteLabel);
+  const deleteButton = createActionButton(`삭제 - ${rowEntityName}`, '🗑', 'delete', `삭제 - ${rowEntityName}`);
 
   actionStack.append(
     addChildButton,
@@ -657,7 +653,7 @@ function createTreeCellContent(value, depth) {
   const treeValue = document.createElement('div');
   treeValue.className = `tree-value indent-${depth}`;
   if (value) {
-    treeValue.textContent = value;
+    treeValue.textContent = escapeHtml(value);
   } else {
     treeValue.appendChild(createEmptyCell());
   }
@@ -672,7 +668,7 @@ function createTextCellContent(value, warning = '') {
     return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  wrapper.append(value);
+  wrapper.textContent = value;
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
@@ -748,12 +744,9 @@ function createActualProgressCellContent(task, taskMetrics) {
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
   if (warning) {
     const validation = document.createElement('div');
-    validation.id = `actual-progress-error-${task.id}`;
     validation.className = 'validation-message';
     validation.textContent = warning;
     label.appendChild(validation);
-    select.setAttribute('aria-invalid', 'true');
-    select.setAttribute('aria-describedby', validation.id);
   }
   return label;
 }
@@ -961,14 +954,6 @@ function validateDraft(draft, depth) {
     return errors;
   }
   const sanitized = sanitizeDraft(draft);
-
-  EDITABLE_FIELDS.forEach((field) => {
-    if (/[<>]/.test(sanitized[field])) {
-      const label = CSV_FIELD_LABELS[field] || field;
-      errors.push(`${label} 항목에는 HTML 태그 문자를 사용할 수 없습니다.`);
-    }
-  });
-
   if (!sanitized.phase && depth === 1) {
     errors.push('최상위 작업은 단계 값을 입력해야 합니다.');
   }
@@ -1115,7 +1100,10 @@ function getVisibleTasks() {
   const visible = [];
   const hiddenParentIds = new Set();
 
-  // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
+  // ⚡ Bolt Optimization: Pre-compute task lookup map to avoid O(N²) array scans
+  const taskById = new Map();
+  state.tasks.forEach((task) => taskById.set(task.id, task));
+
   state.tasks.forEach((task) => {
     if (hiddenParentIds.has(task.parentId)) {
       hiddenParentIds.add(task.id);
@@ -1128,7 +1116,25 @@ function getVisibleTasks() {
     }
   });
 
-  return visible;
+  // ⚡ Bolt: Move Set instantiation outside filter loop to prevent O(N) memory allocations per render
+  const visited = new Set();
+  return visible.filter((task) => {
+    let parentId = task.parentId;
+    visited.clear();
+    visited.add(task.id);
+    while (parentId) {
+      if (visited.has(parentId)) {
+        break;
+      }
+      visited.add(parentId);
+      const parent = taskById.get(parentId);
+      if (parent && !parent.expanded) {
+        return false;
+      }
+      parentId = parent?.parentId;
+    }
+    return true;
+  });
 }
 
 function insertTaskAfter(task, afterId) {

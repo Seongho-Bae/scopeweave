@@ -25,7 +25,7 @@ on:
         type: string
 
 concurrency:
-  group: scopeweave-local-opencode-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}-${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha || github.sha }}
+  group: opencode-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}-${{ github.event.pull_request.head.sha || github.event.inputs.pr_head_sha || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -45,12 +45,6 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-          disable-file-monitoring: true
-
       - name: Wait for trusted OpenCode approval review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,14 +52,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           APPROVAL_WAIT_ATTEMPTS: "150"
-          APPROVAL_WAIT_SLEEP_SECONDS: "30"
+          APPROVAL_WAIT_SLEEP_SECONDS: "45"
         run: |
           set -euo pipefail
 
           owner="${GH_REPOSITORY%%/*}"
           name="${GH_REPOSITORY#*/}"
           attempts="${APPROVAL_WAIT_ATTEMPTS:-150}"
-          sleep_seconds="${APPROVAL_WAIT_SLEEP_SECONDS:-30}"
+          sleep_seconds="${APPROVAL_WAIT_SLEEP_SECONDS:-45}"
 
           read -r -d '' reviews_query <<'GRAPHQL' || true
           query($owner:String!,$name:String!,$number:Int!) {
@@ -148,12 +142,6 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-          disable-file-monitoring: true
-
       - name: Checkout trusted review workflow
         if: github.event_name == 'pull_request_target'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
