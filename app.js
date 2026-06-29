@@ -109,6 +109,7 @@ const state = {
   },
   jsonSyncHandle: null,
   dragTaskId: null,
+  dragTaskMap: null,
   toastTimer: null,
   previousFocus: null
 };
@@ -249,6 +250,8 @@ function bindEvents() {
     }
 
     state.dragTaskId = row.dataset.taskId;
+    // ⚡ Bolt: Cache tasks in an O(1) Map at the start of drag to avoid O(N) Array.find lookups in high-frequency dragover events
+    state.dragTaskMap = new Map(state.tasks.map(t => [t.id, t]));
     row.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', state.dragTaskId);
@@ -1240,6 +1243,9 @@ function getTaskSubtreeRange(taskId) {
 }
 
 function findTask(taskId) {
+  if (state.dragTaskMap) {
+    return state.dragTaskMap.get(taskId) || null;
+  }
   return state.tasks.find((task) => task.id === taskId) || null;
 }
 
@@ -2012,6 +2018,7 @@ function showToast(message) {
 
 function clearDragState() {
   state.dragTaskId = null;
+  state.dragTaskMap = null;
   elements.tableBody.querySelectorAll('.dragging').forEach((row) => row.classList.remove('dragging'));
   clearDropTargets();
 }
