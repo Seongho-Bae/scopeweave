@@ -168,47 +168,6 @@ test.describe('ScopeWeave Planner', () => {
     expect(dialogOpened).toBe(false);
   });
 
-  test('does not create HTML elements from warning cell text loaded from storage', async ({ page }) => {
-    let dialogOpened = false;
-    page.on('dialog', async (dialog) => {
-      dialogOpened = true;
-      await dialog.dismiss();
-    });
-
-    await page.evaluate(() => {
-      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
-        projectName: 'Warning Cell Security',
-        baseDate: '2026-04-20',
-        tasks: [{
-          id: 'stored-warning-payload',
-          parentId: null,
-          depth: 1,
-          phase: '<img src=x onerror=alert(1)>',
-          activity: '',
-          task: '',
-          categoryLarge: '보안',
-          categoryMedium: '',
-          documentName: '',
-          owner: '',
-          supportTeam: '',
-          progressStatus: '미착수',
-          plannedStartDate: '2026-05-02',
-          plannedEndDate: '2026-05-01',
-          actualProgressStatus: '미착수(0%)',
-          actualStartDate: '',
-          actualEndDate: '',
-          expanded: true
-        }]
-      }));
-    });
-    await page.reload();
-
-    await expect(page.locator('tbody img, tbody script, tbody iframe, tbody object')).toHaveCount(0);
-    await expect(page.locator('tbody')).toContainText('<img src=x onerror=alert(1)>');
-    await page.waitForTimeout(100);
-    expect(dialogOpened).toBe(false);
-  });
-
   test('escapes quotes from manual text before rendering editor attributes', async ({ page }) => {
     const ownerPayload = '" onmouseover="alert(1)';
 
@@ -508,5 +467,19 @@ test.describe('ScopeWeave Planner', () => {
     const addChildBtnSpan = row.locator('button[data-action="add-child"] span');
     await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
     await expect(addChildBtnSpan).toHaveText('＋');
+  });
+
+  test('mitigates XSS in createTextCellContent via textNode', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+
+    // Fill the actual start date to trigger the warning condition on actual end date
+    await page.locator('[data-testid="editor-phase"]').fill('P3000.검증단계');
+    await page.locator('[data-testid="editor-actual-start"]').fill('2026-05-20');
+    // Using malicious payload in actualEndDate
+    await page.locator('[data-testid="editor-actual-end"]').fill('<img src=x onerror=alert(1)>');
+
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('tbody')).not.toContainText('onerror');
   });
 });

@@ -54,4 +54,9 @@
 ## 2026-06-25 - Prevent DoS via type confusion in trim() and Prototype Injection in Lookup Maps
 **Vulnerability:** Missing string coercion before calling `.trim()` exposed the app to Denial of Service via type confusion, and `testIdMap` was vulnerable to prototype injection.
 **Learning:** In purely client-side static apps, relying on untyped `.trim()` calls on user input must be guarded by strict string coercion. Also, even locally scoped maps can be abused if untrusted keys are passed.
-**Prevention:** Rigorously enforce `String(value).trim()` during data sanitization, use `Object.assign(Object.create(null), { ... })` for all lookup maps, and insert warning-cell user text with `document.createTextNode()`.
+**Prevention:** Rigorously enforce `String(value).trim()` during data sanitization, and use `Object.assign(Object.create(null), { ... })` for all lookup maps.
+
+## 2026-06-25 - Prevent DOM-based XSS in createTextCellContent
+**Vulnerability:** The `createTextCellContent` function appended user-controlled input directly to the DOM using `wrapper.append(value)` when a warning parameter was present. This allowed arbitrary JavaScript execution (DOM XSS).
+**Learning:** Using `append()` with unsanitized strings directly into a DOM node is dangerous if the input can contain HTML payloads, as it will be interpreted as DOM content.
+**Prevention:** Always use `document.createTextNode(value)` before appending untrusted data, or use `.textContent` to safely render strings as text content instead of executable HTML.
