@@ -668,7 +668,7 @@ function createTextCellContent(value, warning = '') {
     return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  wrapper.textContent = value;
+  wrapper.append(value);
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;
@@ -1603,9 +1603,6 @@ function validateImportedTasks(tasks) {
 }
 
 function validateCsvCell(value, fieldName) {
-  if (typeof value === 'string' && /^\s*[=+\-@]/.test(value)) {
-    throw new Error(`${CSV_FIELD_LABELS[fieldName] || fieldName} 컬럼에 허용되지 않는 수식 패턴이 포함되어 있습니다.`);
-  }
   if (!value) return value;
   const normalized = String(value);
   const label = CSV_FIELD_LABELS[fieldName] || fieldName;
