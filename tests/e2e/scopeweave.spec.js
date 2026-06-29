@@ -438,6 +438,17 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+  test('renders placeholder text for form inputs to improve usability', async ({ page }) => {
+    await expect(page.getByTestId('project-name-input')).toHaveAttribute('placeholder', '프로젝트명을 입력하세요');
+
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await expect(page.getByTestId('editor-category-large')).toHaveAttribute('placeholder', '예: 설계');
+    await expect(page.getByTestId('editor-category-medium')).toHaveAttribute('placeholder', '예: 화면설계');
+    await expect(page.getByTestId('editor-document-name')).toHaveAttribute('placeholder', '예: 화면설계서');
+    await expect(page.getByTestId('editor-owner')).toHaveAttribute('placeholder', '예: 홍길동');
+    await expect(page.getByTestId('editor-support-team')).toHaveAttribute('placeholder', '예: 디자인팀');
+  });
+
   test('wraps text icons in aria-hidden span for screen reader accessibility', async ({ page }) => {
     await page.getByRole('button', { name: '최상위 작업 추가' }).click();
     await page.locator('[data-testid="editor-phase"]').fill('A11y Test');

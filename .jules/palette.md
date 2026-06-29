@@ -40,3 +40,8 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
+
+
+## 2026-06-25 - 폼 입력란의 사용성(usability) 개선을 위한 플레이스홀더(placeholder) 적용
+**학습(Learning):** 빈 폼 필드에 유용한 플레이스홀더 텍스트(예: "예: 홍길동")를 추가하면 예상되는 형식을 보여주어 사용자를 안내할 수 있습니다. 이는 UI를 어지럽히거나 추가적인 사용자 정의 CSS를 요구하지 않으면서도 혼란을 줄이고 양식 작성 속도를 높여줍니다.
+**행동(Action):** 예상되는 입력 형식이 완전히 명확하지 않은 경우, 텍스트 입력란에 설명이 포함된 `placeholder` 속성을 항상 제공해야 합니다.
