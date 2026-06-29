@@ -49,4 +49,4 @@
 
 ## 2026-06-24 - Improve contrast and add keyboard shortcut hints
 **Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit from explicit tooltip hints for shortcuts.
-**Action:** Check contrast ratios for muted/warning text and include `title` attributes for buttons with keyboard shortcuts.
+**Action:** Check contrast ratios for muted/warning text and include `aria-keyshortcuts` for buttons with keyboard shortcuts, with `title` as an optional pointer for mouse users.
