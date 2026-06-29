@@ -1239,7 +1239,7 @@ function getTaskSubtreeRange(taskId) {
   return { startIndex, endIndex };
 }
 
-// ⚡ Bolt: MRU index cache for findTask to avoid O(N) array search on every dragover event (firing 60 times/sec).
+// MRU index cache for repeated high-frequency drag lookups.
 const _findTaskIndexCache = [
   { id: null, index: -1 },
   { id: null, index: -1 }
