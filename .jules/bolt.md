@@ -35,6 +35,7 @@
 ## 2026-06-23 - Remove redundant O(N * Depth) visible tasks filtering loop
 **Learning:** `getVisibleTasks()` filters visible items by checking the expansion state of all ancestors for each task. The previous implementation correctly calculated visible tasks using a single O(N) top-down pass, but redundantly executed a secondary `.filter()` loop using a `taskById` map lookup and a tree traversal to root (`while(parentId)`). This unnecessary loop caused a performance bottleneck (taking ~167ms compared to ~13ms for the single-pass logic for 100 iterations of 2000 tasks).
 **Action:** When filtering hierarchical data based on parent state, always rely on a single top-down pass that propagates the hidden state (using a Set or property) instead of traversing the tree to the root for every single item in a redundant `.filter()` loop.
-## 2026-06-28 - Replace full .filter allocation with a backward search for finding the last element
+
+## 2026-06-28 - Replace O(N) .filter with O(1) backward search for finding last element
 **Learning:** Using `array.filter(condition)` to find the last item matching a condition creates an O(N) full array traversal and unnecessary memory allocation for the intermediate array. This is especially problematic on large datasets.
-**Action:** When only the last matching element is needed, use a simple `for` loop starting from `array.length - 1` and iterating backwards, applying an early `break` when the element is found to avoid unnecessary allocation and often reduce traversal work.
+**Action:** When only the last matching element is needed, always use a simple `for` loop starting from `array.length - 1` and iterating backwards, applying an early `break` when the element is found to achieve O(1) average performance.

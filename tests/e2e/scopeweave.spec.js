@@ -70,7 +70,7 @@ test.describe('ScopeWeave Planner', () => {
 
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
     await page.evaluate(() => {
-      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+      sessionStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
         projectName: 'Empty Scope',
         baseDate: '2026-04-20',
         tasks: []
@@ -256,7 +256,7 @@ test.describe('ScopeWeave Planner', () => {
   test('restores legacy planned end dates from local storage', async ({ page }) => {
     await page.evaluate(() => {
       const legacyPlannedEndField = 'plannedEnd' + 'Ddate';
-      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+      sessionStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
         projectName: 'Legacy Project',
         baseDate: '2026-05-10',
         tasks: [

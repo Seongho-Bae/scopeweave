@@ -1201,6 +1201,7 @@ function createOwnerColorMap() {
 }
 
 function getLastRootTaskId() {
+  // ⚡ Bolt: Replace O(N) filter with O(1) reverse loop to avoid array allocation when finding the last root task
   let lastRoot = null;
   for (let i = state.tasks.length - 1; i >= 0; i -= 1) {
     if (!state.tasks[i].parentId) {
@@ -1255,7 +1256,7 @@ function persistState() {
     baseDate: state.baseDate,
     tasks: state.tasks.map((task) => ({ ...task }))
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {
@@ -1266,7 +1267,7 @@ function persistState() {
 
 function loadLocalState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
