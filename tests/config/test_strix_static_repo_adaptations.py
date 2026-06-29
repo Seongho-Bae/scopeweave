@@ -87,10 +87,13 @@ def test_opencode_fallback_helper_emits_low_strix_reports(tmp_path: Path) -> Non
 def test_opencode_review_workflow_has_runner_hardening() -> None:
     workflow_source = OPENCODE_WORKFLOW.read_text(encoding="utf-8")
 
-    # assert 'timeout-minutes: 120' in workflow_source
-    # assert 'step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d' in workflow_source
-    # assert 'egress-policy: audit' in workflow_source
-    # assert 'disable-file-monitoring: true' in workflow_source
+    assert 'group: scopeweave-local-opencode-review-' in workflow_source
+    assert 'group: opencode-review-${{ github.event_name }}' not in workflow_source
+    assert 'timeout-minutes: 25' in workflow_source
+    assert 'timeout-minutes: 60' in workflow_source
+    assert 'step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411' in workflow_source
+    assert 'egress-policy: audit' in workflow_source
+    assert 'disable-file-monitoring: true' in workflow_source
 
 
 def test_kubernetes_deployment_uses_non_root_versioned_runtime() -> None:
