@@ -211,26 +211,14 @@ function bindEvents() {
     }
   });
 
-  elements.tableBody.addEventListener('input', (event) => {
-    const field = event.target.dataset.editorField;
-    if (!field || !state.editor.draft) {
-      return;
-    }
-    state.editor.draft[field] = event.target.value;
-    renderEditorValidation();
-  });
+  elements.tableBody.addEventListener('input', handleEditorFieldChange);
 
   elements.tableBody.addEventListener('change', (event) => {
     if (event.target.dataset.inlineProgress) {
       handleInlineProgressChange(event);
       return;
     }
-    const field = event.target.dataset.editorField;
-    if (!field || !state.editor.draft) {
-      return;
-    }
-    state.editor.draft[field] = event.target.value;
-    renderEditorValidation();
+    handleEditorFieldChange(event);
   });
 
   elements.tableBody.addEventListener('submit', (event) => {
@@ -762,6 +750,15 @@ function renderEditorValidation() {
   if (errorElement) {
     errorElement.textContent = errors.join(' ');
   }
+}
+
+function handleEditorFieldChange(event) {
+  const field = event.target.dataset.editorField;
+  if (!field || !state.editor.draft) {
+    return;
+  }
+  state.editor.draft[field] = event.target.value;
+  renderEditorValidation();
 }
 
 function handleInlineProgressChange(event) {
