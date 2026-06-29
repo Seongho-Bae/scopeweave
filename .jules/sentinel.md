@@ -50,3 +50,8 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-29 - Prevent Memory Exhaustion via Long Strings
+**Vulnerability:** The application was not enforcing length limits on string state values like `projectName` during state hydration or when accepting input events, allowing potential memory exhaustion / DoS attacks by modifying `localStorage` or bypassing HTML UI limits.
+**Learning:** Client-side UI constraints like `maxlength` attributes are insufficient security. Attackers can bypass them by manipulating DOM or modifying raw client-side storage states (e.g. `localStorage`), leading to unbounded memory usage in Javascript.
+**Prevention:** Always enforce strict length limits directly in the JavaScript application logic (e.g., using `.slice(0, MAX_LENGTH)`) on all text input event handlers and when hydrating client-side state from external or local storage. Also, carefully manage cursor placement when programmatically modifying user input values in event listeners to maintain a good user experience.

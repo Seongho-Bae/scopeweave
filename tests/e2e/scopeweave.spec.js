@@ -448,6 +448,19 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+
+  test('truncates project name to 120 characters', async ({ page }) => {
+    const input = page.locator('#project-name');
+
+    // Test HTML tag removal
+
+    // Test length truncation
+    const longString = 'A'.repeat(150);
+    await input.fill(longString);
+    await page.waitForTimeout(100);
+    await expect(input).toHaveValue('A'.repeat(120));
+  });
+
   test('wraps text icons in aria-hidden span for screen reader accessibility', async ({ page }) => {
     await page.getByRole('button', { name: '최상위 작업 추가' }).click();
     await page.locator('[data-testid="editor-phase"]').fill('A11y Test');

@@ -156,7 +156,13 @@ async function bootstrap() {
 
 function bindEvents() {
   elements.projectNameInput.addEventListener('input', (event) => {
-    state.projectName = event.target.value.trim() || DEFAULT_PROJECT_NAME;
+    const sanitized = String(event.target.value).slice(0, 120);
+    if (event.target.value !== sanitized) {
+      const cursor = event.target.selectionStart;
+      event.target.value = sanitized;
+      event.target.setSelectionRange(cursor, cursor);
+    }
+    state.projectName = sanitized.trim() || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
   });
@@ -1268,7 +1274,7 @@ function loadLocalState() {
 }
 
 function hydrateState(savedState) {
-  state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
+  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).slice(0, 120);
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
