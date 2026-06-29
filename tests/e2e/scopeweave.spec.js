@@ -472,7 +472,7 @@ test.describe('ScopeWeave Planner', () => {
 
 test.describe('ScopeWeave Planner - Palette UX Enhancements', () => {
   test('adds helpful placeholder to project name input', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
 
     const projectNameInput = page.getByTestId('project-name-input');
     await expect(projectNameInput).toHaveAttribute('placeholder', '예: 신규 서비스 구축 프로젝트');
@@ -480,7 +480,7 @@ test.describe('ScopeWeave Planner - Palette UX Enhancements', () => {
 
   test('adds helpful placeholder to project name input on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/');
+    await page.goto('./');
 
     const projectNameInput = page.getByTestId('project-name-input');
     await expect(projectNameInput).toHaveAttribute('placeholder', '예: 신규 서비스 구축 프로젝트');

@@ -46,6 +46,7 @@
 ## 2026-06-23 - Prevent DOM XSS false positives by using strict string interpolation
 **Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
 **Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
+
 ## 2026-06-26 - Project Name Placeholder
 **Learning:** Users can be unsure of what format or granularity is expected for a project name. Providing a concrete example placeholder (like '예: 신규 서비스 구축 프로젝트') gives immediate context and reduces cognitive load.
 **Action:** Add helpful, context-specific placeholders to empty text inputs, especially those representing broad or important fields like project names.
