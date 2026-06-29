@@ -46,7 +46,6 @@
 ## 2026-06-23 - Prevent DOM XSS false positives by using strict string interpolation
 **Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
 **Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
-
 ## 2026-06-27 - Add keyboard shortcut hints to tooltips
-**Learning:** Keyboard shortcut hints are more useful when they are discoverable to both mouse and assistive-technology users; `title` alone is hover-driven and unreliable for screen readers.
-**Action:** Pair optional title tooltips with `aria-keyshortcuts` on buttons that expose keyboard shortcuts.
+**Learning:** Consistently adding `title` attributes with keyboard shortcut hints to primary actions (e.g., `(Enter)`) and cancel actions (e.g., `(Esc)`) across form and dialog components significantly improves discoverability for power users.
+**Action:** Always include keyboard shortcut hints in `title` attributes for primary and cancel buttons when implementing or updating forms and dialogs.

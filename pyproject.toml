@@ -1,0 +1,13 @@
+[tool.interrogate]
+ignore-init-module = true
+ignore-magic = false
+ignore-module = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-nested-functions = false
+ignore-nested-classes = false
+ignore-setters = false
+fail-under = 100
+verbose = 0
+quiet = false
+color = true
