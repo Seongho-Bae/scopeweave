@@ -2065,7 +2065,8 @@ function createId(seed = Date.now()) {
       return `task-${arr[0].toString(16)}-${arr[1].toString(16)}`;
     }
   }
-  return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
+  // Fail securely instead of generating a predictable identifier
+  throw new Error('Cryptographically secure random number generation is not available.');
 }
 
 // ⚡ Bolt: Memoize date parsing and validation to reduce GC pressure and expensive Date allocations in tight render loops
