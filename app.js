@@ -250,8 +250,8 @@ function bindEvents() {
     }
 
     state.dragTaskId = row.dataset.taskId;
-    // ⚡ Bolt: Cache tasks in an O(1) Map at the start of drag to avoid O(N) Array.find lookups in high-frequency dragover events
-    state.dragTaskMap = new Map(state.tasks.map(t => [t.id, t]));
+    // Cache tasks once per drag lifecycle for high-frequency dragover lookups.
+    state.dragTaskMap = new Map(state.tasks.map((task) => [task.id, task]));
     row.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', state.dragTaskId);
