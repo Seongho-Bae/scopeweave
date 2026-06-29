@@ -19,7 +19,7 @@
 **Action:** Keep sensitive values out of `localStorage`, or use properly designed encryption with key management when sensitive local persistence is unavoidable. When generating CSVs from user input, always sanitize values by escaping double quotes, enclosing in quotes if needed, and prefixing potentially malicious formulas with a leading single quote.
 ## 2026-06-16 - CI dependency resolution
 **Learning:** During test runs, upstream tools like Strix Agent might occasionally fail due to unpinned or missing transitive dependencies (like `tzlocal` dropping out of `scrubadub` or `dateparser`).
-**Action:** When CI pipelines fail with `ModuleNotFoundError` for packages like `tzlocal` that should be present, explicitly append them to the CI dependency requirements files (e.g. `requirements-strix-ci.txt`).
+**Action:** When CI pipelines fail with `ModuleNotFoundError` for packages like `tzlocal` that should be present, update the owning workflow's dependency contract. OpenCode Review, Strix Security Scan, and PR Review Merge Scheduler dependencies are owned centrally in `ContextualWisdomLab/.github`.
 ## 2026-06-17 - Disable unavailable actions instead of hiding or erroring
 **Learning:** Users can be confused if actions like 'Export CSV' or 'Gantt Chart' are clickable but do nothing (or show an error) when there's no data. Disabling the buttons with a clear `title` tooltip improves the experience.
 **Action:** Proactively disable buttons that require a certain state (like having tasks or browser API support) and explain the reason via a `title` tooltip.
@@ -49,3 +49,11 @@
 ## 2026-06-24 - Provide Context for Repeating Inline Actions
 **Learning:** Repeating form fields and action buttons in a data grid (like "Edit", "Delete", or inline selects) sound identical to screen reader users (e.g., "편집") without the row context.
 **Action:** When working with inline action buttons or fields in a data grid, extract an identifying entity name from the row data and append/prepend it to the `aria-label` or `sr-only` label text to provide clear context (e.g., "편집 - [작업명]").
+
+## 2026-06-24 - Improve contrast and add keyboard shortcut hints
+**Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit from explicit tooltip hints for shortcuts.
+**Action:** Check contrast ratios for muted/warning text and include `aria-keyshortcuts` for buttons with keyboard shortcuts, with `title` as an optional pointer for mouse users.
+
+## 2026-06-29 - Add drag handle for task reordering
+**Learning:** Hidden interactions (like drag-and-dropping rows without a visible handle) are poorly discoverable and can lead to accidental activation of other row actions. Also, warning colors often fail accessibility contrast ratios against light background tones if not checked.
+**Action:** Always provide visual affordances (like drag handles) for complex interactions like drag-and-drop, and verify color contrast ratios for dynamically generated badges or warnings.

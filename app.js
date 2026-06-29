@@ -75,6 +75,7 @@ const CSV_HEADERS = [
   '__depth'
 ];
 const CSV_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
+const UNSAFE_JSON_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   phase: '단계',
@@ -90,6 +91,21 @@ const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   actualProgressStatus: '실적진척상태',
   actualStartDate: '실적시작일',
   actualEndDate: '실적종료일'
+}));
+
+const EDITOR_FIELD_TEST_IDS = Object.freeze(Object.assign(Object.create(null), {
+  phase: 'editor-phase',
+  activity: 'editor-activity',
+  task: 'editor-task',
+  categoryLarge: 'editor-category-large',
+  categoryMedium: 'editor-category-medium',
+  documentName: 'editor-document-name',
+  owner: 'editor-owner',
+  supportTeam: 'editor-support-team',
+  plannedStartDate: 'editor-planned-start',
+  plannedEndDate: 'editor-planned-end',
+  actualStartDate: 'editor-actual-start',
+  actualEndDate: 'editor-actual-end'
 }));
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
@@ -112,6 +128,25 @@ const state = {
   toastTimer: null,
   previousFocus: null
 };
+
+
+// ⚡ Bolt: Cache task IDs to indices for O(1) lookups instead of O(N) array scans
+let taskIdToIndexCache = null;
+
+function invalidateTaskIndexCache() {
+  taskIdToIndexCache = null;
+}
+
+function getTaskIndexById(taskId) {
+  if (!taskIdToIndexCache) {
+    taskIdToIndexCache = new Map();
+    for (let i = 0; i < state.tasks.length; i++) {
+      taskIdToIndexCache.set(state.tasks[i].id, i);
+    }
+  }
+  const index = taskIdToIndexCache.get(taskId);
+  return index !== undefined ? index : -1;
+}
 
 const elements = {
   projectNameInput: document.getElementById('project-name'),
@@ -149,6 +184,7 @@ async function bootstrap() {
   } else {
     const seedData = await loadSeedTasks();
     state.tasks = normalizeImportedTasks(seedData);
+    invalidateTaskIndexCache();
   }
 
   renderAll();
@@ -206,7 +242,7 @@ function bindEvents() {
       return;
     }
 
-    if (!event.target.closest('input, select, button, label')) {
+    if (!event.target.closest('input, select, button, label, .drag-handle')) {
       openEditor({ mode: 'edit', targetId: taskId });
     }
   });
@@ -310,6 +346,7 @@ function renderAll() {
   const metrics = computeTaskMetrics();
 
   elements.projectNameInput.value = state.projectName;
+  document.title = state.projectName === DEFAULT_PROJECT_NAME ? DEFAULT_PROJECT_NAME : `${state.projectName} - ${DEFAULT_PROJECT_NAME}`;
   elements.baseDateInput.value = state.baseDate;
   elements.totalDays.textContent = `${formatNumber(metrics.totalDays)}일`;
   elements.plannedProgress.textContent = formatPercent(metrics.totalWeightedPlannedRatio * 100, 2);
@@ -455,6 +492,12 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
     actionStack.appendChild(placeholder);
   }
 
+  const dragHandle = document.createElement('div');
+  dragHandle.className = 'drag-handle';
+  dragHandle.setAttribute('aria-hidden', 'true');
+  dragHandle.title = '드래그하여 순서 변경';
+  dragHandle.textContent = '⋮⋮';
+
   const isLeaf = task.depth >= 3;
   const addChildButton = createActionButton(`하위 추가 - ${rowEntityName}`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `하위 추가 - ${rowEntityName}`);
   addChildButton.disabled = isLeaf;
@@ -469,6 +512,7 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const deleteButton = createActionButton(`삭제 - ${rowEntityName}`, '🗑', 'delete', `삭제 - ${rowEntityName}`);
 
   actionStack.append(
+    dragHandle,
     addChildButton,
     editButton,
     deleteButton
@@ -555,11 +599,15 @@ function renderEditorRow(anchorId) {
   saveButton.type = 'submit';
   saveButton.className = 'primary-button';
   saveButton.textContent = '저장';
+  saveButton.title = '저장 (Enter)';
+  saveButton.setAttribute('aria-keyshortcuts', 'Enter');
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
   cancelButton.className = 'secondary-button';
   cancelButton.dataset.action = 'cancel-editor';
   cancelButton.textContent = '취소';
+  cancelButton.title = '취소 (Esc)';
+  cancelButton.setAttribute('aria-keyshortcuts', 'Escape');
   // ⚡ Bolt: Attach listener once during creation to prevent O(N) accumulation in renderEditorValidation
   cancelButton.addEventListener('click', () => closeEditor());
   const errors = document.createElement('div');
@@ -577,21 +625,6 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = {
-    phase: 'editor-phase',
-    activity: 'editor-activity',
-    task: 'editor-task',
-    categoryLarge: 'editor-category-large',
-    categoryMedium: 'editor-category-medium',
-    documentName: 'editor-document-name',
-    owner: 'editor-owner',
-    supportTeam: 'editor-support-team',
-    plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
-    actualStartDate: 'editor-actual-start',
-    actualEndDate: 'editor-actual-end'
-  };
-
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
   const fieldId = `editor-input-${field}-${Date.now()}`;
@@ -610,7 +643,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   }
   const input = document.createElement('input');
   input.id = fieldId;
-  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
+  input.setAttribute('data-testid', EDITOR_FIELD_TEST_IDS[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
   if (type === 'text') {
@@ -878,7 +911,7 @@ function saveEditor() {
   }
 
   if (state.editor.mode === 'edit' && state.editor.targetId) {
-    const index = state.tasks.findIndex((task) => task.id === state.editor.targetId);
+    const index = getTaskIndexById(state.editor.targetId);
     if (index >= 0) {
       state.tasks[index] = {
         ...state.tasks[index],
@@ -1018,7 +1051,7 @@ function computeTaskMetrics() {
   state.tasks.forEach((task) => {
     const durationDays = durationCache.get(task.id);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
-    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
+    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate, durationDays);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
     const weightedPlannedRatio = weightRatio * plannedProgressRatio;
     const weightedActualRatio = weightRatio * actualProgressRatio;
@@ -1070,7 +1103,7 @@ function deriveProgressState(task, baseDate) {
   return { label: '진행전', className: 'before' };
 }
 
-function calculatePlannedProgressRatio(baseDate, startDate, endDate) {
+function calculatePlannedProgressRatio(baseDate, startDate, endDate, durationDays) {
   if (!baseDate || !startDate || !endDate) {
     return 0;
   }
@@ -1080,7 +1113,8 @@ function calculatePlannedProgressRatio(baseDate, startDate, endDate) {
   if (compareDateStrings(baseDate, endDate) >= 0) {
     return 1;
   }
-  const total = calculateDurationDays(startDate, endDate);
+  // Bolt: Reuse passed durationDays if available to avoid redundant Date parsing and calculations.
+  const total = durationDays !== undefined ? durationDays : calculateDurationDays(startDate, endDate);
   if (total <= 0) {
     return 1;
   }
@@ -1130,14 +1164,17 @@ function getVisibleTasks() {
 function insertTaskAfter(task, afterId) {
   if (!afterId) {
     state.tasks.unshift(task);
+    invalidateTaskIndexCache();
     return;
   }
-  const index = state.tasks.findIndex((candidate) => candidate.id === afterId);
+  const index = getTaskIndexById(afterId);
   if (index === -1) {
     state.tasks.push(task);
+    invalidateTaskIndexCache();
     return;
   }
   state.tasks.splice(index + 1, 0, task);
+  invalidateTaskIndexCache();
 }
 
 function deleteTaskAndDescendants(taskId) {
@@ -1168,6 +1205,7 @@ function deleteTaskAndDescendants(taskId) {
     }
   }
   state.tasks = state.tasks.filter((task) => !idsToDelete.has(task.id));
+  invalidateTaskIndexCache();
 }
 
 function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
@@ -1178,12 +1216,14 @@ function reorderTaskWithinLevel(draggedId, targetId, placeAfter = true) {
   }
   const draggedBlock = state.tasks.slice(draggedRange.startIndex, draggedRange.endIndex + 1);
   state.tasks.splice(draggedRange.startIndex, draggedBlock.length);
+  invalidateTaskIndexCache();
 
   const refreshedTargetRange = getTaskSubtreeRange(targetId);
   const insertionIndex = refreshedTargetRange
     ? (placeAfter ? refreshedTargetRange.endIndex + 1 : refreshedTargetRange.startIndex)
     : state.tasks.length;
   state.tasks.splice(insertionIndex, 0, ...draggedBlock);
+  invalidateTaskIndexCache();
 }
 
 function canReorderWithinLevel(draggedTask, targetTask) {
@@ -1206,7 +1246,7 @@ function getLastRootTaskId() {
 }
 
 function getLastDescendantId(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return taskId;
   }
@@ -1222,7 +1262,7 @@ function getLastDescendantId(taskId) {
 }
 
 function getTaskSubtreeRange(taskId) {
-  const startIndex = state.tasks.findIndex((task) => task.id === taskId);
+  const startIndex = getTaskIndexById(taskId);
   if (startIndex === -1) {
     return null;
   }
@@ -1240,14 +1280,16 @@ function getTaskSubtreeRange(taskId) {
 }
 
 function findTask(taskId) {
-  return state.tasks.find((task) => task.id === taskId) || null;
+  const index = getTaskIndexById(taskId);
+  return index !== -1 ? state.tasks[index] : null;
 }
 
 function persistState() {
+  // ⚡ Bolt: Remove redundant O(N) object cloning before JSON.stringify to prevent massive memory allocations on every keystroke
   const payload = {
     projectName: state.projectName,
     baseDate: state.baseDate,
-    tasks: state.tasks.map((task) => ({ ...task }))
+    tasks: state.tasks
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
@@ -1261,18 +1303,19 @@ function persistState() {
 function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? parseSafeJson(raw) : null;
   } catch {
     return null;
   }
 }
 
 function hydrateState(savedState) {
-  state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
+  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, 1000);
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
     : [];
+  invalidateTaskIndexCache();
 }
 
 function normalizeStoredTask(task) {
@@ -1292,10 +1335,14 @@ async function loadSeedTasks() {
     if (!response.ok) {
       throw new Error('seed-load-failed');
     }
-    return await response.json();
+    return parseSafeJson(await response.text());
   } catch {
     return [];
   }
+}
+
+function parseSafeJson(text) {
+  return JSON.parse(text, (key, value) => (UNSAFE_JSON_KEYS.has(key) ? undefined : value));
 }
 
 function getPlannedEndDateValue(task) {
@@ -1367,45 +1414,51 @@ function validateImportedTask(task, index) {
   }
 }
 
+const createNormalizedExternalRecord = (task, defaults = {}) => ({
+  ...createEmptyTaskDraft(),
+  ...defaults,
+  phase: task.phase || defaults.phase || '',
+  activity: task.activity || defaults.activity || '',
+  task: task.task || defaults.task || '',
+  categoryLarge: task.categoryLarge || '',
+  categoryMedium: task.categoryMedium || '',
+  documentName: task.documentName || '',
+  owner: task.owner || '',
+  supportTeam: task.supportTeam || '',
+  plannedStartDate: task.plannedStartDate || '',
+  plannedEndDate: getPlannedEndDateValue(task),
+  actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
+  actualStartDate: task.actualStartDate || '',
+  actualEndDate: task.actualEndDate || ''
+});
+
+function getPhaseKey(task, index) {
+  return task.phase || `__phase-${index}`;
+}
+
+function getActivityKey(task, index) {
+  return `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
+}
+
+function ensureSyntheticNode(map, key, idPrefix, index, pushCallback) {
+  if (!map.has(key)) {
+    const id = createId(`${idPrefix}-${index}`);
+    pushCallback(id);
+    map.set(key, id);
+  }
+  return map.get(key);
+}
+
 function buildHierarchicalTasksFromFlatSource(sourceTasks) {
   const normalized = [];
   const phaseMap = new Map();
   const activityMap = new Map();
-  const getPhaseKey = (task, index) => task.phase || `__phase-${index}`;
-  const getActivityKey = (task, index) => `${getPhaseKey(task, index)}::${task.activity || `__activity-${index}`}`;
-
-  const normalizeExternalRecord = (task, defaults = {}) => ({
-    ...createEmptyTaskDraft(),
-    ...defaults,
-    phase: task.phase || defaults.phase || '',
-    activity: task.activity || defaults.activity || '',
-    task: task.task || defaults.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || ''
-  });
-
-  const registerPhase = (phaseKey, phaseId) => {
-    phaseMap.set(phaseKey, phaseId);
-  };
-
-  const registerActivity = (activityKey, activityId) => {
-    activityMap.set(activityKey, activityId);
-  };
 
   const ensureSyntheticPhase = (task, index) => {
     const phaseKey = getPhaseKey(task, index);
-    if (!phaseMap.has(phaseKey)) {
-      const phaseId = createId(`phase-${index}`);
+    return ensureSyntheticNode(phaseMap, phaseKey, 'phase', index, (phaseId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase }),
+        ...createNormalizedExternalRecord({ phase: task.phase }),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1413,17 +1466,14 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerPhase(phaseKey, phaseId);
-    }
-    return phaseMap.get(phaseKey);
+    });
   };
 
   const ensureSyntheticActivity = (task, index, parentPhaseId) => {
     const key = getActivityKey(task, index);
-    if (!activityMap.has(key)) {
-      const activityId = createId(`activity-${index}`);
+    return ensureSyntheticNode(activityMap, key, 'activity', index, (activityId) => {
       normalized.push({
-        ...normalizeExternalRecord({ phase: task.phase, activity: task.activity }),
+        ...createNormalizedExternalRecord({ phase: task.phase, activity: task.activity }),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1431,9 +1481,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: true
       });
-      registerActivity(key, activityId);
-    }
-    return activityMap.get(key);
+    });
   };
 
   sourceTasks.forEach((task, index) => {
@@ -1444,7 +1492,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasPhase && !hasActivity && !hasTask) {
       const phaseId = createId(`phase-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: phaseId,
         parentId: null,
         depth: 1,
@@ -1452,7 +1500,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerPhase(getPhaseKey(task, index), phaseId);
+      phaseMap.set(getPhaseKey(task, index), phaseId);
       return;
     }
 
@@ -1461,7 +1509,7 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
     if (hasActivity && !hasTask) {
       const activityId = createId(`activity-${index}`);
       normalized.push({
-        ...normalizeExternalRecord(task),
+        ...createNormalizedExternalRecord(task),
         id: activityId,
         parentId: parentPhaseId,
         depth: 2,
@@ -1469,13 +1517,13 @@ function buildHierarchicalTasksFromFlatSource(sourceTasks) {
         pendingDelete: false,
         isSynthetic: false
       });
-      registerActivity(getActivityKey(task, index), activityId);
+      activityMap.set(getActivityKey(task, index), activityId);
       return;
     }
 
     const parentActivityId = hasTask ? ensureSyntheticActivity(task, index, parentPhaseId) : parentPhaseId;
     normalized.push({
-      ...normalizeExternalRecord(task),
+      ...createNormalizedExternalRecord(task),
       id: createId(`leaf-${index}`),
       parentId: hasTask ? parentActivityId : parentPhaseId,
       depth: hasTask ? 3 : hasActivity ? 2 : 1,
@@ -1551,6 +1599,7 @@ async function handleCsvImport(event) {
     const text = await file.text();
     const imported = parseCsv(text);
     state.tasks = validateImportedTasks(normalizeImportedTasks(imported));
+    invalidateTaskIndexCache();
     closeEditor();
     persistState();
     renderAll();
@@ -1603,7 +1652,7 @@ function validateCsvCell(value, fieldName) {
   if (/[<>]/.test(normalized)) {
     throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
   }
-  return normalized;
+  return sanitizeCsvFormulaValue(normalized);
 }
 
 function validateCsvInternalValue(value, fieldName) {
@@ -2074,7 +2123,8 @@ function isValidDateString(value) {
     return false;
   }
   const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
-  if (validDateCache.size < 500) {
+  // Bolt: Increase cache limits to prevent cache thrashing in large loops.
+  if (validDateCache.size < 10000) {
     validDateCache.set(value, isValid);
   }
   return isValid;
@@ -2087,9 +2137,13 @@ function dateStringToUtcMs(value) {
   if (dateToUtcMsCache.has(value)) {
     return dateToUtcMsCache.get(value);
   }
-  const [year, month, day] = value.split('-').map(Number);
+  // Bolt: Avoid split().map() array allocations in tight rendering loops.
+  const year = Number(value.substring(0, 4));
+  const month = Number(value.substring(5, 7));
+  const day = Number(value.substring(8, 10));
   const ms = Date.UTC(year, month - 1, day);
-  if (dateToUtcMsCache.size < 500) {
+  // Bolt: Increase cache limits to prevent cache thrashing in large loops.
+  if (dateToUtcMsCache.size < 10000) {
     dateToUtcMsCache.set(value, ms);
   }
   return ms;
@@ -2161,7 +2215,10 @@ function formatDecimal(value, digits) {
 }
 
 function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
+  if (!formatNumber.formatter) {
+    formatNumber.formatter = new Intl.NumberFormat('ko-KR');
+  }
+  return formatNumber.formatter.format(Number(value || 0));
 }
 
 const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
@@ -2181,4 +2238,9 @@ function toKebab(value) {
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/_/g, '-')
     .toLowerCase();
+}
+
+// Export for testing
+if (typeof window !== 'undefined') {
+  window.validateDraft = validateDraft;
 }
