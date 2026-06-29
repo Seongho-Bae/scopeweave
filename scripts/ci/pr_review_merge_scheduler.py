@@ -389,7 +389,8 @@ def inspect_pr(
             number,
             "update_branch",
             "current-head OpenCode review approved; "
-            "branch update requested with workflow GH_TOKEN (github-actions[bot] in GitHub Actions)",
+            "branch update requested via configured GH CLI token "
+            "(GitHub Actions supplies GH_TOKEN as github-actions[bot])",
         )
 
     if has_current_head_approval(pr):
