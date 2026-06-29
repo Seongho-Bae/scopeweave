@@ -1639,7 +1639,7 @@ function validateCsvCell(value, fieldName) {
   if (/[<>]/.test(normalized)) {
     throw new Error(`${label} 컬럼에는 HTML 태그 문자를 사용할 수 없습니다.`);
   }
-  return normalized;
+  return sanitizeCsvFormulaValue(normalized);
 }
 
 function validateCsvInternalValue(value, fieldName) {

@@ -65,3 +65,8 @@
 **Vulnerability:** Parsed JSON from `localStorage` or seed files could retain keys such as `__proto__`, `constructor`, or `prototype` that become dangerous when later merged into objects.
 **Learning:** JSON input is untrusted even in a static app when it comes from local storage or external seed files.
 **Prevention:** Use a JSON reviver to filter prototype-pollution keys before parsed data enters application state.
+
+## 2026-06-29 - Neutralize CSV formulas during import
+**Vulnerability:** CSV import accepted spreadsheet formula prefixes such as `=`, `+`, `-`, and `@` into state, so a later export could preserve attacker-controlled formula payloads.
+**Learning:** CSV formula injection needs defense at both boundaries: exported cells and imported cells that may be re-exported later.
+**Prevention:** Normalize imported CSV cells with the same formula neutralization used by CSV export, and keep E2E coverage for import-to-storage formula payloads.

@@ -642,6 +642,22 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+
+  test('neutralizes spreadsheet formulas during CSV import', async ({ page }) => {
+    const csvText = [
+      '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,실적진척상태,계획시작일,계획종료일,실적시작일,실적종료일',
+      '"=HYPERLINK(""http://evil.test"",""Click"")",@SUM(1,1),+cmd,보안,,산출물,담당자A,지원팀A,미착수(0%),2026-05-18,2026-05-20,,'
+    ].join('\n');
+
+    await importCsv(page, csvText);
+
+    const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scopeweave:planner-state:v1')));
+    const [savedTask] = savedState.tasks;
+    expect(savedTask.phase).toBe('\'=HYPERLINK("http://evil.test","Click")');
+    expect(savedTask.activity).toBe("'@SUM(1,1)");
+    expect(savedTask.task).toBe("'+cmd");
+  });
+
   test('buildWeekdayTimeline handles normal, same, reversed, and weekend dates', async ({ page }) => {
     await page.goto('./');
     const appJsCode = require('fs').readFileSync('app.js', 'utf-8');
