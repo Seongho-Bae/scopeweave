@@ -61,3 +61,7 @@
 ## 2026-06-29 - Add drag handle for task reordering
 **Learning:** Hidden interactions (like drag-and-dropping rows without a visible handle) are poorly discoverable and can lead to accidental activation of other row actions. Also, warning colors often fail accessibility contrast ratios against light background tones if not checked.
 **Action:** Always provide visual affordances (like drag handles) for complex interactions like drag-and-drop, and verify color contrast ratios for dynamically generated badges or warnings.
+
+## 2026-06-26 - Project Name Placeholder
+**Learning:** Users can be unsure of what format or granularity is expected for a project name. Providing a concrete example placeholder (like '예: 신규 서비스 구축 프로젝트') gives immediate context and reduces cognitive load.
+**Action:** Add helpful, context-specific placeholders to empty text inputs, especially those representing broad or important fields like project names.
