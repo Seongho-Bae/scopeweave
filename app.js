@@ -470,17 +470,17 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   const actionStack = document.createElement('div');
   actionStack.className = 'action-stack';
 
-  const taskName = task.task || task.activity || task.phase || '작업';
+  const rowEntityName = task.task || task.activity || task.phase || '작업';
 
   if (hasChildren) {
     const toggleButton = document.createElement('button');
-    const toggleLabel = `${taskName} ${task.expanded ? '접기' : '펼치기'}`;
+    const toggleLabel = task.expanded ? '접기' : '펼치기';
     toggleButton.type = 'button';
     toggleButton.className = 'toggle-button';
     toggleButton.dataset.action = 'toggle';
-    toggleButton.setAttribute('aria-label', toggleLabel);
+    toggleButton.setAttribute('aria-label', `${toggleLabel} - ${rowEntityName}`);
     toggleButton.setAttribute('aria-expanded', String(task.expanded));
-    toggleButton.title = toggleLabel;
+    toggleButton.title = `${toggleLabel} - ${rowEntityName}`;
     const toggleIcon = document.createElement('span');
     toggleIcon.setAttribute('aria-hidden', 'true');
     toggleIcon.textContent = task.expanded ? '▼' : '▶';
@@ -499,17 +499,17 @@ function renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren) {
   dragHandle.textContent = '⋮⋮';
 
   const isLeaf = task.depth >= 3;
-  const addChildButton = createActionButton(`${taskName} 하위 추가`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `${taskName} 하위 추가`);
+  const addChildButton = createActionButton(`하위 추가 - ${rowEntityName}`, '＋', 'add-child', isLeaf ? '최대 3단계까지만 추가할 수 있습니다.' : `하위 추가 - ${rowEntityName}`);
   addChildButton.disabled = isLeaf;
 
   if (isLeaf) {
     addChildButton.setAttribute('aria-disabled', 'true');
   }
 
-  const editButton = createActionButton(`${taskName} 편집`, '✎', 'edit', `${taskName} 편집`);
+  const editButton = createActionButton(`편집 - ${rowEntityName}`, '✎', 'edit', `편집 - ${rowEntityName}`);
   editButton.setAttribute('aria-haspopup', 'dialog');
 
-  const deleteButton = createActionButton(`${taskName} 삭제`, '🗑', 'delete', `${taskName} 삭제`);
+  const deleteButton = createActionButton(`삭제 - ${rowEntityName}`, '🗑', 'delete', `삭제 - ${rowEntityName}`);
 
   actionStack.append(
     dragHandle,
@@ -760,8 +760,8 @@ function createActualProgressCellContent(task, taskMetrics) {
   label.htmlFor = fieldId;
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
-  const taskName = task.task || task.activity || task.phase || '작업';
-  srOnly.textContent = `${taskName} 실적진척상태`;
+  const rowEntityName = task.task || task.activity || task.phase || '작업';
+  srOnly.textContent = `실적진척상태 - ${rowEntityName}`;
   const select = document.createElement('select');
   select.id = fieldId;
   select.dataset.inlineProgress = task.id;
