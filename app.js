@@ -156,13 +156,13 @@ async function bootstrap() {
 
 function bindEvents() {
   elements.projectNameInput.addEventListener('input', (event) => {
-    state.projectName = event.target.value.trim() || DEFAULT_PROJECT_NAME;
+    state.projectName = String(event.target.value).trim().slice(0, 120) || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
   });
 
   elements.baseDateInput.addEventListener('input', (event) => {
-    state.baseDate = event.target.value || formatLocalDateInput(new Date());
+    state.baseDate = String(event.target.value).trim().slice(0, 10) || formatLocalDateInput(new Date());
     persistState();
     renderAll();
   });
@@ -1249,7 +1249,13 @@ function persistState() {
     baseDate: state.baseDate,
     tasks: state.tasks.map((task) => ({ ...task }))
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    // 🛡️ Sentinel: Fail securely on QuotaExceededError to prevent application crash
+    showToast('로컬 스토리지 용량이 초과되어 저장하지 못했습니다.');
+  }
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {
@@ -1268,8 +1274,8 @@ function loadLocalState() {
 }
 
 function hydrateState(savedState) {
-  state.projectName = savedState.projectName || DEFAULT_PROJECT_NAME;
-  state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
+  state.projectName = String(savedState.projectName || '').trim().slice(0, 120) || DEFAULT_PROJECT_NAME;
+  state.baseDate = String(savedState.baseDate || '').trim().slice(0, 10) || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
     : [];

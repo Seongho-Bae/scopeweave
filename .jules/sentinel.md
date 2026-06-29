@@ -50,3 +50,8 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-29 - [MEDIUM] Fix local storage exhaustion DoS and metadata length bypass
+**Vulnerability:** The application was not limiting the size of metadata (`projectName`, `baseDate`) before saving them, and did not handle `QuotaExceededError` from `localStorage`. A malicious user or rogue JSON payload could fill `localStorage` up to the browser limit, crashing the application loop and blocking any further functionality.
+**Learning:** `localStorage` has strict quotas. When building unauthenticated static client apps, failing to handle storage exceptions leads to complete app failure (client-side DoS).
+**Prevention:** Apply rigorous length truncation to input metadata using `.slice()` and implement `try-catch` blocks around `localStorage.setItem()` to fail securely (gracefully degrade via UI notifications) rather than crashing the JavaScript execution context.
