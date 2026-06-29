@@ -1051,7 +1051,7 @@ function computeTaskMetrics() {
   state.tasks.forEach((task) => {
     const durationDays = durationCache.get(task.id);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
-    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
+    const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate, durationDays);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
     const weightedPlannedRatio = weightRatio * plannedProgressRatio;
     const weightedActualRatio = weightRatio * actualProgressRatio;
@@ -1103,7 +1103,7 @@ function deriveProgressState(task, baseDate) {
   return { label: '진행전', className: 'before' };
 }
 
-function calculatePlannedProgressRatio(baseDate, startDate, endDate) {
+function calculatePlannedProgressRatio(baseDate, startDate, endDate, durationDays) {
   if (!baseDate || !startDate || !endDate) {
     return 0;
   }
@@ -1113,7 +1113,8 @@ function calculatePlannedProgressRatio(baseDate, startDate, endDate) {
   if (compareDateStrings(baseDate, endDate) >= 0) {
     return 1;
   }
-  const total = calculateDurationDays(startDate, endDate);
+  // Bolt: Reuse passed durationDays if available to avoid redundant Date parsing and calculations.
+  const total = durationDays !== undefined ? durationDays : calculateDurationDays(startDate, endDate);
   if (total <= 0) {
     return 1;
   }
@@ -2122,7 +2123,8 @@ function isValidDateString(value) {
     return false;
   }
   const isValid = formatDateInput(new Date(dateStringToUtcMs(value))) === value;
-  if (validDateCache.size < 500) {
+  // Bolt: Increase cache limits to prevent cache thrashing in large loops.
+  if (validDateCache.size < 10000) {
     validDateCache.set(value, isValid);
   }
   return isValid;
@@ -2135,9 +2137,13 @@ function dateStringToUtcMs(value) {
   if (dateToUtcMsCache.has(value)) {
     return dateToUtcMsCache.get(value);
   }
-  const [year, month, day] = value.split('-').map(Number);
+  // Bolt: Avoid split().map() array allocations in tight rendering loops.
+  const year = Number(value.substring(0, 4));
+  const month = Number(value.substring(5, 7));
+  const day = Number(value.substring(8, 10));
   const ms = Date.UTC(year, month - 1, day);
-  if (dateToUtcMsCache.size < 500) {
+  // Bolt: Increase cache limits to prevent cache thrashing in large loops.
+  if (dateToUtcMsCache.size < 10000) {
     dateToUtcMsCache.set(value, ms);
   }
   return ms;
