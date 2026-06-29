@@ -20,6 +20,9 @@ const ACTUAL_PROGRESS_OPTIONS = [
   'PM확인(100%)'
 ];
 
+// ⚡ Bolt: Cache select template to prevent O(N * Options) DOM element creation per render
+let actualProgressSelectTemplate = null;
+
 const ACTUAL_PROGRESS_MAP = Object.assign(Object.create(null), {
   '미착수(0%)': 0,
   '착수(20%)': 20,
@@ -726,16 +729,38 @@ function createActualProgressCellContent(task, taskMetrics) {
   const srOnly = document.createElement('span');
   srOnly.className = 'sr-only';
   srOnly.textContent = '실적진척상태';
-  const select = document.createElement('select');
+
+  if (!actualProgressSelectTemplate) {
+    actualProgressSelectTemplate = document.createElement('select');
+    ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
+      const option = document.createElement('option');
+      option.value = optionValue;
+      option.textContent = optionValue;
+      actualProgressSelectTemplate.appendChild(option);
+    });
+  }
+
+  const select = actualProgressSelectTemplate.cloneNode(true);
   select.id = fieldId;
   select.dataset.inlineProgress = task.id;
-  ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
-    const option = document.createElement('option');
-    option.value = optionValue;
-    option.textContent = optionValue;
-    option.selected = task.actualProgressStatus === optionValue;
-    select.appendChild(option);
-  });
+
+  // ⚡ Bolt: select.value after cloneNode requires the options to be evaluated.
+  // In pure manual DOM construction, setting value before append might not visually select it,
+  // but cloneNode ensures options exist. However, Playwright's toHaveValue looks at properties.
+  // We explicitly set the property and then an attribute as fallback, or just loop to set selected.
+  let valueFound = false;
+  for (let i = 0; i < select.options.length; i++) {
+    if (select.options[i].value === task.actualProgressStatus) {
+      select.options[i].selected = true;
+      valueFound = true;
+      break;
+    }
+  }
+  // Fallback if somehow it's not in the list (e.g. bad state)
+  if (!valueFound && select.options.length > 0) {
+     select.options[0].selected = true;
+  }
+
   label.append(srOnly, select);
 
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
