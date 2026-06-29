@@ -34,6 +34,31 @@
   box-sizing: border-box;
 }
 
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  background-color: var(--text);
+  color: #ffffff;
+  padding: 12px 24px;
+  z-index: 1000;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  text-decoration: none;
+  transition: top var(--transition);
+  box-shadow: var(--shadow-md);
+}
+
+.skip-link:focus-visible {
+  top: 16px;
+  outline: 3px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
+}
+
+main[tabindex="-1"] {
+  outline: none;
+}
+
 body {
   margin: 0;
   background: var(--bg);
