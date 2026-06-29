@@ -23,3 +23,7 @@
 ## 2026-06-21 - Eliminate O(N) Set Allocations in Render Loops
 **Learning:** Instantiating new Sets inside a .filter() callback during hot paths (like renderAll which fires on every keystroke) causes massive memory allocations and garbage collection pauses.
 **Action:** Move the Set instantiation outside the iteration loop and reuse it via clear() inside the loop to ensure O(1) allocation overhead per render pass.
+
+## 2024-05-18 - 렌더링 루프 내 고정 크기 캐시를 우회하는 중복 날짜 파싱
+**Learning:** `calculateDurationDays`는 500개 고정 크기 캐시(`dateToUtcMsCache`)를 활용하는 날짜 문자열 파싱 로직에 의존합니다. 수백 개 이상의 태스크가 있는 대형 프로젝트에서는 루프당 태스크 지표를 두 번 계산하면 이 캐시가 무력화되어, O(N) 중복 파싱 작업이 발생하고 매 렌더링 사이클마다 상당한 성능 저하가 일어납니다.
+**Action:** 렌더링 루프 내의 계산이 무겁거나 캐시가 제한된 작업에 의존하는 경우, 별도의 패스에서 한 번만 계산하고 `Map`과 같은 O(1) 구조에 저장한 다음 메인 집계 루프에서 재사용해야 합니다.

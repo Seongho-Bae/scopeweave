@@ -1085,8 +1085,11 @@ function validateDateRange(startLabel, startValue, endLabel, endValue, errors) {
 }
 
 function computeTaskMetrics() {
+  // ⚡ Bolt: 렌더 사이클에서 O(N) 중복 날짜 파싱을 피하기 위해 기간 계산을 캐시합니다.
+  const durations = new Map();
   const totalDays = state.tasks.reduce((sum, task) => {
     const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
+    durations.set(task.id, duration);
     return sum + duration;
   }, 0);
 
@@ -1096,7 +1099,7 @@ function computeTaskMetrics() {
   let totalWeightedActualRatio = 0;
 
   state.tasks.forEach((task) => {
-    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
+    const durationDays = durations.get(task.id);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
     const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
