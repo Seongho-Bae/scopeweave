@@ -94,6 +94,10 @@ const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
 
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
+// ⚡ Bolt: Instantiate Set once outside the rendering loop and reuse via .clear() to prevent GC overhead
+const _hiddenParentIdsCache = new Set();
+const _hasChildrenSetCache = new Set();
+
 const state = {
   projectName: DEFAULT_PROJECT_NAME,
   baseDate: formatLocalDateInput(new Date()),
@@ -327,14 +331,14 @@ function renderAll() {
   elements.openGanttButton.title = hasTasks ? '' : '간트 차트로 표시할 작업이 없습니다. 작업을 먼저 추가해주세요.';
 
   // ⚡ Bolt: Cache parent IDs to convert O(N^2) render loop to O(N)
-  const hasChildrenSet = new Set();
+  _hasChildrenSetCache.clear();
   state.tasks.forEach(task => {
-    if (task.parentId) hasChildrenSet.add(task.parentId);
+    if (task.parentId) _hasChildrenSetCache.add(task.parentId);
   });
 
   visibleTasks.forEach((task, index) => {
     const taskMetrics = metrics.byTask.get(task.id);
-    const hasChildren = hasChildrenSet.has(task.id);
+    const hasChildren = _hasChildrenSetCache.has(task.id);
     rows.push(renderTaskRow(task, taskMetrics, ownerColorMap, index, hasChildren));
     if (state.editor.mode && state.editor.mode === 'edit' && state.editor.targetId === task.id) {
       rows.push(renderEditorRow(task.id));
@@ -1109,18 +1113,18 @@ function getDateRangeWarning(startDate, endDate, message) {
 
 function getVisibleTasks() {
   const visible = [];
-  const hiddenParentIds = new Set();
+  _hiddenParentIdsCache.clear();
 
   // ⚡ Bolt Optimization: Single-pass O(N) visible task filtering to avoid redundant O(N * Depth) tree traversals
   state.tasks.forEach((task) => {
-    if (hiddenParentIds.has(task.parentId)) {
-      hiddenParentIds.add(task.id);
+    if (_hiddenParentIdsCache.has(task.parentId)) {
+      _hiddenParentIdsCache.add(task.id);
       return;
     }
 
     visible.push(task);
     if (!task.expanded) {
-      hiddenParentIds.add(task.id);
+      _hiddenParentIdsCache.add(task.id);
     }
   });
 
