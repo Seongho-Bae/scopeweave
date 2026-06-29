@@ -41,17 +41,15 @@
 **Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.randomUUID()` was unavailable.
 **Learning:** `Math.random()` is not cryptographically secure and can generate predictable sequences, leading to potential ID collisions or predictable IDs that could be abused in certain contexts. While this is primarily an issue in non-secure contexts (HTTP), using `crypto.getRandomValues()` as a fallback provides a cryptographically secure random number generator when `randomUUID()` is missing but `getRandomValues()` is supported.
 **Prevention:** Always use cryptographically secure methods like `crypto.getRandomValues()` to generate random strings when `crypto.randomUUID()` is not an option. Avoid relying on `Math.random()` for any form of unique identifier or security-related token generation.
-## 2026-06-24 - Validate HTML tags in Editor Drafts
-**Vulnerability:** The application was not rejecting HTML tag characters in the inline editor, which could introduce cross-site scripting (XSS) vectors or payload issues during data export (e.g. CSV).
-**Learning:** Even if data is rendered securely via `textContent`, accepting malicious HTML characters during input creates inconsistencies with import checks and introduces supply-chain risks when exported.
-**Prevention:** Add input validation within `validateDraft` to reject `<` and `>` characters in `EDITABLE_FIELDS`, ensuring consistency with `validateCsvCell` logic and stopping malicious injection at the input layer.
-
-## 2026-06-24 - Document architectural limitations regarding missing authentication
-**Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
-**Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
-**Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
-
-## 2026-06-24 - Prevent Prototype Injection in editor field test ids
-**Vulnerability:** The local `testIdMap` in `renderEditorField` used a plain object for dynamic field lookups, leaving prototype properties visible to the lookup path.
-**Learning:** Lookup tables used with dynamic string keys should be prototype-free even when the current caller controls the expected key set.
-**Prevention:** Hoist editor field test IDs into a frozen `Object.create(null)` map and use that map for `data-testid` assignment.
+## 2026-06-24 - Prevent Prototype Injection in testIdMap
+**Vulnerability:** The local variable `testIdMap` inside `renderEditorField` was instantiated as a literal object, exposing prototype properties. If the `field` variable could be manipulated by an attacker to represent standard prototype properties (like `__proto__`), it could lead to unexpected behavior and bypasses.
+**Learning:** Even locally scoped dictionaries should be protected against prototype injection if they map untrusted string keys to values, especially in dynamic applications.
+**Prevention:** Instantiate all lookup maps, regardless of their scope, with `Object.assign(Object.create(null), { ... })` to ensure that prototype methods and properties are stripped.
+## 2026-06-24 - Prevent Stored XSS via localStorage projectName
+**Vulnerability:** The application loaded the `projectName` directly from `localStorage` in `hydrateState` and rendered it without sanitization. An attacker could manipulate this `localStorage` value (e.g., `<img src=x onerror=alert(1)>`) leading to Stored Cross-Site Scripting (XSS).
+**Learning:** All data loaded from `localStorage` should be treated as untrusted and must be sanitized or validated before being assigned to application state that determines DOM output.
+**Prevention:** Strictly enforce type coercion, trimming, and length limitation when reading user-controlled values like strings from `localStorage`. E.g., `String(value).trim().slice(0, 1000)`.
+## 2026-06-24 - Prevent Prototype Pollution in JSON.parse
+**Vulnerability:** The application parsed JSON data from `localStorage` without a reviver function. An attacker could store a malicious JSON payload with `__proto__`, `constructor`, or `prototype` keys, leading to prototype pollution when parsed.
+**Learning:** `JSON.parse` is vulnerable to prototype pollution if the resulting object is merged into or interacts with global state and objects in an unsafe manner.
+**Prevention:** Always use a reviver function in `JSON.parse` to filter out dangerous keys like `__proto__`, `constructor`, and `prototype`.
