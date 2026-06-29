@@ -36,6 +36,10 @@
 **Learning:** `getVisibleTasks()` filters visible items by checking the expansion state of all ancestors for each task. The previous implementation correctly calculated visible tasks using a single O(N) top-down pass, but redundantly executed a secondary `.filter()` loop using a `taskById` map lookup and a tree traversal to root (`while(parentId)`). This unnecessary loop caused a performance bottleneck (taking ~167ms compared to ~13ms for the single-pass logic for 100 iterations of 2000 tasks).
 **Action:** When filtering hierarchical data based on parent state, always rely on a single top-down pass that propagates the hidden state (using a Set or property) instead of traversing the tree to the root for every single item in a redundant `.filter()` loop.
 
+## 2026-06-24 - Cache Intl.NumberFormat in render paths
+**Learning:** Calling `Number.prototype.toLocaleString()` during table rendering can instantiate locale formatting machinery repeatedly across many rows.
+**Action:** Cache a single `Intl.NumberFormat('ko-KR')` formatter inside `formatNumber()` and reuse it for numeric cell rendering.
+
 ## 2026-06-29 - Task Lookup Optimization
 **Learning:** O(N) array scans (like `findIndex`) inside descendant traversal functions cause CPU bottlenecks on large DOM trees.
 **Action:** Replace `findIndex` loops with a lazily-initialized O(1) Map cache mapping task IDs to indices, explicitly invalidating it on array structure changes.

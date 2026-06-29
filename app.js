@@ -2192,7 +2192,10 @@ function formatDecimal(value, digits) {
 }
 
 function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
+  if (!formatNumber.formatter) {
+    formatNumber.formatter = new Intl.NumberFormat('ko-KR');
+  }
+  return formatNumber.formatter.format(Number(value || 0));
 }
 
 const HTML_ESCAPE_ENTITIES = Object.assign(Object.create(null), {
