@@ -453,10 +453,9 @@ test.describe('ScopeWeave Planner', () => {
     expect(fileChooser.isMultiple()).toBe(false);
   });
   test('buildWeekdayTimeline handles normal, same, reversed, and weekend dates', async ({ page }) => {
+    await page.goto('./');
     const appJsCode = require('fs').readFileSync('app.js', 'utf-8');
     await page.evaluate((code) => {
-      // In tests, avoid overriding module scoped consts by redefining them, just evaluate directly.
-      // But we need the module loaded. Or we can just evaluate the function in isolated scope.
       const func = new Function('minDate', 'maxDate', code + '\nreturn buildWeekdayTimeline(minDate, maxDate);');
       window.__buildWeekdayTimeline = func;
     }, appJsCode);
