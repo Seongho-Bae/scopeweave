@@ -92,6 +92,21 @@ const CSV_FIELD_LABELS = Object.freeze(Object.assign(Object.create(null), {
   actualEndDate: '실적종료일'
 }));
 
+const EDITOR_FIELD_TEST_IDS = Object.freeze(Object.assign(Object.create(null), {
+  phase: 'editor-phase',
+  activity: 'editor-activity',
+  task: 'editor-task',
+  categoryLarge: 'editor-category-large',
+  categoryMedium: 'editor-category-medium',
+  documentName: 'editor-document-name',
+  owner: 'editor-owner',
+  supportTeam: 'editor-support-team',
+  plannedStartDate: 'editor-planned-start',
+  plannedEndDate: 'editor-planned-end',
+  actualStartDate: 'editor-actual-start',
+  actualEndDate: 'editor-actual-end'
+}));
+
 const LEGACY_PLANNED_END_FIELD = 'plannedEnd' + 'Ddate';
 
 const state = {
@@ -577,21 +592,6 @@ function renderEditorRow(anchorId) {
 }
 
 function renderEditorField(label, field, value, type = 'text', required = false, placeholder = '') {
-  const testIdMap = Object.assign(Object.create(null), {
-    phase: 'editor-phase',
-    activity: 'editor-activity',
-    task: 'editor-task',
-    categoryLarge: 'editor-category-large',
-    categoryMedium: 'editor-category-medium',
-    documentName: 'editor-document-name',
-    owner: 'editor-owner',
-    supportTeam: 'editor-support-team',
-    plannedStartDate: 'editor-planned-start',
-    plannedEndDate: 'editor-planned-end',
-    actualStartDate: 'editor-actual-start',
-    actualEndDate: 'editor-actual-end'
-  });
-
   const labelElement = document.createElement('label');
   labelElement.className = 'editor-field';
   const fieldId = `editor-input-${field}-${Date.now()}`;
@@ -610,7 +610,7 @@ function renderEditorField(label, field, value, type = 'text', required = false,
   }
   const input = document.createElement('input');
   input.id = fieldId;
-  input.setAttribute('data-testid', testIdMap[field] || `editor-${toKebab(field)}`);
+  input.setAttribute('data-testid', EDITOR_FIELD_TEST_IDS[field] || `editor-${toKebab(field)}`);
   input.dataset.editorField = field;
   input.type = type;
   if (type === 'text') {
@@ -1679,7 +1679,7 @@ function parseCsv(text) {
     }
   });
 
-  return rows.slice(1).filter((cells) => cells.some((cell) => String(cell).trim() !== '')).map((cells) => ({
+  return rows.slice(1).filter((cells) => cells.some((cell) => String(cell ?? '').trim() !== '')).map((cells) => ({
     phase: validateCsvCell(readCsvCell(cells, headerMap, '단계'), 'phase'),
     activity: validateCsvCell(readCsvCell(cells, headerMap, 'Activity'), 'activity'),
     task: validateCsvCell(readCsvCell(cells, headerMap, 'Task'), 'task'),
@@ -1701,7 +1701,7 @@ function parseCsv(text) {
 
 function readCsvCell(cells, headerMap, name) {
   const index = headerMap.get(name);
-  return index === undefined ? '' : String(cells[index] || '').trim();
+  return index === undefined ? '' : String(cells[index] ?? '').trim();
 }
 
 async function connectJsonSync() {
