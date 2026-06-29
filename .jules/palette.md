@@ -40,3 +40,6 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
+## 2026-06-24 - Add keyboard shortcut hints to buttons
+**Learning:** Users benefit from explicit hints indicating which keyboard shortcuts are available for primary actions.
+**Action:** Add title tooltips with shortcut hints like "(Enter)" or "(Esc)" to primary form buttons.
