@@ -2184,3 +2184,8 @@ function toKebab(value) {
     .replace(/_/g, '-')
     .toLowerCase();
 }
+
+// Export for testing
+if (typeof window !== 'undefined') {
+  window.validateDraft = validateDraft;
+}
