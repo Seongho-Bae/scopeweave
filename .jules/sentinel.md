@@ -54,4 +54,4 @@
 ## 2026-06-25 - Prevent DoS via type confusion in trim() and Prototype Injection in Lookup Maps
 **Vulnerability:** Missing string coercion before calling `.trim()` exposed the app to Denial of Service via type confusion, and `testIdMap` was vulnerable to prototype injection.
 **Learning:** In purely client-side static apps, relying on untyped `.trim()` calls on user input must be guarded by strict string coercion. Also, even locally scoped maps can be abused if untrusted keys are passed.
-**Prevention:** Rigorously enforce `String(value).trim()` during data sanitization, and use `Object.assign(Object.create(null), { ... })` for all lookup maps.
+**Prevention:** Rigorously enforce `String(value).trim()` during data sanitization, use `Object.assign(Object.create(null), { ... })` for all lookup maps, and insert warning-cell user text with `document.createTextNode()`.

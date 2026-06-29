@@ -668,7 +668,7 @@ function createTextCellContent(value, warning = '') {
     return document.createTextNode(value);
   }
   const wrapper = document.createElement('div');
-  wrapper.append(value);
+  wrapper.appendChild(document.createTextNode(value));
   const validation = document.createElement('div');
   validation.className = 'validation-message';
   validation.textContent = warning;

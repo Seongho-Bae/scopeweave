@@ -168,6 +168,47 @@ test.describe('ScopeWeave Planner', () => {
     expect(dialogOpened).toBe(false);
   });
 
+  test('does not create HTML elements from warning cell text loaded from storage', async ({ page }) => {
+    let dialogOpened = false;
+    page.on('dialog', async (dialog) => {
+      dialogOpened = true;
+      await dialog.dismiss();
+    });
+
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+        projectName: 'Warning Cell Security',
+        baseDate: '2026-04-20',
+        tasks: [{
+          id: 'stored-warning-payload',
+          parentId: null,
+          depth: 1,
+          phase: '<img src=x onerror=alert(1)>',
+          activity: '',
+          task: '',
+          categoryLarge: '보안',
+          categoryMedium: '',
+          documentName: '',
+          owner: '',
+          supportTeam: '',
+          progressStatus: '미착수',
+          plannedStartDate: '2026-05-02',
+          plannedEndDate: '2026-05-01',
+          actualProgressStatus: '미착수(0%)',
+          actualStartDate: '',
+          actualEndDate: '',
+          expanded: true
+        }]
+      }));
+    });
+    await page.reload();
+
+    await expect(page.locator('tbody img, tbody script, tbody iframe, tbody object')).toHaveCount(0);
+    await expect(page.locator('tbody')).toContainText('<img src=x onerror=alert(1)>');
+    await page.waitForTimeout(100);
+    expect(dialogOpened).toBe(false);
+  });
+
   test('escapes quotes from manual text before rendering editor attributes', async ({ page }) => {
     const ownerPayload = '" onmouseover="alert(1)';
 
