@@ -1,3 +1,6 @@
+// Security model: ScopeWeave is a client-only static planner. It has no
+// backend API or shared server-side data; project data stays in this browser's
+// local storage unless the user explicitly imports or exports a file.
 const STORAGE_KEY = 'scopeweave:planner-state:v1';
 const DEFAULT_PROJECT_NAME = 'ScopeWeave Planner';
 const OWNER_COLORS = [
