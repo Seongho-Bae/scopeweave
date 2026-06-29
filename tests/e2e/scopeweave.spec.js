@@ -316,6 +316,65 @@ test.describe('ScopeWeave Planner', () => {
     await expect(taskRow.locator('[data-testid="task-weight-ratio"]')).not.toContainText('0.000');
   });
 
+  test('derives correct progress state labels and classes based on dates', async ({ page }) => {
+    await page.locator('[data-testid="base-date-input"]').fill('2026-05-15');
+
+    // 1. 완료 (done)
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('완료테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-14');
+    await page.locator('[data-testid="editor-actual-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-actual-end"]').fill('2026-05-12');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 2. 지연 (delay)
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('지연테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-14');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 3. 진행 (active)
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('진행테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-20');
+    await page.locator('[data-testid="editor-actual-start"]').fill('2026-05-12');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 4. 진행전 (before) - baseDate between planned start/end
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('진행전기본테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-20');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 5. 진행전 (before) - future baseDate < planned start
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('진행전미래테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-20');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-25');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const getBadge = (text) => page.locator('tbody tr[data-task-id]').filter({ hasText: text }).locator('.status-badge');
+
+    await expect(getBadge('완료테스트')).toHaveText('완료');
+    await expect(getBadge('완료테스트')).toHaveClass(/done/);
+
+    await expect(getBadge('지연테스트')).toHaveText('지연');
+    await expect(getBadge('지연테스트')).toHaveClass(/delay/);
+
+    await expect(getBadge('진행테스트')).toHaveText('진행');
+    await expect(getBadge('진행테스트')).toHaveClass(/active/);
+
+    await expect(getBadge('진행전기본테스트')).toHaveText('진행전');
+    await expect(getBadge('진행전기본테스트')).toHaveClass(/before/);
+
+    await expect(getBadge('진행전미래테스트')).toHaveText('진행전');
+    await expect(getBadge('진행전미래테스트')).toHaveClass(/before/);
+  });
+
   test('rejects planned end dates before start dates in the editor', async ({ page }) => {
     await page.getByRole('button', { name: '최상위 작업 추가' }).click();
     await page.locator('[data-testid="editor-phase"]').fill('P3000.검증단계');
