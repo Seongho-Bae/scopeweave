@@ -60,3 +60,23 @@
 **Vulnerability:** The `createTextCellContent` function appended user-controlled input directly to the DOM using `wrapper.append(value)` when a warning parameter was present. This allowed arbitrary JavaScript execution (DOM XSS).
 **Learning:** Using `append()` with unsanitized strings directly into a DOM node is dangerous if the input can contain HTML payloads, as it will be interpreted as DOM content.
 **Prevention:** Always use `document.createTextNode(value)` before appending untrusted data, or use `.textContent` to safely render strings as text content instead of executable HTML.
+
+## 2026-06-24 - Prevent Prototype Injection in testIdMap
+**Vulnerability:** The local variable `testIdMap` inside `renderEditorField` was instantiated as a literal object, exposing prototype properties. If the `field` variable could be manipulated to a standard prototype property like `__proto__`, it could lead to unexpected behavior and bypasses.
+**Learning:** Even locally scoped dictionaries should be protected against prototype injection if they map dynamic string keys to values.
+**Prevention:** Instantiate lookup maps with `Object.assign(Object.create(null), { ... })` when dynamic keys are used for lookups.
+
+## 2026-06-24 - Normalize localStorage projectName
+**Vulnerability:** The application loaded `projectName` directly from `localStorage` into state. Even when rendered through safe DOM APIs, unbounded untrusted strings from storage can cause inconsistent state and downstream export issues.
+**Learning:** All data loaded from `localStorage` should be treated as untrusted and normalized before assignment to application state.
+**Prevention:** Strictly coerce, trim, and length-limit user-controlled string values loaded from storage.
+
+## 2026-06-24 - Filter prototype pollution keys in JSON.parse
+**Vulnerability:** Parsed JSON from `localStorage` or seed files could retain keys such as `__proto__`, `constructor`, or `prototype` that become dangerous when later merged into objects.
+**Learning:** JSON input is untrusted even in a static app when it comes from local storage or external seed files.
+**Prevention:** Use a JSON reviver to filter prototype-pollution keys before parsed data enters application state.
+
+## 2026-06-29 - Neutralize CSV formulas during import
+**Vulnerability:** CSV import accepted spreadsheet formula prefixes such as `=`, `+`, `-`, and `@` into state, so a later export could preserve attacker-controlled formula payloads.
+**Learning:** CSV formula injection needs defense at both boundaries: exported cells and imported cells that may be re-exported later.
+**Prevention:** Normalize imported CSV cells with the same formula neutralization used by CSV export, and keep E2E coverage for import-to-storage formula payloads.
