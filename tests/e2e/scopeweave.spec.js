@@ -66,6 +66,10 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('summary-total-days')).not.toHaveText('0일');
     await expect(page.getByTestId('summary-planned-progress')).toContainText('%');
     await expect(page.getByTestId('summary-actual-progress')).toContainText('%');
+    await expect(page).toHaveTitle('ScopeWeave Planner');
+
+    await page.getByTestId('project-name-input').fill('My New Project');
+    await expect(page).toHaveTitle('My New Project - ScopeWeave Planner');
   });
 
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
@@ -109,6 +113,10 @@ test.describe('ScopeWeave Planner', () => {
 
     const childRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '프로젝트준비 하위' });
     await expect(childRow).toHaveCount(1);
+    const parentToggle = page.locator('tbody tr[data-task-id]').first().locator('button[data-action="toggle"]');
+    await expect(parentToggle).toHaveAttribute('aria-label', '접기 - P0000.준비단계');
+    await expect(parentToggle).toHaveAttribute('title', '접기 - P0000.준비단계');
+
     await childRow.getByRole('button', { name: '하위 추가' }).click();
     await page.locator('[data-testid="editor-task"]').fill('세부업무');
     await page.getByRole('button', { name: '저장', exact: true }).click();
@@ -297,6 +305,48 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedPayload[0]).toHaveProperty('plannedEnd' + 'Ddate', '2026-05-20');
   });
 
+  test('filters prototype pollution keys from saved local storage', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', `{
+        "projectName": "  Prototype Project  ",
+        "baseDate": "2026-05-10",
+        "tasks": [{
+          "id": "prototype-1",
+          "parentId": null,
+          "depth": 1,
+          "expanded": true,
+          "phase": "P9000.보안",
+          "activity": "",
+          "task": "프로토타입 검증",
+          "categoryLarge": "보안",
+          "categoryMedium": "",
+          "documentName": "",
+          "owner": "담당자",
+          "supportTeam": "",
+          "plannedStartDate": "2026-05-01",
+          "plannedEndDate": "2026-05-20",
+          "actualProgressStatus": "미착수(0%)",
+          "actualStartDate": "",
+          "actualEndDate": "",
+          "__proto__": {"polluted": true},
+          "constructor": {"prototype": {"polluted": true}},
+          "prototype": {"polluted": true}
+        }]
+      }`);
+    });
+    await page.reload();
+
+    await expect(page.getByTestId('project-name-input')).toHaveValue('Prototype Project');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(1);
+
+    await page.getByTestId('project-name-input').fill('Prototype Project Saved');
+    const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scopeweave:planner-state:v1')));
+    const savedTask = savedState.tasks[0];
+    expect(Object.prototype.hasOwnProperty.call(savedTask, '__proto__')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(savedTask, 'constructor')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(savedTask, 'prototype')).toBe(false);
+  });
+
   test('counts same-day work as one day for totals and weights', async ({ page }) => {
     await addTopLevelTask(page, {
       phase: 'P2000.검증단계',
@@ -310,6 +360,65 @@ test.describe('ScopeWeave Planner', () => {
     const taskRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '동일일자검증' });
     await expect(taskRow.locator('[data-testid="task-duration-days"]')).toContainText('1');
     await expect(taskRow.locator('[data-testid="task-weight-ratio"]')).not.toContainText('0.000');
+  });
+
+  test('derives correct progress state labels and classes based on dates', async ({ page }) => {
+    await page.locator('[data-testid="base-date-input"]').fill('2026-05-15');
+
+    // 1. 완료 (done)
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('완료테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-14');
+    await page.locator('[data-testid="editor-actual-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-actual-end"]').fill('2026-05-12');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 2. 지연 (delay)
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('지연테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-14');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 3. 진행 (active)
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('진행테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-20');
+    await page.locator('[data-testid="editor-actual-start"]').fill('2026-05-12');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 4. 진행전 (before) - baseDate between planned start/end
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('진행전기본테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-10');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-20');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    // 5. 진행전 (before) - future baseDate < planned start
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('진행전미래테스트');
+    await page.locator('[data-testid="editor-planned-start"]').fill('2026-05-20');
+    await page.locator('[data-testid="editor-planned-end"]').fill('2026-05-25');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const getBadge = (text) => page.locator('tbody tr[data-task-id]').filter({ hasText: text }).locator('.status-badge');
+
+    await expect(getBadge('완료테스트')).toHaveText('완료');
+    await expect(getBadge('완료테스트')).toHaveClass(/done/);
+
+    await expect(getBadge('지연테스트')).toHaveText('지연');
+    await expect(getBadge('지연테스트')).toHaveClass(/delay/);
+
+    await expect(getBadge('진행테스트')).toHaveText('진행');
+    await expect(getBadge('진행테스트')).toHaveClass(/active/);
+
+    await expect(getBadge('진행전기본테스트')).toHaveText('진행전');
+    await expect(getBadge('진행전기본테스트')).toHaveClass(/before/);
+
+    await expect(getBadge('진행전미래테스트')).toHaveText('진행전');
+    await expect(getBadge('진행전미래테스트')).toHaveClass(/before/);
   });
 
   test('rejects planned end dates before start dates in the editor', async ({ page }) => {
@@ -348,6 +457,95 @@ test.describe('ScopeWeave Planner', () => {
     await page.locator('.editor-panel').getByRole('button', { name: '저장' }).click();
 
     await expect(page.locator('#editor-errors')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('validateDraft pure function logic', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const result = await page.evaluate(() => {
+      if (typeof window.validateDraft !== 'function') return { error: 'Not exported' };
+
+      const tests = [];
+      const debug = [];
+
+      // Test missing draft
+      tests.push(window.validateDraft(null, 1).length === 0);
+
+      // Test HTML injection
+      const htmlErrors = window.validateDraft({ phase: '<script>' }, 1);
+      // Depending on mapping it could be Phase or 단계, check for both or just generic HTML message
+      tests.push(htmlErrors.some(e => e.includes('HTML 태그 문자를 사용할 수 없습니다.')));
+      if (!htmlErrors.some(e => e.includes('HTML 태그 문자를 사용할 수 없습니다.'))) debug.push('HTML injection failed: ' + JSON.stringify(htmlErrors));
+
+      // Test required depth 1
+      const depth1Errors = window.validateDraft({ phase: '' }, 1);
+      tests.push(depth1Errors.includes('최상위 작업은 단계 값을 입력해야 합니다.'));
+      if (!depth1Errors.includes('최상위 작업은 단계 값을 입력해야 합니다.')) debug.push('Depth 1 failed: ' + JSON.stringify(depth1Errors));
+
+      // Test required depth 2
+      const depth2Errors = window.validateDraft({ phase: 'P1', activity: '' }, 2);
+      tests.push(depth2Errors.includes('2단계 작업은 Activity 값을 입력해야 합니다.'));
+      if (!depth2Errors.includes('2단계 작업은 Activity 값을 입력해야 합니다.')) debug.push('Depth 2 failed: ' + JSON.stringify(depth2Errors));
+
+      // Test required depth 3
+      const depth3Errors = window.validateDraft({ phase: 'P1', activity: 'A1', task: '' }, 3);
+      tests.push(depth3Errors.includes('3단계 작업은 Task 값을 입력해야 합니다.'));
+      if (!depth3Errors.includes('3단계 작업은 Task 값을 입력해야 합니다.')) debug.push('Depth 3 failed: ' + JSON.stringify(depth3Errors));
+
+      // Test date validation
+      const dateErrors = window.validateDraft({ plannedStartDate: 'invalid-date' }, 1);
+      tests.push(dateErrors.includes('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.'));
+      if (!dateErrors.includes('계획시작일은 YYYY-MM-DD 형식의 실제 달력 날짜여야 합니다.')) debug.push('Date valid failed: ' + JSON.stringify(dateErrors));
+
+      const rangeErrors = window.validateDraft({ plannedStartDate: '2026-05-20', plannedEndDate: '2026-05-18' }, 1);
+      tests.push(rangeErrors.includes('계획종료일은 계획시작일보다 빠를 수 없습니다.'));
+      if (!rangeErrors.includes('계획종료일은 계획시작일보다 빠를 수 없습니다.')) debug.push('Date range failed: ' + JSON.stringify(rangeErrors));
+
+      return tests.every(t => t === true) ? 'PASS' : 'FAIL: ' + debug.join(' | ');
+    });
+
+    expect(result).toBe('PASS');
+  });
+
+  test('rejects saving a top-level task with HTML tags in the phase field', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('Test Phase <script>');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('HTML 태그 문자를 사용할 수 없습니다');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects saving a top-level task without a phase', async ({ page }) => {
+    await page.getByRole('button', { name: '최상위 작업 추가' }).click();
+    await page.locator('[data-testid="editor-phase"]').fill('');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('최상위 작업은 단계 값을 입력해야 합니다.');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects saving a depth 2 task without an activity', async ({ page }) => {
+    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('[data-testid="editor-activity"]').fill('');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('2단계 작업은 Activity 값을 입력해야 합니다.');
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
+  test('rejects saving a depth 3 task without a task value', async ({ page }) => {
+    await page.locator('tbody tr[data-task-id]').first().getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('[data-testid="editor-activity"]').fill('Test Activity');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    const activityRow = page.locator('tbody tr[data-task-id].depth-2').filter({ has: page.locator('td:nth-child(3)', { hasText: /^Test Activity$/ }) });
+    await activityRow.getByRole('button', { name: '하위 추가' }).click();
+    await page.locator('[data-testid="editor-task"]').fill('');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+
+    await expect(page.locator('#editor-errors')).toContainText('3단계 작업은 Task 값을 입력해야 합니다.');
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
 
@@ -453,6 +651,53 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+
+  test('neutralizes spreadsheet formulas during CSV import', async ({ page }) => {
+    const csvText = [
+      '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,실적진척상태,계획시작일,계획종료일,실적시작일,실적종료일',
+      '"=HYPERLINK(""http://evil.test"",""Click"")",@SUM(1,1),+cmd,보안,,산출물,담당자A,지원팀A,미착수(0%),2026-05-18,2026-05-20,,'
+    ].join('\n');
+
+    await importCsv(page, csvText);
+
+    const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem('scopeweave:planner-state:v1')));
+    const [savedTask] = savedState.tasks;
+    expect(savedTask.phase).toBe('\'=HYPERLINK("http://evil.test","Click")');
+    expect(savedTask.activity).toBe("'@SUM(1,1)");
+    expect(savedTask.task).toBe("'+cmd");
+  });
+
+  test('buildWeekdayTimeline handles normal, same, reversed, and weekend dates', async ({ page }) => {
+    await page.goto('./');
+    const appJsCode = require('fs').readFileSync('app.js', 'utf-8');
+    await page.evaluate((code) => {
+      const func = new Function('minDate', 'maxDate', code + '\nreturn buildWeekdayTimeline(minDate, maxDate);');
+      window.__buildWeekdayTimeline = func;
+    }, appJsCode);
+
+    // Normal date range
+    const normal = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-01', '2026-05-15'));
+    expect(normal.length).toBeGreaterThan(0);
+    expect(normal[0].date).toBe('2026-04-27'); // Starts on preceding Monday
+    expect(normal[normal.length - 1].date).toBe('2026-05-15'); // Ends on Friday
+
+    // Same date
+    const same = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-01', '2026-05-01'));
+    expect(same.length).toBe(5);
+    expect(same[0].date).toBe('2026-04-27');
+    expect(same[same.length - 1].date).toBe('2026-05-01');
+
+    // Reversed date range
+    const reversed = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-15', '2026-05-01'));
+    expect(reversed).toEqual([]);
+
+    // Weekend date
+    const weekend = await page.evaluate(() => window.__buildWeekdayTimeline('2026-05-02', '2026-05-03'));
+    expect(weekend.length).toBe(5);
+    expect(weekend[0].date).toBe('2026-04-27');
+    expect(weekend[weekend.length - 1].date).toBe('2026-05-01'); // Returns the preceding week
+  });
+
   test('wraps text icons in aria-hidden span for screen reader accessibility', async ({ page }) => {
     await page.getByRole('button', { name: '최상위 작업 추가' }).click();
     await page.locator('[data-testid="editor-phase"]').fill('A11y Test');
@@ -472,5 +717,20 @@ test.describe('ScopeWeave Planner', () => {
     const addChildBtnSpan = row.locator('button[data-action="add-child"] span');
     await expect(addChildBtnSpan).toHaveAttribute('aria-hidden', 'true');
     await expect(addChildBtnSpan).toHaveText('＋');
+  });
+
+  test('mitigates XSS in createTextCellContent via textNode', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const wrapper = window.createTextCellContent('<img src=x onerror=alert(1)>', '날짜 오류');
+      document.body.appendChild(wrapper);
+      return {
+        imageCount: wrapper.querySelectorAll('img').length,
+        text: wrapper.textContent
+      };
+    });
+
+    expect(result.imageCount).toBe(0);
+    expect(result.text).toContain('<img src=x onerror=alert(1)>');
+    expect(result.text).toContain('날짜 오류');
   });
 });
