@@ -43,7 +43,7 @@ permissions:
 
 jobs:
   strix:
-    timeout-minutes: 120
+    timeout-minutes: 180
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
