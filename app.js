@@ -1727,6 +1727,10 @@ async function handleCsvImport(event) {
   }
 }
 
+window.__scopeweaveTestApi = Object.assign(window.__scopeweaveTestApi || {}, {
+  validateImportedTasks
+});
+
 function validateImportedTasks(tasks) {
   const seenIds = new Set();
   for (const task of tasks) {
