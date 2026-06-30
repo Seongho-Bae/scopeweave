@@ -1340,7 +1340,11 @@ function persistState() {
     baseDate: state.baseDate,
     tasks: state.tasks
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.error('State persistence failed:', error);
+  }
 
   if (state.jsonSyncHandle) {
     writeJsonSyncFile().catch(() => {

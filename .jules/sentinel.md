@@ -95,3 +95,8 @@
 **Vulnerability:** The ID generation function `createId` still had a non-cryptographic fallback path for environments without the Web Crypto API.
 **Learning:** Fallback ID generation must not trade security for availability when the identifier is expected to be unpredictable.
 **Prevention:** Prefer `crypto.randomUUID()`, fall back only to `crypto.getRandomValues()`, and throw an explicit error if secure random generation is unavailable.
+
+## 2026-06-29 - Handle localStorage write failures
+**Vulnerability:** Client-side storage writes can throw exceptions such as `QuotaExceededError`, interrupting persistence flows and potentially leaving the app in a partially updated state.
+**Learning:** Browser storage is a failure-prone boundary even in a local-first static app.
+**Prevention:** Wrap `localStorage.setItem` calls in `try...catch` blocks and log bounded errors without breaking the rest of the UI flow.
