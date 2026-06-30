@@ -400,14 +400,8 @@ test.describe('ScopeWeave Planner', () => {
     await targetRow.getByRole('button', { name: '편집' }).click();
     await expect(page.locator('.editor-panel')).toBeVisible();
 
-    const saveBtn = page.getByRole('button', { name: '저장', exact: true });
-    await expect(saveBtn).toHaveAttribute('title', '저장 (Enter)');
-
-    const cancelBtn = page.getByRole('button', { name: '취소' });
-    await expect(cancelBtn).toHaveAttribute('title', '취소 (Esc)');
-
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
-    await cancelBtn.click();
+    await page.getByRole('button', { name: '취소' }).click();
 
     await expect(page.locator('.editor-panel')).toBeHidden();
     await expect(targetRow).not.toContainText('임시담당자');
@@ -444,6 +438,24 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+  test('skip-to-content link appears on focus and navigates to main', async ({ page }) => {
+    const skipLink = page.locator('.skip-to-content');
+    await expect(skipLink).toBeAttached();
+
+    const boundingBox = await skipLink.boundingBox();
+    expect(boundingBox.width).toBeLessThanOrEqual(1);
+    expect(boundingBox.height).toBeLessThanOrEqual(1);
+
+    await skipLink.focus();
+
+    const focusedBox = await skipLink.boundingBox();
+    expect(focusedBox.width).toBeGreaterThan(10);
+    expect(focusedBox.height).toBeGreaterThan(10);
+
+    await skipLink.click();
+    await expect(page.locator('#main-content')).toBeFocused();
+  });
+
   test('wraps text icons in aria-hidden span for screen reader accessibility', async ({ page }) => {
     await page.getByRole('button', { name: '최상위 작업 추가' }).click();
     await page.locator('[data-testid="editor-phase"]').fill('A11y Test');

@@ -40,6 +40,6 @@
 ## 2026-06-22 - Hide Unicode Icons from Screen Readers
 **Learning:** Icon-only buttons with `aria-label` can still cause screen readers to read the text content (unicode symbols like '✎' or '▼') if they aren't explicitly hidden.
 **Action:** Always wrap text-based icons in `<span aria-hidden="true">` to ensure screen readers only read the intended `aria-label`.
-## 2026-06-24 - Add keyboard shortcut hints to buttons
-**Learning:** Users benefit from explicit hints indicating which keyboard shortcuts are available for primary actions.
-**Action:** Add title tooltips with shortcut hints like "(Enter)" or "(Esc)" to primary form buttons.
+## 2026-06-25 - Skip-to-content links for accessibility
+**Learning:** Screen reader and keyboard-only users often have to tab through repetitive header navigation or menus before reaching the main content area. A visually hidden "skip to content" link that becomes visible on focus greatly improves this experience and is a fundamental accessibility standard.
+**Action:** Always include a `.skip-to-content` link as the first focusable element in the DOM that anchors to the `<main>` element or main heading.

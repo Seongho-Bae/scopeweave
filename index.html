@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a href="#main-content" class="skip-to-content sr-only focusable">본문으로 건너뛰기</a>
     <div class="app-shell">
       <header class="top-panel">
         <div class="title-row">
@@ -47,7 +48,7 @@
         </div>
       </header>
 
-      <main>
+      <main id="main-content" tabindex="-1">
         <section class="table-section" aria-label="WBS 표">
           <div class="table-scroll">
             <table class="wbs-table">

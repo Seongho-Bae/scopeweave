@@ -561,6 +561,30 @@ select[data-inline-progress]:focus {
   border: 0;
 }
 
+.skip-to-content.focusable:focus {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  padding: 12px 24px;
+  margin: 0;
+  clip-path: none;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  outline: 3px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
+  text-decoration: none;
+}
+
+#main-content:focus {
+  outline: none;
+}
+
 .modal.hidden {
   display: none;
 }
