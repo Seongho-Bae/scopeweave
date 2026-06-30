@@ -67,3 +67,7 @@
 ## 2026-06-29 - Debounce expensive input follow-up work
 **Learning:** High-frequency text input can trigger O(N) persistence, metric recomputation, and DOM reconstruction on every keystroke, causing avoidable input jank on large plans.
 **Action:** Keep state mutations synchronous, then debounce expensive follow-up work such as full rendering, persistence, and validation display updates. Flush debounced work before blur or submit boundaries where stale UI/state would be confusing.
+
+## 2026-06-29 - Reuse static select option templates
+**Learning:** Rebuilding identical `<option>` nodes for every row adds avoidable DOM allocation cost in large tables.
+**Action:** Cache static select option templates and clone them per row, then set the selected value on the cloned element.

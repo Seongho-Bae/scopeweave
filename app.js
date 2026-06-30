@@ -21,6 +21,7 @@ const ACTUAL_PROGRESS_OPTIONS = [
   'PL검토(90%)',
   'PM확인(100%)'
 ];
+let actualProgressSelectTemplate = null;
 
 const ACTUAL_PROGRESS_MAP = Object.assign(Object.create(null), {
   '미착수(0%)': 0,
@@ -821,16 +822,22 @@ function createActualProgressCellContent(task, taskMetrics) {
   srOnly.className = 'sr-only';
   const rowEntityName = task.task || task.activity || task.phase || '작업';
   srOnly.textContent = `실적진척상태 - ${rowEntityName}`;
-  const select = document.createElement('select');
+  if (!actualProgressSelectTemplate) {
+    actualProgressSelectTemplate = document.createElement('select');
+    ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
+      const option = document.createElement('option');
+      option.value = optionValue;
+      option.textContent = optionValue;
+      actualProgressSelectTemplate.appendChild(option);
+    });
+  }
+  const select = actualProgressSelectTemplate.cloneNode(true);
   select.id = fieldId;
   select.dataset.inlineProgress = task.id;
-  ACTUAL_PROGRESS_OPTIONS.forEach((optionValue) => {
-    const option = document.createElement('option');
-    option.value = optionValue;
-    option.textContent = optionValue;
-    option.selected = task.actualProgressStatus === optionValue;
-    select.appendChild(option);
-  });
+  select.value = task.actualProgressStatus;
+  if (select.value !== task.actualProgressStatus) {
+    select.value = '미착수(0%)';
+  }
   label.append(srOnly, select);
 
   const warning = taskMetrics.plannedDateWarning || taskMetrics.actualDateWarning;
