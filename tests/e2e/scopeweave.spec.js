@@ -364,6 +364,38 @@ test.describe('ScopeWeave Planner', () => {
     expect(Object.prototype.hasOwnProperty.call(savedTask, 'prototype')).toBe(false);
   });
 
+  test('calculates planned progress ratio for edge cases', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+        projectName: 'Ratio Test',
+        baseDate: '2023-01-15',
+        tasks: [
+          { id: 'ratio-1', task: 'Missing dates', plannedStartDate: '', plannedEndDate: '2023-01-20' },
+          { id: 'ratio-2', task: 'Base before start', plannedStartDate: '2023-01-20', plannedEndDate: '2023-01-25' },
+          { id: 'ratio-3', task: 'Base after end', plannedStartDate: '2023-01-01', plannedEndDate: '2023-01-10' },
+          { id: 'ratio-4', task: 'Reversed dates', plannedStartDate: '2023-01-10', plannedEndDate: '2023-01-05' },
+          { id: 'ratio-5', task: 'Normal range', plannedStartDate: '2023-01-10', plannedEndDate: '2023-01-20' }
+        ]
+      }));
+    });
+    await page.reload();
+
+    const progressColumnIndex = await page.locator('thead th').evaluateAll((headers) => (
+      headers.findIndex((header) => header.textContent.trim() === '계획진척률')
+    ));
+
+    expect(progressColumnIndex).toBeGreaterThan(-1);
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(5);
+
+    const getPlannedProgressRatio = async (index) => page.locator('tbody tr[data-task-id]').nth(index).locator('td').nth(progressColumnIndex).innerText();
+
+    expect(await getPlannedProgressRatio(0)).toBe('0.00%');
+    expect(await getPlannedProgressRatio(1)).toBe('0.00%');
+    expect(await getPlannedProgressRatio(2)).toBe('100.00%');
+    expect(await getPlannedProgressRatio(3)).toBe('100.00%');
+    expect(await getPlannedProgressRatio(4)).toBe('50.00%');
+  });
+
   test('counts same-day work as one day for totals and weights', async ({ page }) => {
     await addTopLevelTask(page, {
       phase: 'P2000.검증단계',
