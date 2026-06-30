@@ -258,6 +258,11 @@ function bindEvents() {
     const taskId = row.dataset.taskId;
     const actionButton = event.target.closest('[data-action]');
     if (actionButton) {
+      if (actionButton.getAttribute('aria-disabled') === 'true') {
+        event.preventDefault();
+        showToast(actionButton.title || '현재 사용할 수 없는 작업입니다.');
+        return;
+      }
       handleRowAction(actionButton.dataset.action, taskId);
       return;
     }

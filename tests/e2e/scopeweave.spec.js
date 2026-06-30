@@ -123,7 +123,11 @@ test.describe('ScopeWeave Planner', () => {
 
     const leafRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '세부업무' });
     await expect(leafRow).toHaveCount(1);
-    await expect(leafRow.getByRole('button', { name: '하위 추가' })).toHaveAttribute('aria-disabled', 'true');
+    const leafAddChildButton = leafRow.getByRole('button', { name: '하위 추가' });
+    await expect(leafAddChildButton).toHaveAttribute('aria-disabled', 'true');
+    await leafAddChildButton.click();
+    await expect(page.locator('#toast')).toContainText('최대 3단계까지만 추가할 수 있습니다.');
+    await expect(page.locator('.editor-panel')).toHaveCount(0);
   });
 
   test('opens gantt modal and renders chart bars with correct inline styles', async ({ page }) => {
