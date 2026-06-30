@@ -923,6 +923,14 @@ function handleInlineProgressChange(event) {
   task.actualProgressStatus = event.target.value;
   persistState();
   renderAll();
+
+  // 🎨 Palette: Restore focus to the dropdown after full DOM re-render
+  requestAnimationFrame(() => {
+    const dropdown = document.querySelector(`[data-inline-progress="${taskId}"]`);
+    if (dropdown) {
+      dropdown.focus();
+    }
+  });
 }
 
 function handleRowAction(action, taskId) {
@@ -935,6 +943,14 @@ function handleRowAction(action, taskId) {
     task.expanded = !task.expanded;
     persistState();
     renderAll();
+
+    // 🎨 Palette: Restore focus to the toggle button after full DOM re-render
+    requestAnimationFrame(() => {
+      const toggleBtn = document.querySelector(`tr[data-task-id="${taskId}"] button[data-action="toggle"]`);
+      if (toggleBtn) {
+        toggleBtn.focus();
+      }
+    });
     return;
   }
 
