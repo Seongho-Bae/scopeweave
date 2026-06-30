@@ -69,3 +69,7 @@
 ## 2026-06-26 - Placeholder text and document titles
 **Learning:** Empty text inputs without placeholders fail to provide examples, and static document titles do not help screen-reader or multi-tab users identify the active project.
 **Action:** Add helpful `placeholder` attributes to form fields and build dynamic document titles from `DEFAULT_PROJECT_NAME` so app naming stays centralized.
+
+## 2026-06-24 - Interactive Chart Accessibility
+**Learning:** Visual chart elements like Gantt bars convey critical information through width and position, making them inaccessible to screen readers and keyboard users by default. Adding informative tooltips (`title`) combined with `aria-label`, `role="img"`, and `tabindex="0"` creates an inclusive experience that works for hover, focus, and assistive technologies.
+**Action:** When rendering data visualizations, ensure individual graphical elements are focusable (`tabindex="0"`), semantically identified (`role="img"` or similar), and provide a text alternative (`aria-label` or `title`) explaining what the graphic represents.

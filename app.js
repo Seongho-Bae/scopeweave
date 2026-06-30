@@ -1979,8 +1979,8 @@ function createGanttChartTable(weeks, weekdays, totalWidth) {
     track.className = 'gantt-day-track';
     track.style.width = `${totalWidth}px`;
 
-    const planBar = createGanttBarElement(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan');
-    const actualBar = createGanttBarElement(task.actualStartDate, task.actualEndDate, weekdays, 'actual');
+    const planBar = createGanttBarElement(task.plannedStartDate, task.plannedEndDate, weekdays, 'plan', task);
+    const actualBar = createGanttBarElement(task.actualStartDate, task.actualEndDate, weekdays, 'actual', task);
     if (planBar) {
       track.appendChild(planBar);
     }
@@ -2035,7 +2035,7 @@ function groupTimelineByWeek(days) {
   return groups;
 }
 
-function createGanttBarElement(startDate, endDate, weekdays, type) {
+function createGanttBarElement(startDate, endDate, weekdays, type, task) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
     return null;
   }
@@ -2059,6 +2059,18 @@ function createGanttBarElement(startDate, endDate, weekdays, type) {
   bar.className = `gantt-bar ${type}`;
   bar.style.left = `${startIndex * 36}px`;
   bar.style.width = `${(normalizedEndIndex - startIndex + 1) * 36}px`;
+
+  const taskName = task.task || task.activity || task.phase || '작업';
+  const typeLabel = type === 'plan' ? '계획' : '실적';
+  const visibleStartDate = weekdays[startIndex].date;
+  const visibleEndDate = weekdays[normalizedEndIndex].date;
+  const tooltipText = `${taskName} ${typeLabel} (${visibleStartDate} ~ ${visibleEndDate})`;
+
+  bar.title = tooltipText;
+  bar.setAttribute('aria-label', tooltipText);
+  bar.setAttribute('role', 'img');
+  bar.tabIndex = 0;
+
   return bar;
 }
 
