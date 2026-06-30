@@ -77,3 +77,7 @@
 ## 2026-06-27 - Add keyboard shortcut hints to tooltips
 **Learning:** Consistently adding `title` attributes with keyboard shortcut hints to primary actions (e.g., `(Enter)`) and cancel actions (e.g., `(Esc)`) improves discoverability, but `title` alone is not reliably exposed to keyboard and screen-reader users.
 **Action:** Include keyboard shortcut hints in `title` attributes and pair them with `aria-keyshortcuts` for primary and cancel buttons when implementing or updating forms and dialogs.
+
+## 2026-06-27 - Replace native disabled with aria-disabled for action buttons
+**Learning:** Native `disabled` attributes swallow all DOM events, including clicks, and prevent focus. This breaks keyboard accessibility because users tabbing through the page skip the element entirely, and it prevents click handlers from showing helpful toast messages explaining why an action is unavailable.
+**Action:** Use `aria-disabled="true"` instead of `disabled` for interactive buttons when the UI should preserve focusability or show inline feedback. Control visual presentation with `[aria-disabled="true"]` in CSS and guard the click handler by checking `getAttribute('aria-disabled') === 'true'` before preventing the action and showing feedback.
