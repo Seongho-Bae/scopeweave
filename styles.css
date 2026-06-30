@@ -10,7 +10,7 @@
   --text-muted: #64748b;
   --blue-soft: #f0fdfa;
   --blue-hover: #e0f2fe;
-  --danger: #ef4444;
+  --danger: #dc2626;
   --status-before: #475569;
   --status-active: #059669;
   --status-done: #0f172a;
@@ -278,13 +278,36 @@ button {
 }
 
 .col-actions {
-  min-width: 150px;
+  min-width: 180px;
 }
 
 .action-stack {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  color: var(--border-strong);
+  cursor: grab;
+  font-size: 1.1rem;
+  font-weight: bold;
+  letter-spacing: -2px;
+  transition: color var(--transition);
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: var(--text-muted);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .toggle-button,
@@ -329,7 +352,8 @@ button {
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+.gantt-bar:focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.5);
   outline-offset: 2px;
 }
@@ -380,7 +404,7 @@ select:focus-visible {
 
 .warning-badge {
   background: #fef2f2;
-  color: var(--danger);
+  color: #b91c1c;
   border: 1px solid #fecaca;
 }
 
@@ -392,7 +416,7 @@ select:focus-visible {
 }
 
 .empty-cell {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .editor-row td {
@@ -503,7 +527,7 @@ select[data-inline-progress]:focus {
 
 .secondary-button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: #f8fafc;
-  border-color: #94a3b8;
+  border-color: #64748b;
   transform: translateY(-1px);
 }
 
