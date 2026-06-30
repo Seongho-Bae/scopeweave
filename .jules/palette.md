@@ -89,3 +89,7 @@
 ## 2026-06-30 - Add skip link for dense planner layouts
 **Learning:** Dense planning screens with top panels and wide data tables create long keyboard paths before users reach the main work area.
 **Action:** Add a visually hidden skip link at the start of the document that becomes visible on focus and targets the primary `<main>` content region.
+
+## 2026-06-28 - Keep row context during keyboard navigation
+**Learning:** Table row hover styles do not help keyboard users, so visual context can disappear while tabbing through dense row controls.
+**Action:** Pair row hover styling with `:focus-within` so focused controls preserve the same row-level context.
