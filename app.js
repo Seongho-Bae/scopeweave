@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'scopeweave:planner-state:v1';
 const DEFAULT_PROJECT_NAME = 'ScopeWeave Planner';
+const MAX_PROJECT_NAME_LENGTH = 120;
 const OWNER_COLORS = [
   '#3f51b5', '#8e24aa', '#d81b60', '#ef6c00', '#6d4c41',
   '#00897b', '#1e88e5', '#3949ab', '#7cb342', '#f4511e',
@@ -193,7 +194,13 @@ async function bootstrap() {
 
 function bindEvents() {
   elements.projectNameInput.addEventListener('input', (event) => {
-    state.projectName = String(event.target.value).trim() || DEFAULT_PROJECT_NAME;
+    const sanitized = String(event.target.value).slice(0, MAX_PROJECT_NAME_LENGTH);
+    if (event.target.value !== sanitized) {
+      const cursor = Math.min(event.target.selectionStart ?? sanitized.length, sanitized.length);
+      event.target.value = sanitized;
+      event.target.setSelectionRange(cursor, cursor);
+    }
+    state.projectName = sanitized.trim() || DEFAULT_PROJECT_NAME;
     persistState();
     renderAll();
   });
@@ -1366,7 +1373,7 @@ function loadLocalState() {
 }
 
 function hydrateState(savedState) {
-  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, 1000);
+  state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, MAX_PROJECT_NAME_LENGTH) || DEFAULT_PROJECT_NAME;
   state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)

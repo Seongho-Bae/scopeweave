@@ -110,3 +110,8 @@
 **Vulnerability:** Dynamically generated download anchors can drift into unsafe patterns if they omit `rel` hardening or call potentially clobberable element methods directly.
 **Learning:** Even short-lived DOM nodes should follow the same defensive DOM invocation conventions as longer-lived UI elements.
 **Prevention:** Set `rel="noopener noreferrer"` on generated anchors and remove them with `Element.prototype.remove.call(anchor)`.
+
+## 2026-06-29 - Prevent memory exhaustion via long project names
+**Vulnerability:** Project names from live input and hydrated localStorage state were not bounded consistently in JavaScript, allowing bypass of HTML-only length constraints.
+**Learning:** UI attributes such as `maxlength` are not a security boundary because persisted state and DOM APIs can bypass them.
+**Prevention:** Enforce shared string length limits in application logic when handling user input and when hydrating client-side state.

@@ -684,6 +684,24 @@ test.describe('ScopeWeave Planner', () => {
     expect(fileChooser.isMultiple()).toBe(false);
   });
 
+  test('truncates project names from input and persisted state', async ({ page }) => {
+    const input = page.locator('#project-name');
+    const longName = 'A'.repeat(150);
+
+    await input.fill(longName);
+    await expect(input).toHaveValue('A'.repeat(120));
+
+    await page.evaluate((projectName) => {
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+        projectName,
+        baseDate: '2026-04-20',
+        tasks: []
+      }));
+    }, 'B'.repeat(150));
+    await page.reload();
+    await expect(input).toHaveValue('B'.repeat(120));
+  });
+
   test('neutralizes spreadsheet formulas during CSV import', async ({ page }) => {
     const csvText = [
       '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,실적진척상태,계획시작일,계획종료일,실적시작일,실적종료일',
