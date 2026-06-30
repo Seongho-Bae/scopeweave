@@ -19,7 +19,7 @@
 **Action:** Keep sensitive values out of `localStorage`, or use properly designed encryption with key management when sensitive local persistence is unavoidable. When generating CSVs from user input, always sanitize values by escaping double quotes, enclosing in quotes if needed, and prefixing potentially malicious formulas with a leading single quote.
 ## 2026-06-16 - CI dependency resolution
 **Learning:** During test runs, upstream tools like Strix Agent might occasionally fail due to unpinned or missing transitive dependencies (like `tzlocal` dropping out of `scrubadub` or `dateparser`).
-**Action:** When CI pipelines fail with `ModuleNotFoundError` for packages like `tzlocal` that should be present, explicitly append them to the CI dependency requirements files (e.g. `requirements-strix-ci.txt`).
+**Action:** When CI pipelines fail with `ModuleNotFoundError` for packages like `tzlocal` that should be present, update the owning workflow's dependency contract. OpenCode Review, Strix Security Scan, and PR Review Merge Scheduler dependencies are owned centrally in `ContextualWisdomLab/.github`.
 ## 2026-06-17 - Disable unavailable actions instead of hiding or erroring
 **Learning:** Users can be confused if actions like 'Export CSV' or 'Gantt Chart' are clickable but do nothing (or show an error) when there's no data. Disabling the buttons with a clear `title` tooltip improves the experience.
 **Action:** Proactively disable buttons that require a certain state (like having tasks or browser API support) and explain the reason via a `title` tooltip.
@@ -46,3 +46,42 @@
 ## 2026-06-23 - Prevent DOM XSS false positives by using strict string interpolation
 **Learning:** When using boolean values from an untrusted source (like `localStorage`) in DOM attributes directly without sanitization, security scanners (like Strix) might flag the usage as Stored XSS, even if DOM APIs like `setAttribute` naturally encode the raw strings. Double-escaping text when using `.textContent` or string-interpolation for `.setAttribute` causes visual breakage (e.g. `Task &amp; 1`) because these sinks do not decode HTML entities.
 **Action:** When evaluating boolean properties in DOM templates (e.g., `aria-expanded`), explicitly use a ternary coercion to string primitives (e.g., `task.expanded ? 'true' : 'false'`) instead of relying on generic `String(task.expanded)` to prevent scanners from treating it as an untyped generic string injection vector. Avoid using `escapeHtml()` when updating DOM text via `textContent` or `setAttribute`, as the browser handles the encoding safely.
+## 2026-06-25 - Improve Screen Reader UX for Empty Table Cells
+**Learning:** Dense data tables often use placeholder characters like dashes (`-`) to represent empty cells visually. However, screen readers read these aloud sequentially, causing a frustrating "dash, dash, dash" experience that degrades usability.
+**Action:** When a table cell is conceptually empty but uses a visual placeholder like `-`, wrap the placeholder in `<span aria-hidden="true">` and add a visually hidden span (`.sr-only`) with a meaningful semantic text like "값 없음" (No value) or "비어있음" (Empty).
+
+## 2026-06-24 - Provide Context for Repeating Inline Actions
+**Learning:** Repeating form fields and action buttons in a data grid (like "Edit", "Delete", or inline selects) sound identical to screen reader users (e.g., "편집") without the row context.
+**Action:** When working with inline action buttons or fields in a data grid, extract an identifying entity name from the row data and append/prepend it to the `aria-label` or `sr-only` label text to provide clear context (e.g., "편집 - [작업명]").
+
+## 2026-06-24 - Improve contrast and add keyboard shortcut hints
+**Learning:** Light gray and red text on white backgrounds often fail WCAG AA contrast requirements. Keyboard users benefit from explicit tooltip hints for shortcuts.
+**Action:** Check contrast ratios for muted/warning text and include `aria-keyshortcuts` for buttons with keyboard shortcuts, with `title` as an optional pointer for mouse users.
+
+## 2026-06-29 - Add drag handle for task reordering
+**Learning:** Hidden interactions (like drag-and-dropping rows without a visible handle) are poorly discoverable and can lead to accidental activation of other row actions. Also, warning colors often fail accessibility contrast ratios against light background tones if not checked.
+**Action:** Always provide visual affordances (like drag handles) for complex interactions like drag-and-drop, and verify color contrast ratios for dynamically generated badges or warnings.
+
+## 2026-06-26 - Project Name Placeholder
+**Learning:** Users can be unsure of what format or granularity is expected for a project name. Providing a concrete example placeholder (like '예: 신규 서비스 구축 프로젝트') gives immediate context and reduces cognitive load.
+**Action:** Add helpful, context-specific placeholders to empty text inputs, especially those representing broad or important fields like project names.
+
+## 2026-06-26 - Placeholder text and document titles
+**Learning:** Empty text inputs without placeholders fail to provide examples, and static document titles do not help screen-reader or multi-tab users identify the active project.
+**Action:** Add helpful `placeholder` attributes to form fields and build dynamic document titles from `DEFAULT_PROJECT_NAME` so app naming stays centralized.
+
+## 2026-06-24 - Interactive Chart Accessibility
+**Learning:** Visual chart elements like Gantt bars convey critical information through width and position, making them inaccessible to screen readers and keyboard users by default. Adding informative tooltips (`title`) combined with `aria-label`, `role="img"`, and `tabindex="0"` creates an inclusive experience that works for hover, focus, and assistive technologies.
+**Action:** When rendering data visualizations, ensure individual graphical elements are focusable (`tabindex="0"`), semantically identified (`role="img"` or similar), and provide a text alternative (`aria-label` or `title`) explaining what the graphic represents.
+
+## 2026-06-27 - Add keyboard shortcut hints to tooltips
+**Learning:** Consistently adding `title` attributes with keyboard shortcut hints to primary actions (e.g., `(Enter)`) and cancel actions (e.g., `(Esc)`) improves discoverability, but `title` alone is not reliably exposed to keyboard and screen-reader users.
+**Action:** Include keyboard shortcut hints in `title` attributes and pair them with `aria-keyshortcuts` for primary and cancel buttons when implementing or updating forms and dialogs.
+
+## 2026-06-27 - Replace native disabled with aria-disabled for action buttons
+**Learning:** Native `disabled` attributes swallow all DOM events, including clicks, and prevent focus. This breaks keyboard accessibility because users tabbing through the page skip the element entirely, and it prevents click handlers from showing helpful toast messages explaining why an action is unavailable.
+**Action:** Use `aria-disabled="true"` instead of `disabled` for interactive buttons when the UI should preserve focusability or show inline feedback. Control visual presentation with `[aria-disabled="true"]` in CSS and guard the click handler by checking `getAttribute('aria-disabled') === 'true'` before preventing the action and showing feedback.
+
+## 2026-06-28 - Keyboard Shortcut Hints
+**Learning:** Keyboard shortcut hints are more useful when they are discoverable to both mouse and assistive-technology users; `title` alone is hover-driven and unreliable for screen readers.
+**Action:** Pair optional title tooltips with `aria-keyshortcuts` on buttons that expose keyboard shortcuts.
