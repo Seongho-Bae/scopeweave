@@ -50,3 +50,48 @@
 **Vulnerability:** A security scanner incorrectly flagged the absence of authentication as a CRITICAL vulnerability.
 **Learning:** Pure client-side HTML/JS applications that operate entirely on local storage without a backend server cannot implement server-side authentication or session-based access control. Security scanners may generate false positives if they assume a backend exists.
 **Prevention:** When building pure client-side tools, document that they are static applications operating on local data. Security models that rely on backend controls (like JWT, sessions, HTTP-only cookies) do not apply to serverless, local-first tools.
+
+## 2026-06-25 - Prevent DoS via type confusion in trim() and Prototype Injection in Lookup Maps
+**Vulnerability:** Missing string coercion before calling `.trim()` exposed the app to Denial of Service via type confusion, and `testIdMap` was vulnerable to prototype injection.
+**Learning:** In purely client-side static apps, relying on untyped `.trim()` calls on user input must be guarded by strict string coercion. Also, even locally scoped maps can be abused if untrusted keys are passed.
+**Prevention:** Rigorously enforce `String(value ?? '').trim()` during data sanitization so nullish values stay empty, and use frozen `Object.assign(Object.create(null), { ... })` constants for lookup maps.
+
+## 2026-06-25 - Prevent DOM-based XSS in createTextCellContent
+**Vulnerability:** The `createTextCellContent` function appended user-controlled input directly to the DOM using `wrapper.append(value)` when a warning parameter was present. This allowed arbitrary JavaScript execution (DOM XSS).
+**Learning:** Using `append()` with unsanitized strings directly into a DOM node is dangerous if the input can contain HTML payloads, as it will be interpreted as DOM content.
+**Prevention:** Always use `document.createTextNode(value)` before appending untrusted data, or use `.textContent` to safely render strings as text content instead of executable HTML.
+
+## 2026-06-24 - Prevent Prototype Injection in testIdMap
+**Vulnerability:** The local variable `testIdMap` inside `renderEditorField` was instantiated as a literal object, exposing prototype properties. If the `field` variable could be manipulated to a standard prototype property like `__proto__`, it could lead to unexpected behavior and bypasses.
+**Learning:** Even locally scoped dictionaries should be protected against prototype injection if they map dynamic string keys to values.
+**Prevention:** Instantiate lookup maps with `Object.assign(Object.create(null), { ... })` when dynamic keys are used for lookups.
+
+## 2026-06-24 - Normalize localStorage projectName
+**Vulnerability:** The application loaded `projectName` directly from `localStorage` into state. Even when rendered through safe DOM APIs, unbounded untrusted strings from storage can cause inconsistent state and downstream export issues.
+**Learning:** All data loaded from `localStorage` should be treated as untrusted and normalized before assignment to application state.
+**Prevention:** Strictly coerce, trim, and length-limit user-controlled string values loaded from storage.
+
+## 2026-06-24 - Filter prototype pollution keys in JSON.parse
+**Vulnerability:** Parsed JSON from `localStorage` or seed files could retain keys such as `__proto__`, `constructor`, or `prototype` that become dangerous when later merged into objects.
+**Learning:** JSON input is untrusted even in a static app when it comes from local storage or external seed files.
+**Prevention:** Use a JSON reviver to filter prototype-pollution keys before parsed data enters application state.
+
+## 2026-06-29 - Neutralize CSV formulas during import
+**Vulnerability:** CSV import accepted spreadsheet formula prefixes such as `=`, `+`, `-`, and `@` into state, so a later export could preserve attacker-controlled formula payloads.
+**Learning:** CSV formula injection needs defense at both boundaries: exported cells and imported cells that may be re-exported later.
+**Prevention:** Normalize imported CSV cells with the same formula neutralization used by CSV export, and keep E2E coverage for import-to-storage formula payloads.
+
+## 2026-06-26 - Eliminate Math.random from task ID generation entirely
+**Vulnerability:** Even as a fallback to crypto implementations, `Math.random()` was still present in the application's unique task ID generation `createId` function. Its lack of cryptographic strength leaves it susceptible to predictability vectors.
+**Learning:** For client-side static apps, `crypto.randomUUID()` and `crypto.getRandomValues()` cover most modern browsers. If neither is present, generating identifiers without cryptographic entropy risks weak or predictable IDs.
+**Prevention:** Avoid relying on `Math.random()` or deterministic fallback counters for any form of unique identifier or security-related randomness. If Web Crypto is unavailable, fail closed rather than generating a weak ID.
+
+## 2026-06-27 - Add timeout to static asset fetches
+**Vulnerability:** The application fetched the same-origin static seed asset (`fetch('./wbs.json')`) without a timeout, which could leave startup waiting indefinitely if the network or response body stalled.
+**Learning:** Static asset and other network fetches should have a bounded timeout covering both headers and body parsing to reduce client-side denial-of-service risk from stalled responses.
+**Prevention:** Use an `AbortController` with a timeout around the complete fetch-and-read operation, and clear the timer in a `finally` block.
+
+## 2026-06-28 - Fail closed when secure task ID generation is unavailable
+**Vulnerability:** The ID generation function `createId` still had a non-cryptographic fallback path for environments without the Web Crypto API.
+**Learning:** Fallback ID generation must not trade security for availability when the identifier is expected to be unpredictable.
+**Prevention:** Prefer `crypto.randomUUID()`, fall back only to `crypto.getRandomValues()`, and throw an explicit error if secure random generation is unavailable.
