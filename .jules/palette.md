@@ -93,3 +93,7 @@
 ## 2026-06-28 - Keep row context during keyboard navigation
 **Learning:** Table row hover styles do not help keyboard users, so visual context can disappear while tabbing through dense row controls.
 **Action:** Pair row hover styling with `:focus-within` so focused controls preserve the same row-level context.
+
+## 2026-06-25 - Surface editor validation state before submit
+**Learning:** Keeping a submit button active while validation errors are already visible makes invalid forms feel broken, especially for keyboard and screen-reader users.
+**Action:** Disable editor submit controls while validation errors are present and mark the affected inputs with `aria-invalid` and `aria-describedby`.

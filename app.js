@@ -853,6 +853,29 @@ function renderEditorValidation() {
   if (errorElement) {
     errorElement.textContent = errors.join(' ');
   }
+
+  const form = document.querySelector('form[data-editor-form="true"]');
+  if (!form) {
+    return;
+  }
+
+  const saveButton = form.querySelector('button[type="submit"]');
+  if (saveButton) {
+    saveButton.disabled = errors.length > 0;
+    saveButton.title = errors.length > 0 ? '입력값을 올바르게 수정해야 저장할 수 있습니다.' : '저장 (Enter)';
+  }
+
+  form.querySelectorAll('input[data-editor-field]').forEach((input) => {
+    const label = CSV_FIELD_LABELS[input.dataset.editorField] || input.dataset.editorField;
+    const hasError = errors.some((error) => label && error.includes(label));
+    if (hasError) {
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', 'editor-errors');
+    } else {
+      input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-describedby');
+    }
+  });
 }
 
 function handleInlineProgressChange(event) {
