@@ -572,6 +572,30 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.locator('.editor-panel')).toBeVisible();
   });
 
+  test('rejects empty CSV import', async ({ page }) => {
+    await importCsv(page, '');
+
+    await expect(page.locator('#toast')).toContainText('CSV 가져오기에 실패했습니다: CSV 데이터가 비어 있습니다.');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+  });
+
+  test('rejects CSV import without data rows', async ({ page }) => {
+    await importCsv(page, 'HeaderOnlyNoRows\n');
+
+    await expect(page.locator('#toast')).toContainText('CSV 가져오기에 실패했습니다: CSV 데이터가 비어 있습니다.');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+  });
+
+  test('rejects CSV import missing required headers', async ({ page }) => {
+    await importCsv(page, [
+      '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척률,실적시작일,실적종료일',
+      'P3000.검증단계,,누락컬럼,검증,,,담당자A,,,2026-03-01,2026-03-02,,,미착수(0%),,,'
+    ].join('\n'));
+
+    await expect(page.locator('#toast')).toContainText('CSV 가져오기에 실패했습니다: 필수 컬럼이 없습니다: 실적진척상태');
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+  });
+
   test('rejects invalid calendar dates from imported CSV', async ({ page }) => {
     await importCsv(page, ['단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률', 'P3000.검증단계,,잘못된날짜,검증,,,담당자A,,,2026-02-31,2026-03-02,,,미착수(0%),,,'].join('\n'));
 
