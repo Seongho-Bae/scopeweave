@@ -73,3 +73,7 @@
 ## 2026-06-24 - Interactive Chart Accessibility
 **Learning:** Visual chart elements like Gantt bars convey critical information through width and position, making them inaccessible to screen readers and keyboard users by default. Adding informative tooltips (`title`) combined with `aria-label`, `role="img"`, and `tabindex="0"` creates an inclusive experience that works for hover, focus, and assistive technologies.
 **Action:** When rendering data visualizations, ensure individual graphical elements are focusable (`tabindex="0"`), semantically identified (`role="img"` or similar), and provide a text alternative (`aria-label` or `title`) explaining what the graphic represents.
+
+## 2026-06-27 - Add keyboard shortcut hints to tooltips
+**Learning:** Consistently adding `title` attributes with keyboard shortcut hints to primary actions (e.g., `(Enter)`) and cancel actions (e.g., `(Esc)`) improves discoverability, but `title` alone is not reliably exposed to keyboard and screen-reader users.
+**Action:** Include keyboard shortcut hints in `title` attributes and pair them with `aria-keyshortcuts` for primary and cancel buttons when implementing or updating forms and dialogs.
