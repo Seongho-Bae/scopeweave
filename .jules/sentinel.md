@@ -80,3 +80,8 @@
 **Vulnerability:** CSV import accepted spreadsheet formula prefixes such as `=`, `+`, `-`, and `@` into state, so a later export could preserve attacker-controlled formula payloads.
 **Learning:** CSV formula injection needs defense at both boundaries: exported cells and imported cells that may be re-exported later.
 **Prevention:** Normalize imported CSV cells with the same formula neutralization used by CSV export, and keep E2E coverage for import-to-storage formula payloads.
+
+## 2026-06-26 - Eliminate Math.random from task ID generation entirely
+**Vulnerability:** Even as a fallback to crypto implementations, `Math.random()` was still present in the application's unique task ID generation `createId` function. Its lack of cryptographic strength leaves it susceptible to predictability vectors.
+**Learning:** For client-side static apps, `crypto.randomUUID()` and `crypto.getRandomValues()` cover most modern browsers. If neither is present, falling back to a deterministic combination of timestamp (`Date.now()`) and a stateful, incrementing sequential counter is safer and less collision-prone than relying on the predictable pseudo-random `Math.random()`.
+**Prevention:** Avoid relying on `Math.random()` entirely for any form of unique identifier, security token, or randomness logic. In the absence of `crypto` utilities, rely on simple counters and deterministic patterns instead.
