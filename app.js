@@ -131,6 +131,8 @@ const state = {
   jsonSyncHandle: null,
   dragTaskId: null,
   dragTaskCache: null,
+  dragElement: null,
+  dropTargetElement: null,
   toastTimer: null,
   previousFocus: null
 };
@@ -333,6 +335,7 @@ function bindEvents() {
     // Cache task lookups for the drag-and-drop hot path.
     state.dragTaskCache = new Map(state.tasks.map(t => [t.id, t]));
     state.dragTaskId = row.dataset.taskId;
+    state.dragElement = row;
     row.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', state.dragTaskId);
@@ -355,17 +358,19 @@ function bindEvents() {
     }
 
     event.preventDefault();
-    clearDropTargets();
-    row.classList.add('drop-target');
+    if (state.dropTargetElement !== row) {
+      clearDropTargets();
+      state.dropTargetElement = row;
+      row.classList.add('drop-target');
+    }
     const rect = row.getBoundingClientRect();
     row.dataset.dropPosition = event.clientY >= rect.top + rect.height / 2 ? 'after' : 'before';
   });
 
   elements.tableBody.addEventListener('dragleave', (event) => {
     const row = event.target.closest('tr[data-task-id]');
-    if (row) {
-      row.classList.remove('drop-target');
-      delete row.dataset.dropPosition;
+    if (row && state.dropTargetElement === row) {
+      clearDropTargets();
     }
   });
 
@@ -2181,15 +2186,19 @@ function showToast(message) {
 function clearDragState() {
   state.dragTaskId = null;
   state.dragTaskCache = null;
-  elements.tableBody.querySelectorAll('.dragging').forEach((row) => row.classList.remove('dragging'));
+  if (state.dragElement) {
+    state.dragElement.classList.remove('dragging');
+    state.dragElement = null;
+  }
   clearDropTargets();
 }
 
 function clearDropTargets() {
-  elements.tableBody.querySelectorAll('.drop-target').forEach((row) => {
-    row.classList.remove('drop-target');
-    delete row.dataset.dropPosition;
-  });
+  if (state.dropTargetElement) {
+    state.dropTargetElement.classList.remove('drop-target');
+    delete state.dropTargetElement.dataset.dropPosition;
+    state.dropTargetElement = null;
+  }
 }
 
 function downloadFile(content, fileName, mimeType) {

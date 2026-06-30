@@ -71,3 +71,7 @@
 ## 2026-06-29 - Reuse static select option templates
 **Learning:** Rebuilding identical `<option>` nodes for every row adds avoidable DOM allocation cost in large tables.
 **Action:** Cache static select option templates and clone them per row, then set the selected value on the cloned element.
+
+## 2026-06-29 - Cache active drag-and-drop elements
+**Learning:** Cleaning drag/drop classes by querying every table row on each drag event adds avoidable DOM traversal cost.
+**Action:** Cache the active drag element and current drop target in state, then clear only those elements during drag cleanup.
