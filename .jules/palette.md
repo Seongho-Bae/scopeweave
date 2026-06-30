@@ -85,3 +85,7 @@
 ## 2026-06-28 - Keyboard Shortcut Hints
 **Learning:** Keyboard shortcut hints are more useful when they are discoverable to both mouse and assistive-technology users; `title` alone is hover-driven and unreliable for screen readers.
 **Action:** Pair optional title tooltips with `aria-keyshortcuts` on buttons that expose keyboard shortcuts.
+
+## 2026-06-30 - Add skip link for dense planner layouts
+**Learning:** Dense planning screens with top panels and wide data tables create long keyboard paths before users reach the main work area.
+**Action:** Add a visually hidden skip link at the start of the document that becomes visible on focus and targets the primary `<main>` content region.
