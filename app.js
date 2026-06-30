@@ -193,6 +193,12 @@ async function bootstrap() {
 }
 
 function bindEvents() {
+  const persistAndRenderMetadata = debounce(() => {
+    persistState();
+    renderAll();
+  }, 150);
+  const renderDraftValidation = debounce(renderEditorValidation, 150);
+
   elements.projectNameInput.addEventListener('input', (event) => {
     const sanitized = String(event.target.value).slice(0, MAX_PROJECT_NAME_LENGTH);
     if (event.target.value !== sanitized) {
@@ -201,15 +207,15 @@ function bindEvents() {
       event.target.setSelectionRange(cursor, cursor);
     }
     state.projectName = sanitized.trim() || DEFAULT_PROJECT_NAME;
-    persistState();
-    renderAll();
+    persistAndRenderMetadata();
   });
+  elements.projectNameInput.addEventListener('blur', persistAndRenderMetadata.flush);
 
   elements.baseDateInput.addEventListener('input', (event) => {
     state.baseDate = event.target.value || formatLocalDateInput(new Date());
-    persistState();
-    renderAll();
+    persistAndRenderMetadata();
   });
+  elements.baseDateInput.addEventListener('blur', persistAndRenderMetadata.flush);
 
   elements.addRootButton.addEventListener('click', () => openEditor({ mode: 'create', parentId: null, depth: 1, insertAfterId: getLastRootTaskId() }));
   elements.exportCsvButton.addEventListener('click', (e) => {
@@ -285,7 +291,7 @@ function bindEvents() {
       return;
     }
     state.editor.draft[field] = event.target.value;
-    renderEditorValidation();
+    renderDraftValidation();
   });
 
   elements.tableBody.addEventListener('change', (event) => {
@@ -298,6 +304,7 @@ function bindEvents() {
       return;
     }
     state.editor.draft[field] = event.target.value;
+    renderDraftValidation.flush();
     renderEditorValidation();
   });
 
@@ -307,6 +314,7 @@ function bindEvents() {
       return;
     }
     event.preventDefault();
+    renderDraftValidation.flush();
     saveEditor();
   });
 
@@ -2324,6 +2332,26 @@ function toKebab(value) {
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .replace(/_/g, '-')
     .toLowerCase();
+}
+
+function debounce(callback, wait) {
+  let timeoutId = null;
+  const debounced = (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      callback(...args);
+    }, wait);
+  };
+  debounced.flush = () => {
+    if (timeoutId === null) {
+      return;
+    }
+    clearTimeout(timeoutId);
+    timeoutId = null;
+    callback();
+  };
+  return debounced;
 }
 
 // Export for testing
