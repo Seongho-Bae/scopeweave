@@ -55,3 +55,7 @@
 ## 2026-06-30 - Redundant O(N) object cloning before JSON serialization
 **Learning:** Performing a shallow clone on a large array of objects (e.g. `tasks.map(t => ({...t}))`) just before passing it to `JSON.stringify` creates a massive amount of unnecessary object allocations and causes significant garbage collection overhead, especially in hot paths like autosave. `JSON.stringify` naturally iterates properties without mutating them, making manual cloning redundant unless specific properties need filtering out.
 **Action:** Remove redundant array iterations and object spreading when serializing state to JSON. Pass the objects directly.
+
+## 2026-06-27 - Fast path for YYYY-MM-DD date comparisons
+**Learning:** Using a validation-backed comparison function (`compareDateStrings` which relies on `isValidDateString` and its constrained cache) inside tight loops, like iterating over all days for every task in `createGanttBarElement` and finding min/max dates, creates redundant validation calls and cache churn.
+**Action:** When both date strings are already guaranteed to be valid `YYYY-MM-DD` values, bypass the validation wrapper and use direct lexicographical string comparisons (`a >= b`).
