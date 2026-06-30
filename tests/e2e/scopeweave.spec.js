@@ -635,8 +635,16 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page.getByTestId('editor-owner')).toHaveAttribute('placeholder', '예: 홍길동');
     await expect(page.getByTestId('editor-support-team')).toHaveAttribute('placeholder', '예: 인프라팀');
 
+    const saveBtn = page.getByRole('button', { name: '저장', exact: true });
+    await expect(saveBtn).toHaveAttribute('title', '저장 (Enter)');
+    await expect(saveBtn).toHaveAttribute('aria-keyshortcuts', 'Enter');
+
+    const cancelBtn = page.getByRole('button', { name: '취소' });
+    await expect(cancelBtn).toHaveAttribute('title', '취소 (Esc)');
+    await expect(cancelBtn).toHaveAttribute('aria-keyshortcuts', 'Escape');
+
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
-    await page.getByRole('button', { name: '취소' }).click();
+    await cancelBtn.click();
 
     await expect(page.locator('.editor-panel')).toBeHidden();
     await expect(targetRow).not.toContainText('임시담당자');

@@ -81,3 +81,7 @@
 ## 2026-06-27 - Replace native disabled with aria-disabled for action buttons
 **Learning:** Native `disabled` attributes swallow all DOM events, including clicks, and prevent focus. This breaks keyboard accessibility because users tabbing through the page skip the element entirely, and it prevents click handlers from showing helpful toast messages explaining why an action is unavailable.
 **Action:** Use `aria-disabled="true"` instead of `disabled` for interactive buttons when the UI should preserve focusability or show inline feedback. Control visual presentation with `[aria-disabled="true"]` in CSS and guard the click handler by checking `getAttribute('aria-disabled') === 'true'` before preventing the action and showing feedback.
+
+## 2026-06-28 - Keyboard Shortcut Hints
+**Learning:** Keyboard shortcut hints are more useful when they are discoverable to both mouse and assistive-technology users; `title` alone is hover-driven and unreliable for screen readers.
+**Action:** Pair optional title tooltips with `aria-keyshortcuts` on buttons that expose keyboard shortcuts.
