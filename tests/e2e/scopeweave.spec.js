@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+
 const fs = require('fs');
 
 const addTopLevelTask = async (page, values) => {
@@ -833,6 +834,74 @@ test.describe('ScopeWeave Planner', () => {
     expect(security.appendedBeforeClick).toBe(true);
     expect(security.removedViaPrototype).toBe(true);
     expect(security.relAtRemove).toBe('noopener noreferrer');
+  });
+});
+
+
+test.describe('validateImportedTasks', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.__scopeweaveTestApi?.validateImportedTasks === 'function');
+  });
+
+  test('should validate valid tasks', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const tasks = [
+        { id: '1', parentId: null },
+        { id: '2', parentId: '1' }
+      ];
+      return window.__scopeweaveTestApi.validateImportedTasks(tasks);
+    });
+    expect(result).toHaveLength(2);
+  });
+
+  test('should throw error on duplicate IDs', async ({ page }) => {
+    const errorMsg = await page.evaluate(() => {
+      const tasks = [
+        { id: '1', parentId: null },
+        { id: '1', parentId: null }
+      ];
+      try {
+        window.__scopeweaveTestApi.validateImportedTasks(tasks);
+        return null;
+      } catch (err) {
+        return err.message;
+      }
+    });
+    expect(errorMsg).toContain('중복된 ID가 발견되었습니다: 1');
+  });
+
+  test('should throw error on non-existent parent IDs', async ({ page }) => {
+    const errorMsg = await page.evaluate(() => {
+      const tasks = [
+        { id: '1', parentId: null },
+        { id: '2', parentId: '999' }
+      ];
+      try {
+        window.__scopeweaveTestApi.validateImportedTasks(tasks);
+        return null;
+      } catch (err) {
+        return err.message;
+      }
+    });
+    expect(errorMsg).toContain('존재하지 않는 부모 ID를 참조합니다: 999');
+  });
+
+  test('should throw error on circular references', async ({ page }) => {
+    const errorMsg = await page.evaluate(() => {
+      const tasks = [
+        { id: '1', parentId: '3' },
+        { id: '2', parentId: '1' },
+        { id: '3', parentId: '2' }
+      ];
+      try {
+        window.__scopeweaveTestApi.validateImportedTasks(tasks);
+        return null;
+      } catch (err) {
+        return err.message;
+      }
+    });
+    expect(errorMsg).toContain('순환 참조가 발견되었습니다');
   });
 });
 
