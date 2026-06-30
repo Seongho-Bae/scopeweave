@@ -83,10 +83,15 @@
 
 ## 2026-06-26 - Eliminate Math.random from task ID generation entirely
 **Vulnerability:** Even as a fallback to crypto implementations, `Math.random()` was still present in the application's unique task ID generation `createId` function. Its lack of cryptographic strength leaves it susceptible to predictability vectors.
-**Learning:** For client-side static apps, `crypto.randomUUID()` and `crypto.getRandomValues()` cover most modern browsers. If neither is present, falling back to a deterministic combination of timestamp (`Date.now()`) and a stateful, incrementing sequential counter is safer and less collision-prone than relying on the predictable pseudo-random `Math.random()`.
-**Prevention:** Avoid relying on `Math.random()` entirely for any form of unique identifier, security token, or randomness logic. In the absence of `crypto` utilities, rely on simple counters and deterministic patterns instead.
+**Learning:** For client-side static apps, `crypto.randomUUID()` and `crypto.getRandomValues()` cover most modern browsers. If neither is present, generating identifiers without cryptographic entropy risks weak or predictable IDs.
+**Prevention:** Avoid relying on `Math.random()` or deterministic fallback counters for any form of unique identifier or security-related randomness. If Web Crypto is unavailable, fail closed rather than generating a weak ID.
 
 ## 2026-06-27 - Add timeout to static asset fetches
 **Vulnerability:** The application fetched the same-origin static seed asset (`fetch('./wbs.json')`) without a timeout, which could leave startup waiting indefinitely if the network or response body stalled.
 **Learning:** Static asset and other network fetches should have a bounded timeout covering both headers and body parsing to reduce client-side denial-of-service risk from stalled responses.
 **Prevention:** Use an `AbortController` with a timeout around the complete fetch-and-read operation, and clear the timer in a `finally` block.
+
+## 2026-06-28 - Fail closed when secure task ID generation is unavailable
+**Vulnerability:** The ID generation function `createId` still had a non-cryptographic fallback path for environments without the Web Crypto API.
+**Learning:** Fallback ID generation must not trade security for availability when the identifier is expected to be unpredictable.
+**Prevention:** Prefer `crypto.randomUUID()`, fall back only to `crypto.getRandomValues()`, and throw an explicit error if secure random generation is unavailable.
