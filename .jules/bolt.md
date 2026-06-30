@@ -10,7 +10,7 @@
 ## 2024-05-18 - Prevent O(N^2) bottlenecks when iterating hierarchical arrays
 **Learning:** When detecting cycles or traversing parents in a hierarchical array like `tasks`, repeatedly calling `.find()` inside a loop creates an O(N^2) bottleneck, which is devastating for large CSV imports.
 **Action:** Always construct an O(1) lookup map (e.g., `new Map(tasks.map(t => [t.id, t]))`) *before* iterating over the array to ensure O(N) complexity for hierarchical validations.
-## 2024-05-18 - [Title] Array spreading and reversing in rendering loops
+## 2024-05-18 - Avoid array spreading and reversing in rendering loops
 **Learning:** Using `[...array].reverse().findIndex(...)` in a tight loop (like rendering Gantt chart bars for every task) is an anti-pattern. It creates a brand new copy of the array and then mutates it on every single iteration, leading to massive memory allocation overhead and garbage collection pauses.
 **Action:** Always replace `[...array].reverse().findIndex(...)` with a standard reverse `for` loop starting from `array.length - 1` and iterating backwards, especially inside O(N) rendering functions.
 ## 2024-05-18 - Prevent O(N^2) bottlenecks when grouping arrays
