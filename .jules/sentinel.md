@@ -105,3 +105,8 @@
 **Vulnerability:** CSV export and import formula neutralization did not treat pipe-prefixed DDE payloads as spreadsheet formulas.
 **Learning:** Spreadsheet formula defenses should include less common command-style prefixes such as `|`, not only `=`, `+`, `-`, and `@`.
 **Prevention:** Include `|` in the formula prefix pattern so exported and imported CSV cells are neutralized before they can be opened in spreadsheet software.
+
+## 2026-06-30 - Harden generated download links
+**Vulnerability:** Dynamically generated download anchors can drift into unsafe patterns if they omit `rel` hardening or call potentially clobberable element methods directly.
+**Learning:** Even short-lived DOM nodes should follow the same defensive DOM invocation conventions as longer-lived UI elements.
+**Prevention:** Set `rel="noopener noreferrer"` on generated anchors and remove them with `Element.prototype.remove.call(anchor)`.

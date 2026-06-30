@@ -2155,9 +2155,11 @@ function downloadFile(content, fileName, mimeType) {
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
+  // Keep generated download links isolated from any browsing context changes.
+  link.rel = 'noopener noreferrer';
   document.body.appendChild(link);
   link.click();
-  link.remove();
+  Element.prototype.remove.call(link);
   URL.revokeObjectURL(url);
 }
 

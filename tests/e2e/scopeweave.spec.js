@@ -767,6 +767,49 @@ test.describe('ScopeWeave Planner', () => {
     expect(result.text).toContain('<img src=x onerror=alert(1)>');
     expect(result.text).toContain('날짜 오류');
   });
+
+  test('hardens dynamically generated download links', async ({ page }) => {
+    await addTopLevelTask(page, {
+      phase: 'Download hardening',
+      categoryLarge: 'Security',
+      owner: '담당자A',
+      plannedStartDate: '2026-05-18',
+      plannedEndDate: '2026-05-20'
+    });
+
+    await page.evaluate(() => {
+      window.__downloadLinkSecurity = null;
+      URL.createObjectURL = () => 'blob:scopeweave-test';
+      URL.revokeObjectURL = () => {};
+
+      HTMLAnchorElement.prototype.click = function click() {
+        window.__downloadLinkSecurity = {
+          download: this.download,
+          rel: this.rel,
+          appendedBeforeClick: document.body.contains(this),
+          removedViaPrototype: false
+        };
+      };
+
+      const originalRemove = Element.prototype.remove;
+      Element.prototype.remove = function remove() {
+        if (this.tagName === 'A' && window.__downloadLinkSecurity) {
+          window.__downloadLinkSecurity.removedViaPrototype = true;
+          window.__downloadLinkSecurity.relAtRemove = this.rel;
+        }
+        return originalRemove.call(this);
+      };
+    });
+
+    await page.getByRole('button', { name: 'CSV 내보내기' }).click();
+
+    const security = await page.evaluate(() => window.__downloadLinkSecurity);
+    expect(security.download).toMatch(/^wbs_export_\d{8}\.csv$/);
+    expect(security.rel).toBe('noopener noreferrer');
+    expect(security.appendedBeforeClick).toBe(true);
+    expect(security.removedViaPrototype).toBe(true);
+    expect(security.relAtRemove).toBe('noopener noreferrer');
+  });
 });
 
 test.describe('ScopeWeave Planner - Palette UX Enhancements', () => {
