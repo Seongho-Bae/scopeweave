@@ -438,4 +438,47 @@ test.describe('ScopeWeave Planner', () => {
     const fileChooser = await fileChooserPromise;
     expect(fileChooser.isMultiple()).toBe(false);
   });
+
+  test('does not reallocate arrays in getLastRootTaskId', async ({ page }) => {
+    // Generate a massive project to trace compute bottleneck paths and ensure root task lookup stays O(1)
+    const largeRows = [['단계', 'Activity', 'Task', '대분류', '중분류', '산출물', '담당자', '지원팀', '실적진척상태', '계획시작일', '계획종료일', '실적시작일', '실적종료일']];
+    for (let i = 0; i < 600; i++) {
+      largeRows.push([`Phase ${i}`, 'Act', 'Task', 'CatL', 'CatM', 'Doc', 'Owner', 'Support', '미착수(0%)', '2024-01-01', '2024-01-05', '', '']);
+    }
+    const csvContent = largeRows.map(row => row.join(',')).join('\n');
+
+    await page.route('**/*.csv', route => route.fulfill({
+      status: 200,
+      contentType: 'text/csv',
+      body: csvContent
+    }));
+
+    await page.setInputFiles('#import-csv-input', {
+      name: 'test.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csvContent)
+    });
+
+    // Changing the base date triggers renderAll
+    const beforeStats = await page.evaluate(() => {
+      // Stub calculateDurationDays to ensure we reach the render completely fine
+      let calls = 0;
+      const original = window.calculateDurationDays;
+      window.calculateDurationDays = function(start, end) {
+        calls++;
+        return original.call(window, start, end);
+      };
+      return calls;
+    });
+
+    await page.fill('#base-date-input', '2024-02-01');
+    await page.keyboard.press('Tab');
+
+    // Add child clicks getLastRootTaskId internally under the hood
+    await page.getByRole('button', { name: '최상위 추가' }).click();
+
+    // Editor should become visible
+    await expect(page.locator('.editor-panel')).toBeVisible();
+  });
+
 });

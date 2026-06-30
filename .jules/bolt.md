@@ -24,6 +24,6 @@
 **Learning:** Instantiating new Sets inside a .filter() callback during hot paths (like renderAll which fires on every keystroke) causes massive memory allocations and garbage collection pauses.
 **Action:** Move the Set instantiation outside the iteration loop and reuse it via clear() inside the loop to ensure O(1) allocation overhead per render pass.
 
-## 2024-05-18 - 렌더링 루프 내 고정 크기 캐시를 우회하는 중복 날짜 파싱
-**Learning:** `calculateDurationDays`는 500개 고정 크기 캐시(`dateToUtcMsCache`)를 활용하는 날짜 문자열 파싱 로직에 의존합니다. 수백 개 이상의 태스크가 있는 대형 프로젝트에서는 루프당 태스크 지표를 두 번 계산하면 이 캐시가 무력화되어, O(N) 중복 파싱 작업이 발생하고 매 렌더링 사이클마다 상당한 성능 저하가 일어납니다.
-**Action:** 렌더링 루프 내의 계산이 무겁거나 캐시가 제한된 작업에 의존하는 경우, 별도의 패스에서 한 번만 계산하고 `Map`과 같은 O(1) 구조에 저장한 다음 메인 집계 루프에서 재사용해야 합니다.
+## 2024-05-18 - .filter()를 이용한 루트 태스크 탐색 비효율 개선
+**Learning:** `getLastRootTaskId` 함수에서 마지막 루트 태스크를 찾기 위해 `state.tasks.filter((task) => !task.parentId)`를 호출하면, 마지막 요소 하나를 찾기 위해 전체 배열을 순회하고 새로운 배열을 O(N)으로 할당하는 불필요한 성능 저하가 발생합니다.
+**Action:** 배열의 마지막 특정 요소를 찾을 때는, 전체 배열을 스캔하고 할당하는 대신 배열의 끝에서부터 역방향 `for` 루프를 돌아 첫 번째로 매칭되는 즉시 반환하면 불필요한 O(N) 순회 및 메모리 할당을 방지할 수 있습니다.

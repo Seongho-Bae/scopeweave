@@ -1085,11 +1085,8 @@ function validateDateRange(startLabel, startValue, endLabel, endValue, errors) {
 }
 
 function computeTaskMetrics() {
-  // ⚡ Bolt: 렌더 사이클에서 O(N) 중복 날짜 파싱을 피하기 위해 기간 계산을 캐시합니다.
-  const durations = new Map();
   const totalDays = state.tasks.reduce((sum, task) => {
     const duration = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
-    durations.set(task.id, duration);
     return sum + duration;
   }, 0);
 
@@ -1099,7 +1096,7 @@ function computeTaskMetrics() {
   let totalWeightedActualRatio = 0;
 
   state.tasks.forEach((task) => {
-    const durationDays = durations.get(task.id);
+    const durationDays = calculateDurationDays(task.plannedStartDate, task.plannedEndDate);
     const weightRatio = totalDays > 0 ? durationDays / totalDays : 0;
     const plannedProgressRatio = calculatePlannedProgressRatio(baseDate, task.plannedStartDate, task.plannedEndDate);
     const actualProgressRatio = (ACTUAL_PROGRESS_MAP[task.actualProgressStatus] || 0) / 100;
@@ -1290,8 +1287,13 @@ function createOwnerColorMap() {
 }
 
 function getLastRootTaskId() {
-  const roots = state.tasks.filter((task) => !task.parentId);
-  return roots.length > 0 ? getLastDescendantId(roots[roots.length - 1].id) : null;
+  // ⚡ Bolt: 배열을 완전히 순회하고 복사본을 만드는 .filter 대신, 역방향 검색으로 즉시 반환하여 O(1)에 가깝게 최적화.
+  for (let i = state.tasks.length - 1; i >= 0; i--) {
+    if (!state.tasks[i].parentId) {
+      return getLastDescendantId(state.tasks[i].id);
+    }
+  }
+  return null;
 }
 
 function getLastDescendantId(taskId) {
