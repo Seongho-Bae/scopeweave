@@ -1474,23 +1474,11 @@ function normalizeImportedTasks(sourceTasks) {
     return buildHierarchicalTasksFromFlatSource(sourceTasks);
   }
   return sourceTasks.map((task, index) => ({
+    ...createNormalizedExternalRecord(task),
     id: task.__id || createId(index + 1),
     parentId: task.__parentId || null,
     depth: Number(task.__depth) || inferDepth(task),
     expanded: true,
-    phase: task.phase || '',
-    activity: task.activity || '',
-    task: task.task || '',
-    categoryLarge: task.categoryLarge || '',
-    categoryMedium: task.categoryMedium || '',
-    documentName: task.documentName || '',
-    owner: task.owner || '',
-    supportTeam: task.supportTeam || '',
-    plannedStartDate: task.plannedStartDate || '',
-    plannedEndDate: getPlannedEndDateValue(task),
-    actualProgressStatus: ACTUAL_PROGRESS_MAP[task.actualProgressStatus] !== undefined ? task.actualProgressStatus : '미착수(0%)',
-    actualStartDate: task.actualStartDate || '',
-    actualEndDate: task.actualEndDate || '',
     pendingDelete: false,
     isSynthetic: Boolean(task.isSynthetic)
   }));
