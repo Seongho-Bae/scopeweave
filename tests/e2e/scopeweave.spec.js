@@ -711,6 +711,32 @@ test.describe('ScopeWeave Planner', () => {
     expect(snapshot[2].task).toBe('고아Task');
   });
 
+  test('normalizes repeated flat CSV rows into shared hierarchy nodes', async ({ page }) => {
+    const header = '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,진행상태,계획시작일,계획종료일,일수,계획진척률,가중치,가중치진척률,실적진척상태,실적진척률,실적시작일,실적종료일,가중치실적진척률';
+    await importCsv(page, [
+      header,
+      'P1000.분석,요구사항,인터뷰,분석,,,담당자A,,,2026-06-01,2026-06-03,,,미착수(0%),,,',
+      'P1000.분석,요구사항,정리,분석,,,담당자A,,,2026-06-04,2026-06-05,,,미착수(0%),,,',
+      'P1000.분석,설계입력,초안,분석,,,담당자B,,,2026-06-06,2026-06-07,,,미착수(0%),,,',
+      'P2000.구현,개발,,구현,,,담당자C,,,2026-06-08,2026-06-09,,,미착수(0%),,,',
+      'P3000.종료,,,,,,담당자D,,,2026-06-10,2026-06-10,,,미착수(0%),,,'
+    ].join('\n'));
+
+    const snapshot = await readHierarchySnapshot(page);
+
+    expect(snapshot).toEqual([
+      { phase: 'P1000.분석', activity: '-', task: '-' },
+      { phase: 'P1000.분석', activity: '요구사항', task: '-' },
+      { phase: 'P1000.분석', activity: '요구사항', task: '인터뷰' },
+      { phase: 'P1000.분석', activity: '요구사항', task: '정리' },
+      { phase: 'P1000.분석', activity: '설계입력', task: '-' },
+      { phase: 'P1000.분석', activity: '설계입력', task: '초안' },
+      { phase: 'P2000.구현', activity: '-', task: '-' },
+      { phase: 'P2000.구현', activity: '개발', task: '-' },
+      { phase: 'P3000.종료', activity: '-', task: '-' }
+    ]);
+  });
+
   test('can edit an existing row and cancel the edit', async ({ page }) => {
     const targetRow = page.locator('tbody tr[data-task-id]').filter({ hasText: '사업수행계획' }).first();
     const originalOwner = await targetRow.locator('.owner-badge').innerText();
