@@ -213,6 +213,13 @@ function bindEvents() {
     return true;
   };
 
+  bindHeaderEvents(persistAndRenderMetadata);
+  bindModalEvents();
+  bindGlobalEvents();
+  bindTableEvents(renderDraftValidation, updateEditorDraftFromEvent);
+}
+
+function bindHeaderEvents(persistAndRenderMetadata) {
   elements.projectNameInput.addEventListener('input', (event) => {
     const sanitized = String(event.target.value).slice(0, MAX_PROJECT_NAME_LENGTH);
     if (event.target.value !== sanitized) {
@@ -265,7 +272,18 @@ function bindEvents() {
     }
     await connectJsonSync();
   });
+}
 
+function bindModalEvents() {
+  elements.closeGanttButton.addEventListener('click', closeGanttModal);
+  elements.ganttModal.addEventListener('click', (event) => {
+    if (event.target.dataset.closeModal === 'true') {
+      closeGanttModal();
+    }
+  });
+}
+
+function bindGlobalEvents() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       if (!elements.ganttModal.classList.contains('hidden')) {
@@ -275,7 +293,9 @@ function bindEvents() {
       }
     }
   });
+}
 
+function bindTableEvents(renderDraftValidation, updateEditorDraftFromEvent) {
   elements.tableBody.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-task-id]');
     if (!row) {
