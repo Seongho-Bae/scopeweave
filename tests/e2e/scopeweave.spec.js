@@ -613,6 +613,12 @@ test.describe('ScopeWeave Planner', () => {
     await targetRow.getByRole('button', { name: '편집' }).click();
     await expect(page.locator('.editor-panel')).toBeVisible();
 
+    await expect(page.getByTestId('editor-category-large')).toHaveAttribute('placeholder', '예: 공통');
+    await expect(page.getByTestId('editor-category-medium')).toHaveAttribute('placeholder', '예: 기획');
+    await expect(page.getByTestId('editor-document-name')).toHaveAttribute('placeholder', '예: 요구사항정의서');
+    await expect(page.getByTestId('editor-owner')).toHaveAttribute('placeholder', '예: 홍길동');
+    await expect(page.getByTestId('editor-support-team')).toHaveAttribute('placeholder', '예: 인프라팀');
+
     await page.locator('[data-testid="editor-owner"]').fill('임시담당자');
     await page.getByRole('button', { name: '취소' }).click();
 

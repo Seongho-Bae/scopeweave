@@ -65,3 +65,7 @@
 ## 2026-06-26 - Project Name Placeholder
 **Learning:** Users can be unsure of what format or granularity is expected for a project name. Providing a concrete example placeholder (like '예: 신규 서비스 구축 프로젝트') gives immediate context and reduces cognitive load.
 **Action:** Add helpful, context-specific placeholders to empty text inputs, especially those representing broad or important fields like project names.
+
+## 2026-06-26 - Placeholder text and document titles
+**Learning:** Empty text inputs without placeholders fail to provide examples, and static document titles do not help screen-reader or multi-tab users identify the active project.
+**Action:** Add helpful `placeholder` attributes to form fields and build dynamic document titles from `DEFAULT_PROJECT_NAME` so app naming stays centralized.
