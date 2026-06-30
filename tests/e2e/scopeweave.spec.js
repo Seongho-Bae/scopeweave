@@ -153,6 +153,30 @@ test.describe('ScopeWeave Planner', () => {
     await expect(adjustedBar).toHaveAttribute('title', /2026-05-18 ~ 2026-05-22/);
   });
 
+  test('keeps keyboard focus inside the gantt modal', async ({ page }) => {
+    await addTopLevelTask(page, {
+      phase: '포커스 순환 검증',
+      categoryLarge: '간트검증',
+      owner: '담당자A',
+      plannedStartDate: '2026-05-18',
+      plannedEndDate: '2026-05-20'
+    });
+
+    await page.getByRole('button', { name: '간트차트보기' }).click();
+    await expect(page.getByRole('dialog', { name: '간트 차트' })).toBeVisible();
+
+    const closeButton = page.getByRole('button', { name: '간트 차트 닫기' });
+    const firstBar = page.locator('.gantt-bar.plan').first();
+    await expect(firstBar).toBeVisible();
+
+    await closeButton.focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(firstBar).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(closeButton).toBeFocused();
+  });
+
   test('does not create HTML elements from manual text in the gantt chart', async ({ page }) => {
     let dialogOpened = false;
     page.on('dialog', async (dialog) => {

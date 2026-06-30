@@ -291,6 +291,8 @@ function bindGlobalEvents() {
       } else if (state.editor.mode) {
         closeEditor();
       }
+    } else if (event.key === 'Tab' && !elements.ganttModal.classList.contains('hidden')) {
+      trapGanttModalFocus(event);
     }
   });
 }
@@ -1951,6 +1953,40 @@ function closeGanttModal() {
   if (state.previousFocus) {
     state.previousFocus.focus();
     state.previousFocus = null;
+  }
+}
+
+function getGanttModalFocusableElements() {
+  return Array.from(elements.ganttModal.querySelectorAll([
+    'a[href]',
+    'button:not(:disabled):not([aria-disabled="true"])',
+    'input:not(:disabled)',
+    'select:not(:disabled)',
+    'textarea:not(:disabled)',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(','))).filter((element) => (
+    !element.closest('.hidden') && element.offsetParent !== null
+  ));
+}
+
+function trapGanttModalFocus(event) {
+  const focusableElements = getGanttModalFocusableElements();
+  if (focusableElements.length === 0) {
+    elements.ganttModal.focus();
+    event.preventDefault();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  const activeElement = document.activeElement;
+
+  if (event.shiftKey && (activeElement === firstElement || activeElement === elements.ganttModal)) {
+    lastElement.focus();
+    event.preventDefault();
+  } else if (!event.shiftKey && activeElement === lastElement) {
+    firstElement.focus();
+    event.preventDefault();
   }
 }
 
