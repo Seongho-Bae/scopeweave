@@ -59,3 +59,7 @@
 ## 2026-06-27 - Fast path for YYYY-MM-DD date comparisons
 **Learning:** Using a validation-backed comparison function (`compareDateStrings` which relies on `isValidDateString` and its constrained cache) inside tight loops, like iterating over all days for every task in `createGanttBarElement` and finding min/max dates, creates redundant validation calls and cache churn.
 **Action:** When both date strings are already guaranteed to be valid `YYYY-MM-DD` values, bypass the validation wrapper and use direct lexicographical string comparisons (`a >= b`).
+
+## 2026-06-28 - Replace last-match filter allocation with a backward search
+**Learning:** Using `array.filter(condition)` to find the last matching item always performs a full O(N) traversal and allocates an intermediate array. This is wasteful when the caller only needs one element.
+**Action:** When only the last matching element is needed, use a reverse `for` loop with an early `break`. The worst-case search remains O(N), but common cases near the end avoid unnecessary scans and allocations.
