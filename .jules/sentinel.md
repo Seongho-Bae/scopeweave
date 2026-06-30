@@ -115,3 +115,8 @@
 **Vulnerability:** Project names from live input and hydrated localStorage state were not bounded consistently in JavaScript, allowing bypass of HTML-only length constraints.
 **Learning:** UI attributes such as `maxlength` are not a security boundary because persisted state and DOM APIs can bypass them.
 **Prevention:** Enforce shared string length limits in application logic when handling user input and when hydrating client-side state.
+
+## 2026-06-29 - Bound persisted metadata and report storage failures
+**Vulnerability:** Persisted metadata can bypass UI constraints, and localStorage quota failures can silently prevent state from being saved.
+**Learning:** Client-side storage is both attacker-controlled input during hydration and a fallible persistence boundary during writes.
+**Prevention:** Apply explicit length limits to hydrated metadata and show a bounded user-facing failure message when localStorage writes fail.

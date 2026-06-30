@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'scopeweave:planner-state:v1';
 const DEFAULT_PROJECT_NAME = 'ScopeWeave Planner';
 const MAX_PROJECT_NAME_LENGTH = 120;
+const MAX_BASE_DATE_LENGTH = 10;
 const OWNER_COLORS = [
   '#3f51b5', '#8e24aa', '#d81b60', '#ef6c00', '#6d4c41',
   '#00897b', '#1e88e5', '#3949ab', '#7cb342', '#f4511e',
@@ -212,7 +213,7 @@ function bindEvents() {
   elements.projectNameInput.addEventListener('blur', persistAndRenderMetadata.flush);
 
   elements.baseDateInput.addEventListener('input', (event) => {
-    state.baseDate = event.target.value || formatLocalDateInput(new Date());
+    state.baseDate = String(event.target.value).trim().slice(0, MAX_BASE_DATE_LENGTH) || formatLocalDateInput(new Date());
     persistAndRenderMetadata();
   });
   elements.baseDateInput.addEventListener('blur', persistAndRenderMetadata.flush);
@@ -1362,6 +1363,7 @@ function persistState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (error) {
     console.error('State persistence failed:', error);
+    showToast('로컬 스토리지 용량이 초과되어 저장하지 못했습니다.');
   }
 
   if (state.jsonSyncHandle) {
@@ -1382,7 +1384,7 @@ function loadLocalState() {
 
 function hydrateState(savedState) {
   state.projectName = String(savedState.projectName || DEFAULT_PROJECT_NAME).trim().slice(0, MAX_PROJECT_NAME_LENGTH) || DEFAULT_PROJECT_NAME;
-  state.baseDate = savedState.baseDate || formatLocalDateInput(new Date());
+  state.baseDate = String(savedState.baseDate || '').trim().slice(0, MAX_BASE_DATE_LENGTH) || formatLocalDateInput(new Date());
   state.tasks = Array.isArray(savedState.tasks)
     ? savedState.tasks.filter(isTaskRecord).map(normalizeStoredTask)
     : [];
