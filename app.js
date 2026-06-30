@@ -2145,21 +2145,48 @@ function groupTimelineByWeek(days) {
   return groups;
 }
 
+function findFirstWeekdayIndexOnOrAfter(weekdays, targetDate) {
+  let result = -1;
+  let low = 0;
+  let high = weekdays.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (weekdays[mid].date >= targetDate) {
+      result = mid;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return result;
+}
+
+function findLastWeekdayIndexOnOrBefore(weekdays, targetDate) {
+  let result = -1;
+  let low = 0;
+  let high = weekdays.length - 1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (weekdays[mid].date <= targetDate) {
+      result = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return result;
+}
+
 function createGanttBarElement(startDate, endDate, weekdays, type, task) {
   if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
     return null;
   }
-  // ⚡ Bolt: Use direct string comparison instead of compareDateStrings to avoid
-  // redundant isValidDateString() checks and cache exhaustion during heavy loop iterations.
-  const startIndex = weekdays.findIndex((day) => day.date >= startDate);
-  // ⚡ Bolt: Replace O(N) array clone+reverse with reverse loop to avoid O(T*D) memory allocations in Gantt render
-  let normalizedEndIndex = -1;
-  for (let i = weekdays.length - 1; i >= 0; i -= 1) {
-    if (weekdays[i].date <= endDate) {
-      normalizedEndIndex = i;
-      break;
-    }
-  }
+  const startIndex = findFirstWeekdayIndexOnOrAfter(weekdays, startDate);
+  const normalizedEndIndex = findLastWeekdayIndexOnOrBefore(weekdays, endDate);
 
   if (startIndex === -1 || normalizedEndIndex === -1) {
     return null;
