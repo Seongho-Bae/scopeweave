@@ -36,8 +36,3 @@
 **Vulnerability:** Missing file size limits during CSV import and missing length limits on text fields.
 **Learning:** Browser memory can be exhausted resulting in Denial of Service (DoS) attacks if large files or strings are imported and parsed into memory.
 **Prevention:** Enforce client-side file size limits (e.g. 5MB) before processing imports, add `maxLength` attributes to text inputs, and strictly truncate fields on submission to prevent bypassing client-side constraints.
-
-## $(date +%Y-%m-%d) - Secure Fallback for ID Generation
-**Vulnerability:** Weak randomness in task ID generation.
-**Learning:** `crypto.randomUUID()` is restricted to secure contexts (HTTPS). When serving over HTTP, it falls back to `Math.random()`, which is not cryptographically secure and can lead to predictable IDs and potential collision vulnerabilities.
-**Prevention:** In environments where `crypto.randomUUID()` is unavailable, always use `crypto.getRandomValues()` as a more secure fallback before defaulting to `Math.random()`.

@@ -2084,15 +2084,8 @@ function sanitizeCsvFormulaValue(value) {
 
 function createId(seed = Date.now()) {
   // Security enhancement: Prefer crypto.randomUUID for stronger randomness
-  if (typeof crypto !== 'undefined') {
-    if (crypto.randomUUID) {
-      return `task-${crypto.randomUUID()}`;
-    }
-    if (crypto.getRandomValues) {
-      const array = new Uint32Array(1);
-      crypto.getRandomValues(array);
-      return `task-${seed}-${array[0].toString(16)}`;
-    }
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `task-${crypto.randomUUID()}`;
   }
   return `task-${seed}-${Math.random().toString(16).slice(2, 8)}`;
 }
