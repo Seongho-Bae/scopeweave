@@ -396,6 +396,31 @@ test.describe('ScopeWeave Planner', () => {
     expect(await getPlannedProgressRatio(4)).toBe('50.00%');
   });
 
+  test('calculates duration as zero for missing, invalid, and reversed dates', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
+        projectName: 'Duration Test',
+        baseDate: '2023-01-15',
+        tasks: [
+          { id: 'duration-1', task: 'Missing start', plannedStartDate: '', plannedEndDate: '2023-01-20' },
+          { id: 'duration-2', task: 'Invalid start', plannedStartDate: 'invalid_date', plannedEndDate: '2023-01-20' },
+          { id: 'duration-3', task: 'Reversed dates', plannedStartDate: '2023-01-20', plannedEndDate: '2023-01-10' },
+          { id: 'duration-4', task: 'Same day', plannedStartDate: '2023-01-20', plannedEndDate: '2023-01-20' }
+        ]
+      }));
+    });
+    await page.reload();
+
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+
+    const getDurationDays = async (index) => page.locator('tbody tr[data-task-id]').nth(index).locator('[data-testid="task-duration-days"]').innerText();
+
+    expect(await getDurationDays(0)).toBe('0');
+    expect(await getDurationDays(1)).toBe('0');
+    expect(await getDurationDays(2)).toBe('0');
+    expect(await getDurationDays(3)).toBe('1');
+  });
+
   test('counts same-day work as one day for totals and weights', async ({ page }) => {
     await addTopLevelTask(page, {
       phase: 'P2000.검증단계',
