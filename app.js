@@ -202,6 +202,14 @@ function bindEvents() {
     renderAll();
   }, 150);
   const renderDraftValidation = debounce(renderEditorValidation, 150);
+  const updateEditorDraftFromEvent = (event) => {
+    const field = event.target.dataset.editorField;
+    if (!field || !state.editor.draft) {
+      return false;
+    }
+    state.editor.draft[field] = event.target.value;
+    return true;
+  };
 
   elements.projectNameInput.addEventListener('input', (event) => {
     const sanitized = String(event.target.value).slice(0, MAX_PROJECT_NAME_LENGTH);
@@ -290,12 +298,9 @@ function bindEvents() {
   });
 
   elements.tableBody.addEventListener('input', (event) => {
-    const field = event.target.dataset.editorField;
-    if (!field || !state.editor.draft) {
-      return;
+    if (updateEditorDraftFromEvent(event)) {
+      renderDraftValidation();
     }
-    state.editor.draft[field] = event.target.value;
-    renderDraftValidation();
   });
 
   elements.tableBody.addEventListener('change', (event) => {
@@ -303,13 +308,10 @@ function bindEvents() {
       handleInlineProgressChange(event);
       return;
     }
-    const field = event.target.dataset.editorField;
-    if (!field || !state.editor.draft) {
-      return;
+    if (updateEditorDraftFromEvent(event)) {
+      renderDraftValidation.flush();
+      renderEditorValidation();
     }
-    state.editor.draft[field] = event.target.value;
-    renderDraftValidation.flush();
-    renderEditorValidation();
   });
 
   elements.tableBody.addEventListener('submit', (event) => {
