@@ -100,3 +100,8 @@
 **Vulnerability:** Client-side storage writes can throw exceptions such as `QuotaExceededError`, interrupting persistence flows and potentially leaving the app in a partially updated state.
 **Learning:** Browser storage is a failure-prone boundary even in a local-first static app.
 **Prevention:** Wrap `localStorage.setItem` calls in `try...catch` blocks and log bounded errors without breaking the rest of the UI flow.
+
+## 2026-06-29 - Prevent CSV DDE injection via pipe-prefixed formulas
+**Vulnerability:** CSV export and import formula neutralization did not treat pipe-prefixed DDE payloads as spreadsheet formulas.
+**Learning:** Spreadsheet formula defenses should include less common command-style prefixes such as `|`, not only `=`, `+`, `-`, and `@`.
+**Prevention:** Include `|` in the formula prefix pattern so exported and imported CSV cells are neutralized before they can be opened in spreadsheet software.

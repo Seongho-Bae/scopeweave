@@ -660,6 +660,7 @@ test.describe('ScopeWeave Planner', () => {
       plannedEndDate: '2026-05-20'
     });
     await createActivitySubtree(page, 'CSV 활동', '@SUM(1,1)');
+    await createActivitySubtree(page, 'DDE 활동', "|'cmd' /C calc'!A0");
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'CSV 내보내기' }).click();
@@ -673,6 +674,7 @@ test.describe('ScopeWeave Planner', () => {
     const csvText = fs.readFileSync(csvPath, 'utf8');
     expect(csvText).toContain(`"'=HYPERLINK(""http://evil.test"",""Click"")"`);
     expect(csvText).toContain(`"'@SUM(1,1)"`);
+    expect(csvText).toContain(`"'|'cmd' /C calc'!A0"`);
   });
 
   test('can trigger CSV import file chooser', async ({ page }) => {
@@ -685,7 +687,7 @@ test.describe('ScopeWeave Planner', () => {
   test('neutralizes spreadsheet formulas during CSV import', async ({ page }) => {
     const csvText = [
       '단계,Activity,Task,대분류,중분류,산출물,담당자,지원팀,실적진척상태,계획시작일,계획종료일,실적시작일,실적종료일',
-      '"=HYPERLINK(""http://evil.test"",""Click"")",@SUM(1,1),+cmd,보안,,산출물,담당자A,지원팀A,미착수(0%),2026-05-18,2026-05-20,,'
+      `"=HYPERLINK(""http://evil.test"",""Click"")",@SUM(1,1),+cmd,|DDE,,"|'cmd' /C calc'!A0",담당자A,지원팀A,미착수(0%),2026-05-18,2026-05-20,,`
     ].join('\n');
 
     await importCsv(page, csvText);
@@ -695,6 +697,8 @@ test.describe('ScopeWeave Planner', () => {
     expect(savedTask.phase).toBe('\'=HYPERLINK("http://evil.test","Click")');
     expect(savedTask.activity).toBe("'@SUM(1,1)");
     expect(savedTask.task).toBe("'+cmd");
+    expect(savedTask.categoryLarge).toBe("'|DDE");
+    expect(savedTask.deliverable).toBe("'|'cmd' /C calc'!A0");
   });
 
   test('buildWeekdayTimeline handles normal, same, reversed, and weekend dates', async ({ page }) => {
