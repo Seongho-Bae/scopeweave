@@ -41,8 +41,3 @@
 **Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.randomUUID()` was unavailable.
 **Learning:** `Math.random()` is not cryptographically secure and can generate predictable sequences, leading to potential ID collisions or predictable IDs that could be abused in certain contexts. While this is primarily an issue in non-secure contexts (HTTP), using `crypto.getRandomValues()` as a fallback provides a cryptographically secure random number generator when `randomUUID()` is missing but `getRandomValues()` is supported.
 **Prevention:** Always use cryptographically secure methods like `crypto.getRandomValues()` to generate random strings when `crypto.randomUUID()` is not an option. Avoid relying on `Math.random()` for any form of unique identifier or security-related token generation.
-
-## 2026-06-23 - Fail securely instead of using Math.random fallback
-**Vulnerability:** The application was using `Math.random()` as a fallback when generating unique task IDs if `crypto.getRandomValues()` was also unavailable.
-**Learning:** `Math.random()` is easily predictable and shouldn't be used for generating IDs that could be manipulated. In modern environments where `crypto` might be completely unavailable, it is safer to throw an error (failing securely) rather than falling back to an insecure implementation that could silently introduce vulnerabilities.
-**Prevention:** Never use `Math.random()` for unique identifiers. If secure random generation is completely unavailable, throw an explicit error to fail securely rather than returning predictable values.
