@@ -809,6 +809,12 @@ select[data-inline-progress]:focus {
   }
 }
 
+@media (min-width: 801px) and (max-height: 960px) {
+  .bottom-action-bar {
+    position: static;
+  }
+}
+
 @media (max-width: 800px) {
   .app-shell {
     padding: 16px;

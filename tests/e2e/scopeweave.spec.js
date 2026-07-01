@@ -105,6 +105,30 @@ test.describe('ScopeWeave Planner', () => {
     });
   });
 
+  test('keeps the action bar from covering WBS rows on short desktop viewports', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('./');
+
+    await expect(page.locator('.bottom-action-bar')).toBeVisible();
+    await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(4);
+
+    const layout = await page.evaluate(() => {
+      const footer = document.querySelector('.bottom-action-bar').getBoundingClientRect();
+      const rows = Array.from(document.querySelectorAll('tbody tr[data-task-id]')).map((row) => {
+        const rect = row.getBoundingClientRect();
+        return rect.bottom > footer.top && rect.top < footer.bottom;
+      });
+
+      return {
+        footerPosition: getComputedStyle(document.querySelector('.bottom-action-bar')).position,
+        overlappingRows: rows.filter(Boolean).length
+      };
+    });
+
+    expect(layout.footerPosition).toBe('static');
+    expect(layout.overlappingRows).toBe(0);
+  });
+
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
