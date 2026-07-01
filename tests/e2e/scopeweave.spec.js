@@ -114,7 +114,8 @@ test.describe('ScopeWeave Planner', () => {
       const headers = Array.from(document.querySelectorAll('thead th'))
         .filter(isVisible)
         .map((cell) => cell.textContent.trim());
-      const firstRowCells = Array.from(document.querySelectorAll('tbody tr[data-task-id]:first-child td'))
+      const firstTaskRow = document.querySelector('tbody tr[data-task-id]');
+      const firstRowCells = Array.from(firstTaskRow?.querySelectorAll('td') || [])
         .filter(isVisible)
         .map((cell) => cell.innerText.trim());
 
