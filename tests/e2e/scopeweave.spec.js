@@ -81,6 +81,9 @@ test.describe('ScopeWeave Planner', () => {
       await page.setViewportSize({ width, height });
       await page.goto('./');
 
+      await expect(page.locator('.table-scroll')).toBeVisible();
+      await expect(page.locator('.wbs-table')).toBeVisible();
+
       const layout = await page.evaluate(() => {
         const root = document.documentElement;
         const tableScroll = document.querySelector('.table-scroll');
