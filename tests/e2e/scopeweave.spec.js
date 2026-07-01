@@ -140,6 +140,10 @@ test.describe('ScopeWeave Planner', () => {
     await page.reload();
 
     await expect(page.locator('tbody tr[data-task-id]')).toHaveCount(0);
+    await expect(page.locator('.table-empty')).toBeVisible();
+    await expect(page.locator('.table-empty')).toContainText('등록된 작업이 없습니다');
+    await expect(page.locator('.table-empty').getByRole('button', { name: '최상위 작업 추가' })).toBeVisible();
+    await expect(page.locator('.table-empty').getByRole('button', { name: 'CSV 가져오기' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByRole('button', { name: 'CSV 내보내기' })).toHaveAttribute('title', '내보낼 작업이 없습니다. 하단의 버튼을 통해 작업을 추가해주세요.');
     await expect(page.getByRole('button', { name: '간트차트보기' })).toHaveAttribute('aria-disabled', 'true');

@@ -176,8 +176,6 @@ const elements = {
   toast: document.getElementById('toast')
 };
 
-bootstrap();
-
 async function bootstrap() {
   bindEvents();
 
@@ -2486,3 +2484,5 @@ function debounce(callback, wait) {
 if (typeof window !== 'undefined') {
   window.validateDraft = validateDraft;
 }
+
+bootstrap();
