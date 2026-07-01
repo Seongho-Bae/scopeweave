@@ -73,6 +73,35 @@ test.describe('ScopeWeave Planner', () => {
     await expect(page).toHaveTitle('My New Project - ScopeWeave Planner');
   });
 
+  [
+    { name: 'desktop', width: 1440, height: 1000 },
+    { name: 'mobile', width: 375, height: 667 }
+  ].forEach(({ name, width, height }) => {
+    test(`keeps wide WBS table scrolling inside the table panel on ${name}`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto('./');
+
+      const layout = await page.evaluate(() => {
+        const root = document.documentElement;
+        const tableScroll = document.querySelector('.table-scroll');
+        const table = document.querySelector('.wbs-table');
+
+        return {
+          documentOverflow: root.scrollWidth - root.clientWidth,
+          tableScrollsInternally: tableScroll.scrollWidth > tableScroll.clientWidth,
+          tableScrollWidth: tableScroll.getBoundingClientRect().width,
+          tableWidth: table.getBoundingClientRect().width,
+          viewportWidth: root.clientWidth
+        };
+      });
+
+      expect(layout.documentOverflow).toBeLessThanOrEqual(1);
+      expect(layout.tableScrollsInternally).toBe(true);
+      expect(layout.tableScrollWidth).toBeLessThanOrEqual(layout.viewportWidth);
+      expect(layout.tableWidth).toBeGreaterThan(layout.tableScrollWidth);
+    });
+  });
+
   test('disables export and gantt actions when there are no tasks', async ({ page }) => {
     await page.evaluate(() => {
       localStorage.setItem('scopeweave:planner-state:v1', JSON.stringify({
