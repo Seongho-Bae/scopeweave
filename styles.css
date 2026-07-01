@@ -831,10 +831,7 @@ select[data-inline-progress]:focus {
     min-width: 1300px;
   }
 
-  .priority-desktop,
-  .col-phase,
-  .col-activity,
-  .col-task {
+  .priority-desktop {
     display: none;
   }
   

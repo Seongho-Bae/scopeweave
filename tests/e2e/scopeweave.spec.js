@@ -105,6 +105,27 @@ test.describe('ScopeWeave Planner', () => {
     });
   });
 
+  test('keeps mobile WBS headers aligned with visible data cells', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('./');
+
+    const mobileColumns = await page.evaluate(() => {
+      const isVisible = (element) => getComputedStyle(element).display !== 'none';
+      const headers = Array.from(document.querySelectorAll('thead th'))
+        .filter(isVisible)
+        .map((cell) => cell.textContent.trim());
+      const firstTaskRow = document.querySelector('tbody tr[data-task-id]');
+      const firstRowCells = Array.from(firstTaskRow?.querySelectorAll('td') || [])
+        .filter(isVisible)
+        .map((cell) => cell.innerText.trim());
+
+      return { headers, firstRowCellCount: firstRowCells.length };
+    });
+
+    expect(mobileColumns.headers).toEqual(expect.arrayContaining(['단계', 'Activity', 'Task']));
+    expect(mobileColumns.firstRowCellCount).toBe(mobileColumns.headers.length);
+  });
+
   test('keeps the action bar from covering WBS rows on short desktop viewports', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('./');
