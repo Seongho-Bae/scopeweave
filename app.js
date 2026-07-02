@@ -790,23 +790,23 @@ function createTextCellContent(value, warning = '') {
 }
 
 // ⚡ Bolt: Cache empty cell template to avoid redundant DOM node creation in O(N * Columns) rendering loop
-let emptyCellTemplate = null;
+const emptyCellTemplate = (() => {
+  const template = document.createElement('span');
+  template.className = 'empty-cell';
+
+  const visibleDash = document.createElement('span');
+  visibleDash.setAttribute('aria-hidden', 'true');
+  visibleDash.textContent = '-';
+
+  const srOnly = document.createElement('span');
+  srOnly.className = 'sr-only';
+  srOnly.textContent = '값 없음';
+
+  template.append(visibleDash, srOnly);
+  return template;
+})();
 
 function createEmptyCell() {
-  if (!emptyCellTemplate) {
-    emptyCellTemplate = document.createElement('span');
-    emptyCellTemplate.className = 'empty-cell';
-
-    const visibleDash = document.createElement('span');
-    visibleDash.setAttribute('aria-hidden', 'true');
-    visibleDash.textContent = '-';
-
-    const srOnly = document.createElement('span');
-    srOnly.className = 'sr-only';
-    srOnly.textContent = '값 없음';
-
-    emptyCellTemplate.append(visibleDash, srOnly);
-  }
   return emptyCellTemplate.cloneNode(true);
 }
 

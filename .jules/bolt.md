@@ -76,5 +76,5 @@
 **Learning:** Cleaning drag/drop classes by querying every table row on each drag event adds avoidable DOM traversal cost.
 **Action:** Cache the active drag element and current drop target in state, then clear only those elements during drag cleanup.
 ## 2026-07-02 - Memoize empty cell DOM tree creation via cloneNode
-**Learning:** Creating complex static DOM trees structure repeatedly inside a high-frequency tight rendering loop (like O(N) table row generations) causes unnecessary DOM manipulation overhead and can severely degrade performance in vanilla JS.
+**Learning:** Creating complex static DOM tree structures repeatedly inside a high-frequency tight rendering loop (like O(N) table row generations) causes unnecessary DOM manipulation overhead and can severely degrade performance in vanilla JS.
 **Action:** Use a higher-scoped static template node and `cloneNode(true)` whenever multiple static children are needed dynamically.
