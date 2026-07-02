@@ -789,9 +789,10 @@ function createTextCellContent(value, warning = '') {
   return wrapper;
 }
 
-function createEmptyCell() {
-  const emptyCell = document.createElement('span');
-  emptyCell.className = 'empty-cell';
+// ⚡ Bolt: Cache empty cell template to avoid redundant DOM node creation in O(N * Columns) rendering loop
+const emptyCellTemplate = (() => {
+  const template = document.createElement('span');
+  template.className = 'empty-cell';
 
   const visibleDash = document.createElement('span');
   visibleDash.setAttribute('aria-hidden', 'true');
@@ -801,8 +802,12 @@ function createEmptyCell() {
   srOnly.className = 'sr-only';
   srOnly.textContent = '값 없음';
 
-  emptyCell.append(visibleDash, srOnly);
-  return emptyCell;
+  template.append(visibleDash, srOnly);
+  return template;
+})();
+
+function createEmptyCell() {
+  return emptyCellTemplate.cloneNode(true);
 }
 
 function createWarningBadge(warning) {
